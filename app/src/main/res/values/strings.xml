@@ -1,0 +1,18 @@
+<resources>
+    <string name="app_name">Balls Arena</string>
+
+    <string name="menu_play">Gioca</string>
+    <string name="menu_bots_label">Avversari: %1$d</string>
+    <string name="menu_exit">Esci</string>
+
+    <string name="pause_title">Pausa</string>
+    <string name="pause_resume">Riprendi</string>
+    <string name="pause_restart">Ricomincia</string>
+    <string name="pause_menu">Menu principale</string>
+
+    <string name="game_over_win_title">Hai vinto!</string>
+    <string name="game_over_lose_title">Sei stato inglobato</string>
+    <string name="game_over_stats">Dimensione finale: %1$d\nGiocatori rimasti: %2$d</string>
+    <string name="game_over_restart">Rigioca</string>
+    <string name="game_over_menu">Menu principale</string>
+</resources>
