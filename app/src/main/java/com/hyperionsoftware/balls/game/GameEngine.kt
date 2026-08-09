@@ -79,11 +79,39 @@ class GameEngine(
             blob.update(dt, this, baseSpeed)
         }
 
+        applyThrustEffects(dt)
         updateSafeZoneEffects(dt)
         resolveCollisions()
         cullStrandedPowerUps()
         updatePowerUps(dt)
         checkGameOver()
+    }
+
+    // Every balloon that's actively thrusting blows a cone of air out its back, shoving any
+    // other balloon caught in that cone further away - a side effect of moving, not an
+    // ability anyone has to activate.
+    private fun applyThrustEffects(dt: Float) {
+        for (source in blobs) {
+            if (!source.alive || !source.isThrusting) continue
+            val exhaustDir = source.facingDirection * -1f
+            val maxRange = source.radius * GameConfig.THRUST_RANGE_MULTIPLIER
+
+            for (target in blobs) {
+                if (target === source || !target.alive) continue
+                val offset = target.position - source.position
+                val distance = offset.length()
+                if (distance < 0.01f || distance > maxRange) continue
+
+                val towardTarget = offset * (1f / distance)
+                val alignment = exhaustDir.dot(towardTarget)
+                if (alignment <= GameConfig.THRUST_CONE_MIN_ALIGNMENT) continue
+
+                val falloff = 1f - distance / maxRange
+                val strength = GameConfig.THRUST_FORCE_PER_SECOND * falloff * alignment * dt
+                target.position += towardTarget * strength
+                target.clampToWorld()
+            }
+        }
     }
 
     // Power-ups left behind outside the shrinking zone are unreachable without taking

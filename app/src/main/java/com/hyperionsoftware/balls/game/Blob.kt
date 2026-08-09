@@ -13,13 +13,16 @@ abstract class Blob(
     var radius: Float = baseRadius
     var alive: Boolean = true
 
-    // Rolling angle in radians, advanced by arc length (distanceMoved / radius) so bigger
-    // blobs visibly spin slower than smaller ones, like real wheels.
-    var rotation: Float = 0f
-
     // Voluntary speed boost: while true (player holds the boost button), size drains
     // toward baseRadius in exchange for extra speed. Bots never set this.
     var isBoosting: Boolean = false
+
+    // Balloons drift, so they need a "front" independent of any single frame's input: it
+    // only updates while actually thrusting and holds steady otherwise. The exhaust (visual
+    // and the push it applies to others) comes out the opposite side.
+    var facingDirection: Vector2 = Vector2(0f, -1f)
+    var isThrusting: Boolean = false
+    var exhaustPhase: Float = 0f
 
     private var timeSinceAbsorb: Float = 0f
     private var speedBoostTimer: Float = 0f
@@ -39,15 +42,17 @@ abstract class Blob(
         val rawDirection = decideDirection(engine, dt)
         val magnitude = rawDirection.length().coerceAtMost(1f)
         val heading = rawDirection.normalized()
+
+        isThrusting = magnitude > 0.05f
+        if (isThrusting) {
+            facingDirection = heading
+        }
+        exhaustPhase += dt
+
         val speed = effectiveSpeed(baseSpeed)
         val movement = heading * (speed * magnitude * dt)
         position += movement
         clampToWorld()
-
-        val distanceMoved = movement.length()
-        if (distanceMoved > 0f) {
-            rotation = (rotation + distanceMoved / radius) % (2f * Math.PI.toFloat())
-        }
 
         if (speedBoostTimer > 0f) speedBoostTimer = max(0f, speedBoostTimer - dt)
         if (invisibilityTimer > 0f) invisibilityTimer = max(0f, invisibilityTimer - dt)

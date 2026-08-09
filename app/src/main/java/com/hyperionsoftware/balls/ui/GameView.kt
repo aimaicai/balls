@@ -25,7 +25,6 @@ import com.hyperionsoftware.balls.game.Vector2
 import kotlin.math.abs
 import kotlin.math.atan2
 import kotlin.math.ceil
-import kotlin.math.cos
 import kotlin.math.hypot
 import kotlin.math.min
 import kotlin.math.sin
@@ -83,12 +82,11 @@ class GameView @JvmOverloads constructor(
         style = Paint.Style.STROKE
         strokeWidth = 24f
     }
-    private val blobPaint = Paint(Paint.ANTI_ALIAS_FLAG)
-    private val eyePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.WHITE }
-    private val rollPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        style = Paint.Style.STROKE
-        strokeCap = Paint.Cap.ROUND
-    }
+    private val bodyPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val shadePaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val highlightPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.WHITE }
+    private val knotPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val exhaustPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.parseColor("#B3E5FC") }
     private val safeZoneFillColor = Color.argb(90, 200, 40, 40)
     private val safeZonePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = Color.parseColor("#EF5350")
@@ -410,32 +408,81 @@ class GameView @JvmOverloads constructor(
         val cy = blob.position.y + offsetY
         val alpha = if (blob.isInvisible) 70 else 255
 
-        blobPaint.color = blob.color
-        blobPaint.alpha = alpha
-        canvas.drawCircle(cx, cy, blob.radius, blobPaint)
-
-        drawRollingPattern(canvas, blob, cx, cy, alpha)
-
-        eyePaint.alpha = alpha
-        val eyeOffset = blob.radius * 0.35f
-        canvas.drawCircle(cx - eyeOffset, cy - eyeOffset * 0.6f, blob.radius * 0.14f, eyePaint)
-        canvas.drawCircle(cx + eyeOffset, cy - eyeOffset * 0.6f, blob.radius * 0.14f, eyePaint)
+        drawExhaust(canvas, blob, cx, cy, alpha)
+        drawBalloonBody(canvas, blob, cx, cy, alpha)
+        drawKnot(canvas, blob, cx, cy, alpha)
     }
 
-    private fun drawRollingPattern(canvas: Canvas, blob: Blob, cx: Float, cy: Float, alpha: Int) {
-        // Two spokes rotating with blob.rotation sell the illusion of the ball rolling
-        // across the floor as it moves, on top of the (non-rotating) face.
-        rollPaint.color = darken(blob.color, 0.65f)
-        rollPaint.alpha = (alpha * 0.8f).toInt()
-        rollPaint.strokeWidth = blob.radius * 0.08f
+    private fun drawBalloonBody(canvas: Canvas, blob: Blob, cx: Float, cy: Float, alpha: Int) {
+        bodyPaint.color = blob.color
+        bodyPaint.alpha = alpha
+        canvas.drawCircle(cx, cy, blob.radius, bodyPaint)
 
-        val spokeRadius = blob.radius * 0.85f
-        for (spoke in 0 until 2) {
-            val angle = blob.rotation + spoke * (Math.PI / 2).toFloat()
-            val dx = cos(angle) * spokeRadius
-            val dy = sin(angle) * spokeRadius
-            canvas.drawLine(cx - dx, cy - dy, cx + dx, cy + dy, rollPaint)
+        // Shading and a highlight, clipped to the body circle, sell a glossy latex look
+        // instead of a flat disc.
+        canvas.save()
+        val clip = Path().apply { addCircle(cx, cy, blob.radius, Path.Direction.CW) }
+        canvas.clipPath(clip)
+
+        shadePaint.color = darken(blob.color, 0.6f)
+        shadePaint.alpha = (alpha * 0.45f).toInt()
+        canvas.drawCircle(cx + blob.radius * 0.22f, cy + blob.radius * 0.28f, blob.radius * 0.95f, shadePaint)
+
+        highlightPaint.alpha = (alpha * 0.5f).toInt()
+        canvas.drawOval(
+            cx - blob.radius * 0.55f, cy - blob.radius * 0.65f,
+            cx - blob.radius * 0.05f, cy - blob.radius * 0.15f,
+            highlightPaint
+        )
+        canvas.restore()
+    }
+
+    private fun drawKnot(canvas: Canvas, blob: Blob, cx: Float, cy: Float, alpha: Int) {
+        // The knot (where the air comes from) sits at the back, opposite whichever way
+        // the balloon is currently facing.
+        val back = blob.facingDirection * -1f
+        val knotSize = blob.radius * 0.22f
+        val baseX = cx + back.x * blob.radius * 0.85f
+        val baseY = cy + back.y * blob.radius * 0.85f
+        val tipX = cx + back.x * (blob.radius + knotSize)
+        val tipY = cy + back.y * (blob.radius + knotSize)
+        val perpX = -back.y * knotSize * 0.5f
+        val perpY = back.x * knotSize * 0.5f
+
+        knotPaint.color = darken(blob.color, 0.55f)
+        knotPaint.alpha = alpha
+        val path = Path().apply {
+            moveTo(baseX + perpX, baseY + perpY)
+            lineTo(baseX - perpX, baseY - perpY)
+            lineTo(tipX, tipY)
+            close()
         }
+        canvas.drawPath(path, knotPaint)
+    }
+
+    private fun drawExhaust(canvas: Canvas, blob: Blob, cx: Float, cy: Float, alpha: Int) {
+        if (!blob.isThrusting) return
+
+        val back = blob.facingDirection * -1f
+        val pulse = 0.7f + 0.3f * sin(blob.exhaustPhase * 14f)
+        val length = blob.radius * (1.4f + 0.5f * pulse)
+        val width = blob.radius * 0.5f * pulse
+
+        val baseX = cx + back.x * blob.radius
+        val baseY = cy + back.y * blob.radius
+        val tipX = cx + back.x * (blob.radius + length)
+        val tipY = cy + back.y * (blob.radius + length)
+        val perpX = -back.y * width
+        val perpY = back.x * width
+
+        exhaustPaint.alpha = (alpha * 0.5f * pulse).toInt().coerceIn(0, 255)
+        val path = Path().apply {
+            moveTo(baseX + perpX, baseY + perpY)
+            lineTo(tipX, tipY)
+            lineTo(baseX - perpX, baseY - perpY)
+            close()
+        }
+        canvas.drawPath(path, exhaustPaint)
     }
 
     private fun darken(color: Int, factor: Float): Int {

@@ -16,4 +16,6 @@ data class Vector2(var x: Float = 0f, var y: Float = 0f) {
     }
 
     fun distanceTo(other: Vector2): Float = (this - other).length()
+
+    fun dot(other: Vector2): Float = x * other.x + y * other.y
 }

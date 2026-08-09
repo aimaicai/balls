@@ -61,4 +61,11 @@ object GameConfig {
     // size hits baseRadius (never below it - this is a deliberate trade, not a hazard).
     const val BOOST_DRAIN_RATE_PER_SECOND = 0.25f
     const val BOOST_SPEED_MULTIPLIER = 1.6f
+
+    // Balloons are pushed by their own exhaust: a moving balloon blows a cone of air out its
+    // back that shoves any other balloon caught in it further away. Range scales with the
+    // source's own radius (a bigger balloon has a bigger nozzle).
+    const val THRUST_RANGE_MULTIPLIER = 4f
+    const val THRUST_CONE_MIN_ALIGNMENT = 0.3f
+    const val THRUST_FORCE_PER_SECOND = 320f
 }
