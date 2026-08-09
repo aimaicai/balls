@@ -24,5 +24,5 @@ object GameConfig {
     const val POWERUP_SPEED_MULTIPLIER = 2f
     const val POWERUP_SPEED_DURATION = 6f
     const val POWERUP_INVISIBILITY_DURATION = 8f
-    const val POWERUP_GROWTH_FACTOR = 1.25f
+    const val POWERUP_GROWTH_MULTIPLIER = 2f
 }

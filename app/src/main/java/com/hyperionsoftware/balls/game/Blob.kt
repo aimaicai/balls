@@ -13,6 +13,10 @@ abstract class Blob(
     var radius: Float = baseRadius
     var alive: Boolean = true
 
+    // Rolling angle in radians, advanced by arc length (distanceMoved / radius) so bigger
+    // blobs visibly spin slower than smaller ones, like real wheels.
+    var rotation: Float = 0f
+
     private var timeSinceAbsorb: Float = 0f
     private var speedBoostTimer: Float = 0f
     private var invisibilityTimer: Float = 0f
@@ -27,8 +31,14 @@ abstract class Blob(
 
         val direction = decideDirection(engine, dt).normalized()
         val speed = effectiveSpeed(baseSpeed)
-        position += direction * (speed * dt)
+        val movement = direction * (speed * dt)
+        position += movement
         clampToWorld()
+
+        val distanceMoved = movement.length()
+        if (distanceMoved > 0f) {
+            rotation = (rotation + distanceMoved / radius) % (2f * Math.PI.toFloat())
+        }
 
         if (speedBoostTimer > 0f) speedBoostTimer = max(0f, speedBoostTimer - dt)
         if (invisibilityTimer > 0f) invisibilityTimer = max(0f, invisibilityTimer - dt)
@@ -57,8 +67,7 @@ abstract class Blob(
             PowerUpType.SPEED -> speedBoostTimer = GameConfig.POWERUP_SPEED_DURATION
             PowerUpType.INVISIBILITY -> invisibilityTimer = GameConfig.POWERUP_INVISIBILITY_DURATION
             PowerUpType.GROWTH -> {
-                val newArea = areaOf(radius) * GameConfig.POWERUP_GROWTH_FACTOR
-                radius = min(GameConfig.MAX_RADIUS, sqrt(newArea / Math.PI.toFloat()))
+                radius = min(GameConfig.MAX_RADIUS, radius * GameConfig.POWERUP_GROWTH_MULTIPLIER)
                 timeSinceAbsorb = 0f
             }
         }

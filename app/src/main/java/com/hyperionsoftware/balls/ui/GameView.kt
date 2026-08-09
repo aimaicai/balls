@@ -18,7 +18,9 @@ import com.hyperionsoftware.balls.game.GameListener
 import com.hyperionsoftware.balls.game.PowerUp
 import com.hyperionsoftware.balls.game.PowerUpType
 import com.hyperionsoftware.balls.game.Vector2
+import kotlin.math.cos
 import kotlin.math.min
+import kotlin.math.sin
 
 class GameView @JvmOverloads constructor(
     context: Context,
@@ -46,14 +48,21 @@ class GameView @JvmOverloads constructor(
         }
     }
 
-    private val gridPaint = Paint().apply { color = Color.parseColor("#1C2733"); strokeWidth = 2f }
+    private val floorCellSize = 200f
+    private val floorColorA = Color.parseColor("#121B26")
+    private val floorColorB = Color.parseColor("#0B1119")
+    private val floorPaint = Paint()
     private val borderPaint = Paint().apply {
-        color = Color.parseColor("#3A4A5C")
+        color = Color.parseColor("#FFC107")
         style = Paint.Style.STROKE
-        strokeWidth = 8f
+        strokeWidth = 24f
     }
     private val blobPaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val eyePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.WHITE }
+    private val rollPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE
+        strokeCap = Paint.Cap.ROUND
+    }
     private val powerUpPaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val hudTextPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = Color.WHITE
@@ -190,7 +199,7 @@ class GameView @JvmOverloads constructor(
         val offsetX = width / 2f - camX
         val offsetY = height / 2f - camY
 
-        drawGrid(canvas, offsetX, offsetY)
+        drawFloor(canvas, offsetX, offsetY)
         drawWorldBorder(canvas, offsetX, offsetY)
 
         for (powerUp in engine.powerUps) {
@@ -210,17 +219,22 @@ class GameView @JvmOverloads constructor(
         return playerCoord.coerceIn(halfViewport, worldSize - halfViewport)
     }
 
-    private fun drawGrid(canvas: Canvas, offsetX: Float, offsetY: Float) {
-        val step = 200f
-        var x = 0f
-        while (x <= GameConfig.WORLD_WIDTH) {
-            canvas.drawLine(x + offsetX, offsetY, x + offsetX, GameConfig.WORLD_HEIGHT + offsetY, gridPaint)
-            x += step
-        }
-        var y = 0f
-        while (y <= GameConfig.WORLD_HEIGHT) {
-            canvas.drawLine(offsetX, y + offsetY, GameConfig.WORLD_WIDTH + offsetX, y + offsetY, gridPaint)
-            y += step
+    private fun drawFloor(canvas: Canvas, offsetX: Float, offsetY: Float) {
+        // Checkerboard tiles give the arena a visible floor instead of an empty void,
+        // and double as a scale reference while moving. Only the cells actually on
+        // screen are drawn, so this stays cheap regardless of world size.
+        val startCol = ((-offsetX).coerceAtLeast(0f) / floorCellSize).toInt()
+        val endCol = ((width - offsetX).coerceAtMost(GameConfig.WORLD_WIDTH) / floorCellSize).toInt()
+        val startRow = ((-offsetY).coerceAtLeast(0f) / floorCellSize).toInt()
+        val endRow = ((height - offsetY).coerceAtMost(GameConfig.WORLD_HEIGHT) / floorCellSize).toInt()
+
+        for (row in startRow..endRow) {
+            for (col in startCol..endCol) {
+                floorPaint.color = if ((row + col) % 2 == 0) floorColorA else floorColorB
+                val left = col * floorCellSize + offsetX
+                val top = row * floorCellSize + offsetY
+                canvas.drawRect(left, top, left + floorCellSize, top + floorCellSize, floorPaint)
+            }
         }
     }
 
@@ -243,10 +257,35 @@ class GameView @JvmOverloads constructor(
         blobPaint.alpha = alpha
         canvas.drawCircle(cx, cy, blob.radius, blobPaint)
 
+        drawRollingPattern(canvas, blob, cx, cy, alpha)
+
         eyePaint.alpha = alpha
         val eyeOffset = blob.radius * 0.35f
         canvas.drawCircle(cx - eyeOffset, cy - eyeOffset * 0.6f, blob.radius * 0.14f, eyePaint)
         canvas.drawCircle(cx + eyeOffset, cy - eyeOffset * 0.6f, blob.radius * 0.14f, eyePaint)
+    }
+
+    private fun drawRollingPattern(canvas: Canvas, blob: Blob, cx: Float, cy: Float, alpha: Int) {
+        // Two spokes rotating with blob.rotation sell the illusion of the ball rolling
+        // across the floor as it moves, on top of the (non-rotating) face.
+        rollPaint.color = darken(blob.color, 0.65f)
+        rollPaint.alpha = (alpha * 0.8f).toInt()
+        rollPaint.strokeWidth = blob.radius * 0.08f
+
+        val spokeRadius = blob.radius * 0.85f
+        for (spoke in 0 until 2) {
+            val angle = blob.rotation + spoke * (Math.PI / 2).toFloat()
+            val dx = cos(angle) * spokeRadius
+            val dy = sin(angle) * spokeRadius
+            canvas.drawLine(cx - dx, cy - dy, cx + dx, cy + dy, rollPaint)
+        }
+    }
+
+    private fun darken(color: Int, factor: Float): Int {
+        val r = (Color.red(color) * factor).toInt().coerceIn(0, 255)
+        val g = (Color.green(color) * factor).toInt().coerceIn(0, 255)
+        val b = (Color.blue(color) * factor).toInt().coerceIn(0, 255)
+        return Color.rgb(r, g, b)
     }
 
     private fun drawPowerUp(canvas: Canvas, powerUp: PowerUp, offsetX: Float, offsetY: Float) {
