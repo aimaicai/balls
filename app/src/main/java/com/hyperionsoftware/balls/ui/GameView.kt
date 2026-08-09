@@ -171,6 +171,10 @@ class GameView @JvmOverloads constructor(
                     }
                 }
 
+                override fun onZoneDeath(x: Float, y: Float, wasPlayer: Boolean) {
+                    floatingTexts.add(FloatingText(x, y, "Eliminato!", Color.parseColor("#B71C1C"), 1.3f))
+                }
+
                 override fun onGameOver(
                     playerWon: Boolean,
                     finalRadius: Float,

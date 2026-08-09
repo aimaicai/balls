@@ -67,10 +67,25 @@ abstract class Blob(
         other.alive = false
     }
 
-    fun applyZoneDamage(dt: Float) {
-        if (radius > baseRadius) {
-            val shrink = radius * GameConfig.SAFE_ZONE_DAMAGE_RATE_PER_SECOND * dt
-            radius = max(baseRadius, radius - shrink)
+    // Outside the safe zone, size decays with no floor at baseRadius (unlike normal
+    // deflation): staying out too long can shrink a blob below its starting size and,
+    // past ZONE_DEATH_RADIUS, kill it outright. Returns true if this damage was lethal.
+    fun applyZoneDamage(dt: Float): Boolean {
+        val shrink = radius * GameConfig.SAFE_ZONE_DAMAGE_RATE_PER_SECOND * dt
+        radius -= shrink
+        if (radius < GameConfig.ZONE_DEATH_RADIUS) {
+            alive = false
+            return true
+        }
+        return false
+    }
+
+    // Getting back inside the safe zone heals lost size back up to baseRadius (but never
+    // beyond it - regaining size above that still requires absorbing or a power-up).
+    fun healInZone(dt: Float) {
+        if (radius < baseRadius) {
+            val growth = baseRadius * GameConfig.ZONE_HEAL_RATE_PER_SECOND * dt
+            radius = min(baseRadius, radius + growth)
         }
     }
 

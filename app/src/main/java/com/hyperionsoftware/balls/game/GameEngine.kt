@@ -10,6 +10,7 @@ interface GameListener {
     fun onVibrate()
     fun onAbsorb(x: Float, y: Float, sizeGain: Int, byPlayer: Boolean)
     fun onPowerUpCollected(x: Float, y: Float, type: PowerUpType, byPlayer: Boolean)
+    fun onZoneDeath(x: Float, y: Float, wasPlayer: Boolean)
     fun onGameOver(playerWon: Boolean, finalRadius: Float, playersRemaining: Int, opponentsAbsorbed: Int)
 }
 
@@ -18,8 +19,18 @@ class GameEngine(
     powerUpFrequencyLevel: Int,
     private val listener: GameListener
 ) {
-    private val powerUpMaxCount = GameConfig.POWERUP_MAX_COUNT_PER_LEVEL * powerUpFrequencyLevel
+    private val powerUpBaseMaxCount = GameConfig.POWERUP_MAX_COUNT_PER_LEVEL * powerUpFrequencyLevel
     private val powerUpFrequency = powerUpFrequencyLevel.toFloat()
+
+    // More power-ups when the safe zone is large, fewer (but never none) as it shrinks,
+    // so density roughly tracks the zone's area instead of staying fixed all match.
+    private val powerUpMaxCount: Int
+        get() {
+            val areaFraction = (safeZoneRadius / GameConfig.SAFE_ZONE_INITIAL_RADIUS).let { it * it }
+            val factor = GameConfig.POWERUP_MIN_AREA_FACTOR +
+                (1f - GameConfig.POWERUP_MIN_AREA_FACTOR) * areaFraction
+            return (powerUpBaseMaxCount * factor).toInt().coerceAtLeast(1)
+        }
 
     val player = PlayerBlob(
         id = 0,
@@ -68,7 +79,7 @@ class GameEngine(
             blob.update(dt, this, baseSpeed)
         }
 
-        applySafeZoneDamage(dt)
+        updateSafeZoneEffects(dt)
         resolveCollisions()
         cullStrandedPowerUps()
         updatePowerUps(dt)
@@ -83,13 +94,18 @@ class GameEngine(
         powerUps.removeAll { hypot(it.position.x - safeZoneCenterX, it.position.y - safeZoneCenterY) > radius }
     }
 
-    private fun applySafeZoneDamage(dt: Float) {
+    private fun updateSafeZoneEffects(dt: Float) {
         val radius = safeZoneRadius
         for (blob in blobs) {
             if (!blob.alive) continue
             val distance = hypot(blob.position.x - safeZoneCenterX, blob.position.y - safeZoneCenterY)
             if (distance > radius) {
-                blob.applyZoneDamage(dt)
+                val died = blob.applyZoneDamage(dt)
+                if (died) {
+                    listener.onZoneDeath(blob.position.x, blob.position.y, blob === player)
+                }
+            } else {
+                blob.healInZone(dt)
             }
         }
     }

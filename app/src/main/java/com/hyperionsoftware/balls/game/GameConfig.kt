@@ -10,15 +10,18 @@ object GameConfig {
     // A blob must be at least this many times bigger (by radius) to absorb another.
     const val ABSORB_RATIO = 1.2f
 
-    const val PLAYER_BASE_SPEED = 220f
-    const val BOT_BASE_SPEED = 190f
+    const val PLAYER_BASE_SPEED = 280f
+    const val BOT_BASE_SPEED = 240f
 
     const val DEFLATE_GRACE_SECONDS = 5f
     const val DEFLATE_RATE_PER_SECOND = 0.03f
 
     // Power-up density is user-selectable (1..10 from the main menu). At level N there can be
-    // up to POWERUP_MAX_COUNT_PER_LEVEL * N power-ups alive, spawning N times as often.
+    // up to POWERUP_MAX_COUNT_PER_LEVEL * N power-ups alive at full safe-zone area, spawning
+    // N times as often. The actual cap scales down with the zone's area as it shrinks (see
+    // POWERUP_MIN_AREA_FACTOR), never dropping to zero so late-game ties can still be broken.
     const val POWERUP_MAX_COUNT_PER_LEVEL = 10
+    const val POWERUP_MIN_AREA_FACTOR = 0.2f
     const val POWERUP_MIN_FREQUENCY_LEVEL = 1
     const val POWERUP_MAX_FREQUENCY_LEVEL = 10
     const val POWERUP_DEFAULT_FREQUENCY_LEVEL = 5
@@ -46,5 +49,11 @@ object GameConfig {
     const val SAFE_ZONE_INITIAL_RADIUS = 4300f
     const val SAFE_ZONE_MIN_RADIUS = 500f
     const val SAFE_ZONE_SHRINK_DURATION_SECONDS = 60f
-    const val SAFE_ZONE_DAMAGE_RATE_PER_SECOND = 0.08f
+
+    // Outside the zone, size decays with no floor at baseRadius anymore (unlike normal
+    // deflation) and death follows below ZONE_DEATH_RADIUS: staying out is a real risk, not
+    // just a nuisance. Getting back inside heals lost size back up to baseRadius.
+    const val SAFE_ZONE_DAMAGE_RATE_PER_SECOND = 0.12f
+    const val ZONE_DEATH_RADIUS = 1f
+    const val ZONE_HEAL_RATE_PER_SECOND = 0.3f
 }
