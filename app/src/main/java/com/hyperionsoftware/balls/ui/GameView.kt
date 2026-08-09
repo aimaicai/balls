@@ -3,10 +3,14 @@ package com.hyperionsoftware.balls.ui
 import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.Matrix
 import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.Region
+import android.media.AudioAttributes
+import android.media.AudioFormat
 import android.media.AudioManager
+import android.media.AudioTrack
 import android.media.ToneGenerator
 import android.os.Build
 import android.os.VibrationEffect
@@ -72,6 +76,7 @@ class GameView @JvmOverloads constructor(
     }
 
     private val toneGenerator: ToneGenerator by lazy { ToneGenerator(AudioManager.STREAM_MUSIC, 70) }
+    private var hissTrack: AudioTrack? = null
 
     private val floorCellSize = 200f
     private val floorColorA = Color.parseColor("#121B26")
@@ -87,6 +92,18 @@ class GameView @JvmOverloads constructor(
     private val highlightPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.WHITE }
     private val knotPaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val exhaustPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.parseColor("#B3E5FC") }
+    private val speedBadgePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.parseColor("#FFEB3B") }
+    private val stringPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE
+        strokeWidth = 2f
+        color = Color.parseColor("#CFD8DC")
+    }
+
+    // Balloons are subtly egg-shaped along their direction of travel instead of perfect
+    // circles - stretched on the facing axis, squashed on the perpendicular one.
+    private val balloonStretch = 1.12f
+    private val balloonSquash = 0.94f
+    private val balloonMatrix = Matrix()
     private val safeZoneFillColor = Color.argb(90, 200, 40, 40)
     private val safeZonePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = Color.parseColor("#EF5350")
@@ -176,6 +193,10 @@ class GameView @JvmOverloads constructor(
                     floatingTexts.add(FloatingText(x, y, "Eliminato!", Color.parseColor("#B71C1C"), 1.3f))
                 }
 
+                override fun onBoostDeath(x: Float, y: Float, wasPlayer: Boolean) {
+                    floatingTexts.add(FloatingText(x, y, "Sgonfiato!", Color.parseColor("#FF6F00"), 1.3f))
+                }
+
                 override fun onGameOver(
                     playerWon: Boolean,
                     finalRadius: Float,
@@ -217,11 +238,62 @@ class GameView @JvmOverloads constructor(
         if (started) {
             engine.player.isBoosting = active
         }
+        if (active) {
+            try {
+                val track = hissTrack ?: createHissTrack().also { hissTrack = it }
+                track.setPlaybackHeadPosition(0)
+                track.play()
+            } catch (_: Exception) {
+                // Audio device may be briefly unavailable; the visual/vibration
+                // feedback still lands, so silently skip the sound this time.
+            }
+        } else {
+            try {
+                hissTrack?.pause()
+                hissTrack?.setPlaybackHeadPosition(0)
+            } catch (_: Exception) {
+            }
+        }
+    }
+
+    // A synthesized air-escaping hiss for sprinting: soft-clipped white noise looped
+    // seamlessly, closer to a deflating balloon than raw hard noise or a beep.
+    private fun createHissTrack(): AudioTrack {
+        val sampleRate = 22050
+        val frameCount = sampleRate / 2
+        val buffer = ShortArray(frameCount)
+        val random = java.util.Random()
+        for (i in buffer.indices) {
+            val softened = (random.nextFloat() + random.nextFloat() + random.nextFloat() - 1.5f) / 1.5f
+            buffer[i] = (softened * Short.MAX_VALUE * 0.35f).toInt().toShort()
+        }
+        val track = AudioTrack.Builder()
+            .setAudioAttributes(
+                AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_GAME)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                    .build()
+            )
+            .setAudioFormat(
+                AudioFormat.Builder()
+                    .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
+                    .setSampleRate(sampleRate)
+                    .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
+                    .build()
+            )
+            .setBufferSizeInBytes(buffer.size * 2)
+            .setTransferMode(AudioTrack.MODE_STATIC)
+            .build()
+        track.write(buffer, 0, buffer.size)
+        track.setLoopPoints(0, frameCount, -1)
+        return track
     }
 
     private fun checkBoostAvailability() {
+        // Sprint now works everywhere, any time, with no floor at baseRadius - only
+        // dim the button once there's truly nothing left to burn without dying.
         val player = engine.player
-        val available = player.alive && player.radius > player.baseRadius + 0.5f
+        val available = player.alive && player.radius > GameConfig.ZONE_DEATH_RADIUS + 0.5f
         if (available != lastBoostAvailable) {
             lastBoostAvailable = available
             post { callback?.onBoostAvailabilityChanged(available) }
@@ -246,6 +318,12 @@ class GameView @JvmOverloads constructor(
         surfaceReady = false
         loopThread?.running = false
         loopThread?.join(500)
+    }
+
+    override fun onDetachedFromWindow() {
+        super.onDetachedFromWindow()
+        hissTrack?.release()
+        hissTrack = null
     }
 
     private fun launchLoop() {
@@ -410,19 +488,33 @@ class GameView @JvmOverloads constructor(
 
         drawExhaust(canvas, blob, cx, cy, alpha)
         drawBalloonBody(canvas, blob, cx, cy, alpha)
+        drawSpeedBadge(canvas, blob, cx, cy, alpha)
         drawKnot(canvas, blob, cx, cy, alpha)
+        drawString(canvas, blob, cx, cy, alpha)
     }
 
     private fun drawBalloonBody(canvas: Canvas, blob: Blob, cx: Float, cy: Float, alpha: Int) {
         bodyPaint.color = blob.color
         bodyPaint.alpha = alpha
-        canvas.drawCircle(cx, cy, blob.radius, bodyPaint)
 
-        // Shading and a highlight, clipped to the body circle, sell a glossy latex look
-        // instead of a flat disc.
+        // The true silhouette is an egg shape stretched along the facing axis, built as a
+        // world-space path via a rotation matrix. Shading/highlight below clip to this same
+        // path but are drawn without rotating the canvas, so the light direction stays fixed
+        // regardless of which way the balloon is pointed.
+        val angleDeg = Math.toDegrees(atan2(blob.facingDirection.y, blob.facingDirection.x).toDouble()).toFloat() + 90f
+        balloonMatrix.reset()
+        balloonMatrix.postScale(balloonSquash, balloonStretch)
+        balloonMatrix.postRotate(angleDeg)
+        balloonMatrix.postTranslate(cx, cy)
+
+        val localOutline = Path().apply { addCircle(0f, 0f, blob.radius, Path.Direction.CW) }
+        val worldOutline = Path()
+        localOutline.transform(balloonMatrix, worldOutline)
+
+        canvas.drawPath(worldOutline, bodyPaint)
+
         canvas.save()
-        val clip = Path().apply { addCircle(cx, cy, blob.radius, Path.Direction.CW) }
-        canvas.clipPath(clip)
+        canvas.clipPath(worldOutline)
 
         shadePaint.color = darken(blob.color, 0.6f)
         shadePaint.alpha = (alpha * 0.45f).toInt()
@@ -437,15 +529,37 @@ class GameView @JvmOverloads constructor(
         canvas.restore()
     }
 
+    private fun drawSpeedBadge(canvas: Canvas, blob: Blob, cx: Float, cy: Float, alpha: Int) {
+        // A lightning bolt imprinted on the balloon signals the SPEED power-up is active -
+        // distinct from the exhaust, which signals actual sprint usage instead.
+        if (!blob.isSpeedBoosted) return
+        val size = blob.radius * 0.55f
+        speedBadgePaint.alpha = alpha
+        canvas.save()
+        canvas.translate(cx, cy)
+        val bolt = Path().apply {
+            moveTo(size * 0.15f, -size * 0.6f)
+            lineTo(-size * 0.35f, size * 0.05f)
+            lineTo(size * 0.05f, size * 0.05f)
+            lineTo(-size * 0.15f, size * 0.6f)
+            lineTo(size * 0.45f, -size * 0.05f)
+            lineTo(size * 0.05f, -size * 0.05f)
+            close()
+        }
+        canvas.drawPath(bolt, speedBadgePaint)
+        canvas.restore()
+    }
+
     private fun drawKnot(canvas: Canvas, blob: Blob, cx: Float, cy: Float, alpha: Int) {
         // The knot (where the air comes from) sits at the back, opposite whichever way
-        // the balloon is currently facing.
+        // the balloon is currently facing - right on the stretched egg's pointed end.
         val back = blob.facingDirection * -1f
+        val edgeRadius = blob.radius * balloonStretch
         val knotSize = blob.radius * 0.22f
-        val baseX = cx + back.x * blob.radius * 0.85f
-        val baseY = cy + back.y * blob.radius * 0.85f
-        val tipX = cx + back.x * (blob.radius + knotSize)
-        val tipY = cy + back.y * (blob.radius + knotSize)
+        val baseX = cx + back.x * edgeRadius * 0.85f
+        val baseY = cy + back.y * edgeRadius * 0.85f
+        val tipX = cx + back.x * (edgeRadius + knotSize)
+        val tipY = cy + back.y * (edgeRadius + knotSize)
         val perpX = -back.y * knotSize * 0.5f
         val perpY = back.x * knotSize * 0.5f
 
@@ -460,22 +574,50 @@ class GameView @JvmOverloads constructor(
         canvas.drawPath(path, knotPaint)
     }
 
-    private fun drawExhaust(canvas: Canvas, blob: Blob, cx: Float, cy: Float, alpha: Int) {
-        if (!blob.isThrusting) return
-
+    private fun drawString(canvas: Canvas, blob: Blob, cx: Float, cy: Float, alpha: Int) {
+        // A thin string dangling from the knot, swaying gently, for balloon realism.
         val back = blob.facingDirection * -1f
-        val pulse = 0.7f + 0.3f * sin(blob.exhaustPhase * 14f)
-        val length = blob.radius * (1.4f + 0.5f * pulse)
-        val width = blob.radius * 0.5f * pulse
+        val edgeRadius = blob.radius * balloonStretch
+        val knotSize = blob.radius * 0.22f
+        val startX = cx + back.x * (edgeRadius + knotSize)
+        val startY = cy + back.y * (edgeRadius + knotSize)
+        val length = blob.radius * 0.9f
+        val sway = sin(blob.exhaustPhase * 2.3f) * blob.radius * 0.15f
 
-        val baseX = cx + back.x * blob.radius
-        val baseY = cy + back.y * blob.radius
-        val tipX = cx + back.x * (blob.radius + length)
-        val tipY = cy + back.y * (blob.radius + length)
+        stringPaint.alpha = (alpha * 0.6f).toInt()
+        val path = Path().apply {
+            moveTo(startX, startY)
+            quadTo(
+                startX + back.x * length * 0.5f + sway, startY + back.y * length * 0.5f,
+                startX + back.x * length + sway * 0.6f, startY + back.y * length
+            )
+        }
+        canvas.drawPath(path, stringPaint)
+    }
+
+    private fun drawExhaust(canvas: Canvas, blob: Blob, cx: Float, cy: Float, alpha: Int) {
+        if (!blob.isThrusting && !blob.isBoosting) return
+
+        // Sprinting produces a visibly different exhaust (larger, fiercer, orange) than
+        // ordinary movement (calm pale blue), so it's obvious at a glance who is burning
+        // size for speed versus just cruising.
+        val boosting = blob.isBoosting
+        val back = blob.facingDirection * -1f
+        val pulse = 0.7f + 0.3f * sin(blob.exhaustPhase * (if (boosting) 22f else 14f))
+        val intensity = if (boosting) 1.7f else 1f
+        val edgeRadius = blob.radius * balloonStretch
+        val length = blob.radius * (1.4f + 0.5f * pulse) * intensity
+        val width = blob.radius * 0.5f * pulse * intensity
+
+        val baseX = cx + back.x * edgeRadius
+        val baseY = cy + back.y * edgeRadius
+        val tipX = cx + back.x * (edgeRadius + length)
+        val tipY = cy + back.y * (edgeRadius + length)
         val perpX = -back.y * width
         val perpY = back.x * width
 
-        exhaustPaint.alpha = (alpha * 0.5f * pulse).toInt().coerceIn(0, 255)
+        exhaustPaint.color = if (boosting) Color.parseColor("#FF7043") else Color.parseColor("#B3E5FC")
+        exhaustPaint.alpha = (alpha * (if (boosting) 0.75f else 0.5f) * pulse).toInt().coerceIn(0, 255)
         val path = Path().apply {
             moveTo(baseX + perpX, baseY + perpY)
             lineTo(tipX, tipY)

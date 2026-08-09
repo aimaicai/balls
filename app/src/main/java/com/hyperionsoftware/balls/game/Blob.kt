@@ -62,11 +62,6 @@ abstract class Blob(
             val shrink = radius * GameConfig.DEFLATE_RATE_PER_SECOND * dt
             radius = max(baseRadius, radius - shrink)
         }
-
-        if (isBoosting && radius > baseRadius) {
-            val drain = radius * GameConfig.BOOST_DRAIN_RATE_PER_SECOND * dt
-            radius = max(baseRadius, radius - drain)
-        }
     }
 
     fun clampToWorld() {
@@ -103,6 +98,19 @@ abstract class Blob(
         }
     }
 
+    // Sprinting works everywhere, any time, with no floor at baseRadius: it always drains
+    // size in exchange for speed, and burning all the way down to ZONE_DEATH_RADIUS kills
+    // the balloon. Returns true if this drain was lethal.
+    fun applyBoostDrain(dt: Float): Boolean {
+        val drain = radius * GameConfig.BOOST_DRAIN_RATE_PER_SECOND * dt
+        radius -= drain
+        if (radius < GameConfig.ZONE_DEATH_RADIUS) {
+            alive = false
+            return true
+        }
+        return false
+    }
+
     fun applyPowerUp(type: PowerUpType) {
         when (type) {
             PowerUpType.SPEED -> speedBoostTimer = GameConfig.POWERUP_SPEED_DURATION
@@ -118,9 +126,13 @@ abstract class Blob(
         // Bigger blobs move slower; smaller ones are more nimble.
         val sizeFactor = sqrt(baseRadius / radius)
         val powerUpBoost = if (isSpeedBoosted) GameConfig.POWERUP_SPEED_MULTIPLIER else 1f
-        // Only rewarded while there is still size left to burn this frame - matches the
-        // drain above, which also stops once radius reaches baseRadius.
-        val dashBoost = if (isBoosting && radius > baseRadius) GameConfig.BOOST_SPEED_MULTIPLIER else 1f
+        // Rewarded as long as there is still any size left to burn - sprinting keeps
+        // working right up until it kills the balloon.
+        val dashBoost = if (isBoosting && radius > GameConfig.ZONE_DEATH_RADIUS) {
+            GameConfig.BOOST_SPEED_MULTIPLIER
+        } else {
+            1f
+        }
         return baseSpeed * sizeFactor * powerUpBoost * dashBoost
     }
 

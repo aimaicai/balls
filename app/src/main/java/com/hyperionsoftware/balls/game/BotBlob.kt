@@ -38,10 +38,14 @@ class BotBlob(
             }
         }
 
+        // Sprinting can now kill if overused, so only risk it with enough size to spare.
+        val safeToSprint = radius > baseRadius * GameConfig.BOT_SAFE_BOOST_SIZE_MULTIPLIER
+
         // An about-to-collide threat always overrides everything else - no amount of
         // courage helps if something is already close enough to absorb you.
         val nearThreat = threat
         if (nearThreat != null && threatDistance < (radius + nearThreat.radius) * 1.5f) {
+            isBoosting = safeToSprint
             return (position - nearThreat.position).normalized()
         }
 
@@ -50,8 +54,11 @@ class BotBlob(
         // safety wins over merely fleeing something that isn't already on top of them.
         val distanceFromZoneCenter = hypot(position.x - engine.safeZoneCenterX, position.y - engine.safeZoneCenterY)
         if (distanceFromZoneCenter > engine.safeZoneRadius) {
+            isBoosting = safeToSprint
             return Vector2(engine.safeZoneCenterX - position.x, engine.safeZoneCenterY - position.y).normalized()
         }
+
+        isBoosting = false
 
         if (threat != null) {
             return (position - threat.position).normalized()

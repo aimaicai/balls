@@ -57,10 +57,14 @@ object GameConfig {
     const val ZONE_DEATH_RADIUS = 1f
     const val ZONE_HEAL_RATE_PER_SECOND = 0.3f
 
-    // Voluntary boost: holding the boost button burns size for extra speed, stopping once
-    // size hits baseRadius (never below it - this is a deliberate trade, not a hazard).
+    // Voluntary boost/sprint: works everywhere, any time, trading size for extra speed with
+    // no floor - burning all the way down to ZONE_DEATH_RADIUS kills the balloon.
     const val BOOST_DRAIN_RATE_PER_SECOND = 0.25f
     const val BOOST_SPEED_MULTIPLIER = 1.6f
+
+    // Bots only risk sprinting when they have at least this many times baseRadius in size,
+    // so they don't suicide themselves fleeing a threat.
+    const val BOT_SAFE_BOOST_SIZE_MULTIPLIER = 1.5f
 
     // Balloons are pushed by their own exhaust: a moving balloon blows a cone of air out its
     // back that shoves any other balloon caught in it further away. Range scales with the

@@ -11,6 +11,7 @@ interface GameListener {
     fun onAbsorb(x: Float, y: Float, sizeGain: Int, byPlayer: Boolean)
     fun onPowerUpCollected(x: Float, y: Float, type: PowerUpType, byPlayer: Boolean)
     fun onZoneDeath(x: Float, y: Float, wasPlayer: Boolean)
+    fun onBoostDeath(x: Float, y: Float, wasPlayer: Boolean)
     fun onGameOver(playerWon: Boolean, finalRadius: Float, playersRemaining: Int, opponentsAbsorbed: Int)
 }
 
@@ -80,6 +81,7 @@ class GameEngine(
         }
 
         applyThrustEffects(dt)
+        applyBoostEffects(dt)
         updateSafeZoneEffects(dt)
         resolveCollisions()
         cullStrandedPowerUps()
@@ -110,6 +112,17 @@ class GameEngine(
                 val strength = GameConfig.THRUST_FORCE_PER_SECOND * falloff * alignment * dt
                 target.position += towardTarget * strength
                 target.clampToWorld()
+            }
+        }
+    }
+
+    // Sprinting drains size everywhere, in or out of the zone, and can kill on its own.
+    private fun applyBoostEffects(dt: Float) {
+        for (blob in blobs) {
+            if (!blob.alive || !blob.isBoosting) continue
+            val died = blob.applyBoostDrain(dt)
+            if (died) {
+                listener.onBoostDeath(blob.position.x, blob.position.y, blob === player)
             }
         }
     }
