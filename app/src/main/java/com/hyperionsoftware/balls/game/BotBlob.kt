@@ -14,7 +14,9 @@ class BotBlob(
     private var wanderTimer = Random.nextFloat() * 2f + 1f
 
     override fun decideDirection(engine: GameEngine, dt: Float): Vector2 {
-        val visionRadius = radius * 8f + 200f
+        val aliveFraction = engine.aliveCount().toFloat() / engine.initialBlobCount
+        val aggression = 1f + (1f - aliveFraction) * GameConfig.BOT_MAX_AGGRESSION_BONUS
+        val visionRadius = (radius * 8f + 200f) * aggression
 
         var threat: Blob? = null
         var threatDistance = Float.MAX_VALUE

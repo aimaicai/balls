@@ -29,9 +29,14 @@ abstract class Blob(
     open fun update(dt: Float, engine: GameEngine, baseSpeed: Float) {
         if (!alive) return
 
-        val direction = decideDirection(engine, dt).normalized()
+        // The raw vector's length doubles as desired-speed fraction: bots always return
+        // unit-length vectors (full speed), while the player's joystick vector length
+        // reflects how far the stick is pushed, giving proportional analog control.
+        val rawDirection = decideDirection(engine, dt)
+        val magnitude = rawDirection.length().coerceAtMost(1f)
+        val heading = rawDirection.normalized()
         val speed = effectiveSpeed(baseSpeed)
-        val movement = direction * (speed * dt)
+        val movement = heading * (speed * magnitude * dt)
         position += movement
         clampToWorld()
 

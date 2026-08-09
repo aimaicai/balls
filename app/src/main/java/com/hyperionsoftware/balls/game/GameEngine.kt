@@ -4,7 +4,9 @@ import kotlin.random.Random
 
 interface GameListener {
     fun onVibrate()
-    fun onGameOver(playerWon: Boolean, finalRadius: Float, playersRemaining: Int)
+    fun onAbsorb(x: Float, y: Float, sizeGain: Int, byPlayer: Boolean)
+    fun onPowerUpCollected(x: Float, y: Float, type: PowerUpType, byPlayer: Boolean)
+    fun onGameOver(playerWon: Boolean, finalRadius: Float, playersRemaining: Int, opponentsAbsorbed: Int)
 }
 
 class GameEngine(
@@ -19,9 +21,11 @@ class GameEngine(
 
     val blobs: MutableList<Blob> = mutableListOf(player)
     val powerUps: MutableList<PowerUp> = mutableListOf()
+    val initialBlobCount: Int = botCount + 1
 
     private var nextPowerUpSpawnIn: Float = randomSpawnDelay()
     private var gameOver = false
+    private var playerAbsorbCount = 0
 
     init {
         val colors = intArrayOf(
@@ -70,6 +74,7 @@ class GameEngine(
                 if (blob.position.distanceTo(powerUp.position) < blob.radius + powerUp.radius) {
                     blob.applyPowerUp(powerUp.type)
                     powerUp.collected = true
+                    listener.onPowerUpCollected(powerUp.position.x, powerUp.position.y, powerUp.type, blob === player)
                 }
             }
         }
@@ -86,7 +91,12 @@ class GameEngine(
         val ratio = bigger.radius / smaller.radius
 
         if (ratio >= GameConfig.ABSORB_RATIO) {
+            val radiusBefore = bigger.radius
+            val x = smaller.position.x
+            val y = smaller.position.y
             bigger.absorb(smaller)
+            if (bigger === player) playerAbsorbCount++
+            listener.onAbsorb(x, y, (bigger.radius - radiusBefore).toInt(), bigger === player)
         } else {
             bounce(a, b, distance)
             if (a is PlayerBlob || b is PlayerBlob) {
@@ -129,12 +139,12 @@ class GameEngine(
     private fun checkGameOver() {
         if (!player.alive) {
             gameOver = true
-            listener.onGameOver(false, player.radius, aliveCount())
+            listener.onGameOver(false, player.radius, aliveCount(), playerAbsorbCount)
             return
         }
         if (aliveCount() <= 1) {
             gameOver = true
-            listener.onGameOver(true, player.radius, 1)
+            listener.onGameOver(true, player.radius, 1, playerAbsorbCount)
         }
     }
 }

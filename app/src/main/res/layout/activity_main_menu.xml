@@ -19,47 +19,28 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />
 
-    <LinearLayout
-        android:id="@+id/botsRow"
+    <TextView
+        android:id="@+id/botsCountText"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:gravity="center_vertical"
-        android:orientation="horizontal"
+        android:textColor="@color/hud_text"
+        android:textSize="18sp"
+        app:layout_constraintBottom_toTopOf="@id/botsSeekBar"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/titleText" />
+
+    <SeekBar
+        android:id="@+id/botsSeekBar"
+        android:layout_width="280dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:max="100"
+        android:min="2"
         app:layout_constraintBottom_toTopOf="@id/playButton"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/titleText">
-
-        <Button
-            android:id="@+id/decreaseBotsButton"
-            style="?attr/materialButtonOutlinedStyle"
-            android:layout_width="56dp"
-            android:layout_height="56dp"
-            android:minWidth="0dp"
-            android:minHeight="0dp"
-            android:padding="0dp"
-            android:text="-"
-            android:textSize="20sp" />
-
-        <TextView
-            android:id="@+id/botsCountText"
-            android:layout_width="160dp"
-            android:layout_height="wrap_content"
-            android:gravity="center"
-            android:textColor="@color/hud_text"
-            android:textSize="18sp" />
-
-        <Button
-            android:id="@+id/increaseBotsButton"
-            style="?attr/materialButtonOutlinedStyle"
-            android:layout_width="56dp"
-            android:layout_height="56dp"
-            android:minWidth="0dp"
-            android:minHeight="0dp"
-            android:padding="0dp"
-            android:text="+"
-            android:textSize="20sp" />
-    </LinearLayout>
+        app:layout_constraintTop_toBottomOf="@id/botsCountText" />
 
     <Button
         android:id="@+id/playButton"
@@ -70,7 +51,7 @@
         android:textSize="18sp"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/botsRow" />
+        app:layout_constraintTop_toBottomOf="@id/botsSeekBar" />
 
     <Button
         android:id="@+id/exitButton"

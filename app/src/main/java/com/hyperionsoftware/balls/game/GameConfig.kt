@@ -25,4 +25,13 @@ object GameConfig {
     const val POWERUP_SPEED_DURATION = 6f
     const val POWERUP_INVISIBILITY_DURATION = 8f
     const val POWERUP_GROWTH_MULTIPLIER = 2f
+
+    // How far off-screen the danger/prey edge indicator can still "see".
+    const val AWARENESS_RADIUS = 2500f
+
+    // Bots widen their vision the fewer blobs remain alive, up to this multiplier,
+    // so the endgame stays lively instead of everyone wandering aimlessly.
+    const val BOT_MAX_AGGRESSION_BONUS = 1.2f
+
+    const val COUNTDOWN_SECONDS = 3f
 }

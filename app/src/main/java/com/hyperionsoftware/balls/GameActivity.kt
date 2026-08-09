@@ -47,7 +47,7 @@ class GameActivity : AppCompatActivity(), GameView.Callback {
             .show()
     }
 
-    override fun onGameOver(playerWon: Boolean, finalRadius: Int, playersRemaining: Int) {
+    override fun onGameOver(playerWon: Boolean, finalRadius: Int, playersRemaining: Int, opponentsAbsorbed: Int) {
         val title = if (playerWon) {
             getString(R.string.game_over_win_title)
         } else {
@@ -55,7 +55,7 @@ class GameActivity : AppCompatActivity(), GameView.Callback {
         }
         AlertDialog.Builder(this)
             .setTitle(title)
-            .setMessage(getString(R.string.game_over_stats, finalRadius, playersRemaining))
+            .setMessage(getString(R.string.game_over_stats, finalRadius, playersRemaining, opponentsAbsorbed))
             .setCancelable(false)
             .setPositiveButton(getString(R.string.game_over_restart)) { _, _ -> binding.gameView.restart(botCount) }
             .setNegativeButton(getString(R.string.game_over_menu)) { _, _ -> goToMenu() }

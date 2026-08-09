@@ -4,6 +4,9 @@ import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
+import android.graphics.Path
+import android.media.AudioManager
+import android.media.ToneGenerator
 import android.os.Build
 import android.os.VibrationEffect
 import android.os.Vibrator
@@ -18,7 +21,11 @@ import com.hyperionsoftware.balls.game.GameListener
 import com.hyperionsoftware.balls.game.PowerUp
 import com.hyperionsoftware.balls.game.PowerUpType
 import com.hyperionsoftware.balls.game.Vector2
+import kotlin.math.abs
+import kotlin.math.atan2
+import kotlin.math.ceil
 import kotlin.math.cos
+import kotlin.math.hypot
 import kotlin.math.min
 import kotlin.math.sin
 
@@ -28,7 +35,7 @@ class GameView @JvmOverloads constructor(
 ) : SurfaceView(context, attrs), SurfaceHolder.Callback, JoystickView.Listener {
 
     interface Callback {
-        fun onGameOver(playerWon: Boolean, finalRadius: Int, playersRemaining: Int)
+        fun onGameOver(playerWon: Boolean, finalRadius: Int, playersRemaining: Int, opponentsAbsorbed: Int)
     }
 
     var callback: Callback? = null
@@ -37,6 +44,20 @@ class GameView @JvmOverloads constructor(
     private var loopThread: GameThread? = null
     private var surfaceReady = false
     private var started = false
+
+    private var countdownActive = false
+    private var countdownRemaining = 0f
+
+    private class FloatingText(
+        var x: Float,
+        var y: Float,
+        val text: String,
+        val color: Int,
+        var ttl: Float,
+        val maxTtl: Float = ttl
+    )
+
+    private val floatingTexts = mutableListOf<FloatingText>()
 
     private val vibrator: Vibrator by lazy {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -47,6 +68,8 @@ class GameView @JvmOverloads constructor(
             context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
         }
     }
+
+    private val toneGenerator: ToneGenerator by lazy { ToneGenerator(AudioManager.STREAM_MUSIC, 70) }
 
     private val floorCellSize = 200f
     private val floorColorA = Color.parseColor("#121B26")
@@ -64,10 +87,33 @@ class GameView @JvmOverloads constructor(
         strokeCap = Paint.Cap.ROUND
     }
     private val powerUpPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val iconPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.WHITE
+        strokeCap = Paint.Cap.ROUND
+        strokeWidth = 2.5f
+    }
+    private val indicatorPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
+    private val indicatorArrow = Path().apply {
+        moveTo(0f, -18f)
+        lineTo(14f, 14f)
+        lineTo(-14f, 14f)
+        close()
+    }
+    private val floatingTextPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        textSize = 34f
+        isFakeBoldText = true
+        textAlign = Paint.Align.CENTER
+    }
     private val hudTextPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = Color.WHITE
         textSize = 42f
         isFakeBoldText = true
+    }
+    private val countdownPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.WHITE
+        textSize = 180f
+        isFakeBoldText = true
+        textAlign = Paint.Align.CENTER
     }
 
     private var lastDirection = Vector2(0f, 0f)
@@ -79,16 +125,50 @@ class GameView @JvmOverloads constructor(
     fun startGame(botCount: Int) {
         if (started) return
         started = true
+        floatingTexts.clear()
+        countdownActive = true
+        countdownRemaining = GameConfig.COUNTDOWN_SECONDS
         engine = GameEngine(
             botCount = botCount,
             listener = object : GameListener {
                 override fun onVibrate() {
-                    triggerVibration()
+                    vibrateBounce()
                 }
 
-                override fun onGameOver(playerWon: Boolean, finalRadius: Float, playersRemaining: Int) {
+                override fun onAbsorb(x: Float, y: Float, sizeGain: Int, byPlayer: Boolean) {
+                    val color = if (byPlayer) Color.parseColor("#8BC34A") else Color.WHITE
+                    floatingTexts.add(FloatingText(x, y, "+$sizeGain", color, 1.2f))
+                    if (byPlayer) {
+                        vibrateAbsorb()
+                        toneGenerator.startTone(ToneGenerator.TONE_PROP_ACK, 150)
+                    }
+                }
+
+                override fun onPowerUpCollected(x: Float, y: Float, type: PowerUpType, byPlayer: Boolean) {
+                    val label = when (type) {
+                        PowerUpType.SPEED -> "Velocità!"
+                        PowerUpType.GROWTH -> "Ingrandimento!"
+                        PowerUpType.INVISIBILITY -> "Invisibilità!"
+                    }
+                    floatingTexts.add(FloatingText(x, y, label, Color.parseColor("#FFD54F"), 1.4f))
+                    if (byPlayer) {
+                        vibratePowerUp()
+                        toneGenerator.startTone(ToneGenerator.TONE_PROP_BEEP, 120)
+                    }
+                }
+
+                override fun onGameOver(
+                    playerWon: Boolean,
+                    finalRadius: Float,
+                    playersRemaining: Int,
+                    opponentsAbsorbed: Int
+                ) {
                     loopThread?.running = false
-                    post { callback?.onGameOver(playerWon, finalRadius.toInt(), playersRemaining) }
+                    toneGenerator.startTone(
+                        if (playerWon) ToneGenerator.TONE_PROP_ACK else ToneGenerator.TONE_PROP_NACK,
+                        400
+                    )
+                    post { callback?.onGameOver(playerWon, finalRadius.toInt(), playersRemaining, opponentsAbsorbed) }
                 }
             }
         )
@@ -140,9 +220,21 @@ class GameView @JvmOverloads constructor(
         loopThread = GameThread().also { it.start() }
     }
 
-    private fun triggerVibration() {
+    private fun vibrateBounce() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             vibrator.vibrate(VibrationEffect.createOneShot(120, VibrationEffect.DEFAULT_AMPLITUDE))
+        }
+    }
+
+    private fun vibrateAbsorb() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            vibrator.vibrate(VibrationEffect.createWaveform(longArrayOf(0, 40, 40, 60), -1))
+        }
+    }
+
+    private fun vibratePowerUp() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            vibrator.vibrate(VibrationEffect.createOneShot(35, 90))
         }
     }
 
@@ -157,8 +249,13 @@ class GameView @JvmOverloads constructor(
                 lastTime = now
                 dt = min(dt, 0.05f)
 
-                engine.update(dt)
-                drawFrame()
+                if (countdownActive) {
+                    countdownRemaining -= dt
+                    if (countdownRemaining <= 0f) countdownActive = false
+                } else {
+                    engine.update(dt)
+                }
+                drawFrame(dt)
 
                 val frameTimeMs = (System.nanoTime() - now) / 1_000_000
                 val sleepTime = 16 - frameTimeMs
@@ -173,14 +270,14 @@ class GameView @JvmOverloads constructor(
         }
     }
 
-    private fun drawFrame() {
+    private fun drawFrame(dt: Float) {
         val canvas = try {
             holder.lockCanvas()
         } catch (_: Exception) {
             null
         } ?: return
         try {
-            render(canvas)
+            render(canvas, dt)
         } finally {
             try {
                 holder.unlockCanvasAndPost(canvas)
@@ -190,7 +287,7 @@ class GameView @JvmOverloads constructor(
         }
     }
 
-    private fun render(canvas: Canvas) {
+    private fun render(canvas: Canvas, dt: Float) {
         canvas.drawColor(Color.parseColor("#0F1620"))
 
         val player = engine.player
@@ -210,7 +307,10 @@ class GameView @JvmOverloads constructor(
             if (blob.alive) drawBlob(canvas, blob, offsetX, offsetY)
         }
 
+        drawDangerIndicator(canvas, offsetX, offsetY)
+        drawFloatingTexts(canvas, offsetX, offsetY, dt)
         drawHud(canvas)
+        drawCountdown(canvas)
     }
 
     private fun cameraCoord(playerCoord: Float, viewportSize: Int, worldSize: Float): Float {
@@ -294,7 +394,103 @@ class GameView @JvmOverloads constructor(
             PowerUpType.GROWTH -> Color.parseColor("#81C784")
             PowerUpType.INVISIBILITY -> Color.parseColor("#B39DDB")
         }
-        canvas.drawCircle(powerUp.position.x + offsetX, powerUp.position.y + offsetY, powerUp.radius, powerUpPaint)
+        val cx = powerUp.position.x + offsetX
+        val cy = powerUp.position.y + offsetY
+        canvas.drawCircle(cx, cy, powerUp.radius, powerUpPaint)
+        drawPowerUpIcon(canvas, powerUp, cx, cy)
+    }
+
+    private fun drawPowerUpIcon(canvas: Canvas, powerUp: PowerUp, cx: Float, cy: Float) {
+        iconPaint.color = Color.WHITE
+        when (powerUp.type) {
+            PowerUpType.SPEED -> {
+                // Two right-pointing chevrons suggest motion.
+                for (i in 0..1) {
+                    val ox = cx - 5f + i * 7f
+                    canvas.drawLine(ox - 4f, cy - 6f, ox + 4f, cy, iconPaint)
+                    canvas.drawLine(ox + 4f, cy, ox - 4f, cy + 6f, iconPaint)
+                }
+            }
+            PowerUpType.GROWTH -> {
+                canvas.drawLine(cx - 7f, cy, cx + 7f, cy, iconPaint)
+                canvas.drawLine(cx, cy - 7f, cx, cy + 7f, iconPaint)
+            }
+            PowerUpType.INVISIBILITY -> {
+                iconPaint.style = Paint.Style.STROKE
+                canvas.drawCircle(cx, cy, 7f, iconPaint)
+                iconPaint.style = Paint.Style.FILL
+                canvas.drawLine(cx - 8f, cy - 8f, cx + 8f, cy + 8f, iconPaint)
+            }
+        }
+    }
+
+    private fun drawDangerIndicator(canvas: Canvas, offsetX: Float, offsetY: Float) {
+        val player = engine.player
+        var threat: Blob? = null
+        var threatDistance = Float.MAX_VALUE
+        var prey: Blob? = null
+        var preyDistance = Float.MAX_VALUE
+
+        for (blob in engine.blobs) {
+            if (blob === player || !blob.alive || blob.isInvisible) continue
+            val distance = player.position.distanceTo(blob.position)
+            if (distance > GameConfig.AWARENESS_RADIUS) continue
+
+            if (blob.radius / player.radius >= GameConfig.ABSORB_RATIO && distance < threatDistance) {
+                threat = blob
+                threatDistance = distance
+            } else if (player.radius / blob.radius >= GameConfig.ABSORB_RATIO && distance < preyDistance) {
+                prey = blob
+                preyDistance = distance
+            }
+        }
+
+        val target = threat ?: prey ?: return
+        val margin = 60f
+        val screenX = target.position.x + offsetX
+        val screenY = target.position.y + offsetY
+        // Already visible on screen: no need for an off-screen indicator.
+        if (screenX in -margin..(width + margin) && screenY in -margin..(height + margin)) return
+
+        val dirX = target.position.x - player.position.x
+        val dirY = target.position.y - player.position.y
+        val length = hypot(dirX, dirY)
+        if (length < 0.001f) return
+        val ndx = dirX / length
+        val ndy = dirY / length
+
+        val halfW = width / 2f - margin
+        val halfH = height / 2f - margin
+        val tx = if (ndx != 0f) halfW / abs(ndx) else Float.MAX_VALUE
+        val ty = if (ndy != 0f) halfH / abs(ndy) else Float.MAX_VALUE
+        val t = min(tx, ty)
+        val px = width / 2f + ndx * t
+        val py = height / 2f + ndy * t
+
+        indicatorPaint.color = if (target === threat) Color.parseColor("#EF5350") else Color.parseColor("#8BC34A")
+        val angleDeg = Math.toDegrees(atan2(ndy, ndx).toDouble()).toFloat() + 90f
+
+        canvas.save()
+        canvas.translate(px, py)
+        canvas.rotate(angleDeg)
+        canvas.drawPath(indicatorArrow, indicatorPaint)
+        canvas.restore()
+    }
+
+    private fun drawFloatingTexts(canvas: Canvas, offsetX: Float, offsetY: Float, dt: Float) {
+        val iterator = floatingTexts.iterator()
+        while (iterator.hasNext()) {
+            val text = iterator.next()
+            text.ttl -= dt
+            if (text.ttl <= 0f) {
+                iterator.remove()
+                continue
+            }
+            text.y -= 30f * dt
+            floatingTextPaint.color = text.color
+            floatingTextPaint.alpha = (255 * (text.ttl / text.maxTtl)).toInt().coerceIn(0, 255)
+            canvas.drawText(text.text, text.x + offsetX, text.y + offsetY, floatingTextPaint)
+        }
     }
 
     private fun drawHud(canvas: Canvas) {
@@ -304,5 +500,12 @@ class GameView @JvmOverloads constructor(
         val playersText = "Giocatori: ${engine.aliveCount()}"
         val textWidth = hudTextPaint.measureText(playersText)
         canvas.drawText(playersText, width - textWidth - 24f, 56f, hudTextPaint)
+    }
+
+    private fun drawCountdown(canvas: Canvas) {
+        if (!countdownActive) return
+        canvas.drawColor(Color.argb(120, 0, 0, 0))
+        val secondsLeft = ceil(countdownRemaining).toInt().coerceAtLeast(1)
+        canvas.drawText(secondsLeft.toString(), width / 2f, height / 2f + 60f, countdownPaint)
     }
 }
