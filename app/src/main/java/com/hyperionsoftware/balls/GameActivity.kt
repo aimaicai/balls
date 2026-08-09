@@ -12,7 +12,7 @@ import com.hyperionsoftware.balls.ui.GameView
 class GameActivity : AppCompatActivity(), GameView.Callback {
 
     private lateinit var binding: ActivityGameBinding
-    private var botCount = 6
+    private var botCount = DEFAULT_BOTS
     private var powerUpFrequencyLevel = GameConfig.POWERUP_DEFAULT_FREQUENCY_LEVEL
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -20,7 +20,7 @@ class GameActivity : AppCompatActivity(), GameView.Callback {
         binding = ActivityGameBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        botCount = intent.getIntExtra(EXTRA_BOT_COUNT, 6)
+        botCount = intent.getIntExtra(EXTRA_BOT_COUNT, DEFAULT_BOTS)
         powerUpFrequencyLevel = intent.getIntExtra(
             EXTRA_POWERUP_FREQUENCY,
             GameConfig.POWERUP_DEFAULT_FREQUENCY_LEVEL
@@ -94,5 +94,6 @@ class GameActivity : AppCompatActivity(), GameView.Callback {
         const val EXTRA_BOT_COUNT = "extra_bot_count"
         const val EXTRA_POWERUP_FREQUENCY = "extra_powerup_frequency"
         private const val BOOST_UNAVAILABLE_ALPHA = 0.35f
+        private const val DEFAULT_BOTS = 100
     }
 }

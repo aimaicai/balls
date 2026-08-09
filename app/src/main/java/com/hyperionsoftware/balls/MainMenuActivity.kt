@@ -64,6 +64,6 @@ class MainMenuActivity : AppCompatActivity() {
     }
 
     companion object {
-        private const val DEFAULT_BOTS = 6
+        private const val DEFAULT_BOTS = 100
     }
 }

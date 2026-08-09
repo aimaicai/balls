@@ -16,15 +16,15 @@ object GameConfig {
     const val DEFLATE_GRACE_SECONDS = 5f
     const val DEFLATE_RATE_PER_SECOND = 0.03f
 
-    // Power-up density is user-selectable (1..10 from the main menu). At level N there can be
+    // Power-up density is user-selectable (1..30 from the main menu). At level N there can be
     // up to POWERUP_MAX_COUNT_PER_LEVEL * N power-ups alive at full safe-zone area, spawning
     // N times as often. The actual cap scales down with the zone's area as it shrinks (see
     // POWERUP_MIN_AREA_FACTOR), never dropping to zero so late-game ties can still be broken.
     const val POWERUP_MAX_COUNT_PER_LEVEL = 10
     const val POWERUP_MIN_AREA_FACTOR = 0.2f
     const val POWERUP_MIN_FREQUENCY_LEVEL = 1
-    const val POWERUP_MAX_FREQUENCY_LEVEL = 10
-    const val POWERUP_DEFAULT_FREQUENCY_LEVEL = 5
+    const val POWERUP_MAX_FREQUENCY_LEVEL = 30
+    const val POWERUP_DEFAULT_FREQUENCY_LEVEL = 15
     const val POWERUP_SPAWN_MIN_SECONDS = 3f
     const val POWERUP_SPAWN_MAX_SECONDS = 6f
     const val POWERUP_RADIUS = 16f
