@@ -116,6 +116,12 @@ class GameView @JvmOverloads constructor(
         textSize = 42f
         isFakeBoldText = true
     }
+    private val zoneHudPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.parseColor("#EF5350")
+        textSize = 34f
+        isFakeBoldText = true
+        textAlign = Paint.Align.CENTER
+    }
     private val countdownPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = Color.WHITE
         textSize = 180f
@@ -528,6 +534,9 @@ class GameView @JvmOverloads constructor(
         val playersText = "Giocatori: ${engine.aliveCount()}"
         val textWidth = hudTextPaint.measureText(playersText)
         canvas.drawText(playersText, width - textWidth - 24f, 56f, hudTextPaint)
+
+        val zonePercent = (engine.safeZoneProgress * 100f).toInt()
+        canvas.drawText("Zona: $zonePercent%", width / 2f, 56f, zoneHudPaint)
     }
 
     private fun drawCountdown(canvas: Canvas) {

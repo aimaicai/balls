@@ -45,6 +45,6 @@ object GameConfig {
     // instead of letting them wander a huge, empty-feeling map in the late game.
     const val SAFE_ZONE_INITIAL_RADIUS = 4300f
     const val SAFE_ZONE_MIN_RADIUS = 500f
-    const val SAFE_ZONE_SHRINK_DURATION_SECONDS = 90f
+    const val SAFE_ZONE_SHRINK_DURATION_SECONDS = 60f
     const val SAFE_ZONE_DAMAGE_RATE_PER_SECOND = 0.08f
 }

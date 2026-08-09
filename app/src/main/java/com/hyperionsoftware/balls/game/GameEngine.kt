@@ -1,6 +1,9 @@
 package com.hyperionsoftware.balls.game
 
+import kotlin.math.cos
 import kotlin.math.hypot
+import kotlin.math.sin
+import kotlin.math.sqrt
 import kotlin.random.Random
 
 interface GameListener {
@@ -30,12 +33,11 @@ class GameEngine(
 
     val safeZoneCenterX = GameConfig.WORLD_WIDTH / 2f
     val safeZoneCenterY = GameConfig.WORLD_HEIGHT / 2f
+    val safeZoneProgress: Float
+        get() = (matchElapsed / GameConfig.SAFE_ZONE_SHRINK_DURATION_SECONDS).coerceIn(0f, 1f)
     val safeZoneRadius: Float
-        get() {
-            val t = (matchElapsed / GameConfig.SAFE_ZONE_SHRINK_DURATION_SECONDS).coerceIn(0f, 1f)
-            return GameConfig.SAFE_ZONE_INITIAL_RADIUS -
-                t * (GameConfig.SAFE_ZONE_INITIAL_RADIUS - GameConfig.SAFE_ZONE_MIN_RADIUS)
-        }
+        get() = GameConfig.SAFE_ZONE_INITIAL_RADIUS -
+            safeZoneProgress * (GameConfig.SAFE_ZONE_INITIAL_RADIUS - GameConfig.SAFE_ZONE_MIN_RADIUS)
 
     private var matchElapsed = 0f
     private var nextPowerUpSpawnIn: Float = randomSpawnDelay()
@@ -68,8 +70,17 @@ class GameEngine(
 
         applySafeZoneDamage(dt)
         resolveCollisions()
+        cullStrandedPowerUps()
         updatePowerUps(dt)
         checkGameOver()
+    }
+
+    // Power-ups left behind outside the shrinking zone are unreachable without taking
+    // zone damage to fetch them; drop them so their slot can respawn somewhere the
+    // fight is actually happening.
+    private fun cullStrandedPowerUps() {
+        val radius = safeZoneRadius
+        powerUps.removeAll { hypot(it.position.x - safeZoneCenterX, it.position.y - safeZoneCenterY) > radius }
     }
 
     private fun applySafeZoneDamage(dt: Float) {
@@ -152,10 +163,15 @@ class GameEngine(
     }
 
     private fun spawnPowerUp() {
+        // Spawn inside the current safe zone (not the whole map) so power-ups stay where
+        // the action is as the zone shrinks, instead of being stranded in the danger area.
         val margin = GameConfig.POWERUP_RADIUS * 2f
+        val spawnRadius = (safeZoneRadius - margin).coerceAtLeast(margin)
+        val angle = Random.nextFloat() * 2f * Math.PI.toFloat()
+        val distance = sqrt(Random.nextFloat()) * spawnRadius
         val position = Vector2(
-            Random.nextFloat() * (GameConfig.WORLD_WIDTH - margin * 2f) + margin,
-            Random.nextFloat() * (GameConfig.WORLD_HEIGHT - margin * 2f) + margin
+            safeZoneCenterX + cos(angle) * distance,
+            safeZoneCenterY + sin(angle) * distance
         )
         powerUps.add(PowerUp(PowerUpType.entries.random(), position))
     }
