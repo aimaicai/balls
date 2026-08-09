@@ -39,4 +39,12 @@ object GameConfig {
     const val BOT_MAX_AGGRESSION_BONUS = 1.2f
 
     const val COUNTDOWN_SECONDS = 3f
+
+    // Shrinking safe zone: starts covering the whole map (so nobody takes damage at the
+    // start) and closes in on the arena center over the match, forcing survivors together
+    // instead of letting them wander a huge, empty-feeling map in the late game.
+    const val SAFE_ZONE_INITIAL_RADIUS = 4300f
+    const val SAFE_ZONE_MIN_RADIUS = 500f
+    const val SAFE_ZONE_SHRINK_DURATION_SECONDS = 90f
+    const val SAFE_ZONE_DAMAGE_RATE_PER_SECOND = 0.08f
 }

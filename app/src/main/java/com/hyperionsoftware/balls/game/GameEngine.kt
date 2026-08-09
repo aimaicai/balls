@@ -1,5 +1,6 @@
 package com.hyperionsoftware.balls.game
 
+import kotlin.math.hypot
 import kotlin.random.Random
 
 interface GameListener {
@@ -27,6 +28,16 @@ class GameEngine(
     val powerUps: MutableList<PowerUp> = mutableListOf()
     val initialBlobCount: Int = botCount + 1
 
+    val safeZoneCenterX = GameConfig.WORLD_WIDTH / 2f
+    val safeZoneCenterY = GameConfig.WORLD_HEIGHT / 2f
+    val safeZoneRadius: Float
+        get() {
+            val t = (matchElapsed / GameConfig.SAFE_ZONE_SHRINK_DURATION_SECONDS).coerceIn(0f, 1f)
+            return GameConfig.SAFE_ZONE_INITIAL_RADIUS -
+                t * (GameConfig.SAFE_ZONE_INITIAL_RADIUS - GameConfig.SAFE_ZONE_MIN_RADIUS)
+        }
+
+    private var matchElapsed = 0f
     private var nextPowerUpSpawnIn: Float = randomSpawnDelay()
     private var gameOver = false
     private var playerAbsorbCount = 0
@@ -48,15 +59,28 @@ class GameEngine(
 
     fun update(dt: Float) {
         if (gameOver) return
+        matchElapsed += dt
 
         for (blob in blobs) {
             val baseSpeed = if (blob is PlayerBlob) GameConfig.PLAYER_BASE_SPEED else GameConfig.BOT_BASE_SPEED
             blob.update(dt, this, baseSpeed)
         }
 
+        applySafeZoneDamage(dt)
         resolveCollisions()
         updatePowerUps(dt)
         checkGameOver()
+    }
+
+    private fun applySafeZoneDamage(dt: Float) {
+        val radius = safeZoneRadius
+        for (blob in blobs) {
+            if (!blob.alive) continue
+            val distance = hypot(blob.position.x - safeZoneCenterX, blob.position.y - safeZoneCenterY)
+            if (distance > radius) {
+                blob.applyZoneDamage(dt)
+            }
+        }
     }
 
     fun aliveCount(): Int = blobs.count { it.alive }

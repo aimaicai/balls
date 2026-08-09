@@ -1,6 +1,7 @@
 package com.hyperionsoftware.balls.game
 
 import kotlin.math.cos
+import kotlin.math.hypot
 import kotlin.math.sin
 import kotlin.random.Random
 
@@ -39,6 +40,13 @@ class BotBlob(
 
         if (threat != null) {
             return (position - threat.position).normalized()
+        }
+
+        // Getting hurt by the shrinking safe zone takes priority over chasing prey,
+        // but not over fleeing an immediate threat above.
+        val distanceFromZoneCenter = hypot(position.x - engine.safeZoneCenterX, position.y - engine.safeZoneCenterY)
+        if (distanceFromZoneCenter > engine.safeZoneRadius) {
+            return Vector2(engine.safeZoneCenterX - position.x, engine.safeZoneCenterY - position.y).normalized()
         }
 
         if (prey != null) {

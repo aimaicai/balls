@@ -67,6 +67,13 @@ abstract class Blob(
         other.alive = false
     }
 
+    fun applyZoneDamage(dt: Float) {
+        if (radius > baseRadius) {
+            val shrink = radius * GameConfig.SAFE_ZONE_DAMAGE_RATE_PER_SECOND * dt
+            radius = max(baseRadius, radius - shrink)
+        }
+    }
+
     fun applyPowerUp(type: PowerUpType) {
         when (type) {
             PowerUpType.SPEED -> speedBoostTimer = GameConfig.POWERUP_SPEED_DURATION

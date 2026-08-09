@@ -5,6 +5,7 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Path
+import android.graphics.Region
 import android.media.AudioManager
 import android.media.ToneGenerator
 import android.os.Build
@@ -85,6 +86,12 @@ class GameView @JvmOverloads constructor(
     private val rollPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
         strokeCap = Paint.Cap.ROUND
+    }
+    private val safeZoneFillColor = Color.argb(90, 200, 40, 40)
+    private val safeZonePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.parseColor("#EF5350")
+        style = Paint.Style.STROKE
+        strokeWidth = 6f
     }
     private val powerUpPaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val iconPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -299,6 +306,7 @@ class GameView @JvmOverloads constructor(
 
         drawFloor(canvas, offsetX, offsetY)
         drawWorldBorder(canvas, offsetX, offsetY)
+        drawSafeZone(canvas, offsetX, offsetY)
 
         for (powerUp in engine.powerUps) {
             drawPowerUp(canvas, powerUp, offsetX, offsetY)
@@ -347,6 +355,25 @@ class GameView @JvmOverloads constructor(
             GameConfig.WORLD_HEIGHT + offsetY,
             borderPaint
         )
+    }
+
+    private fun drawSafeZone(canvas: Canvas, offsetX: Float, offsetY: Float) {
+        val cx = engine.safeZoneCenterX + offsetX
+        val cy = engine.safeZoneCenterY + offsetY
+        val r = engine.safeZoneRadius
+
+        // Dim everything outside the shrinking safe circle so the danger area reads
+        // clearly, then stroke its edge. SurfaceView's canvas is a plain software
+        // bitmap canvas (not the accelerated View pipeline), so DIFFERENCE clipping
+        // is safe here.
+        canvas.save()
+        val path = Path().apply { addCircle(cx, cy, r, Path.Direction.CW) }
+        @Suppress("DEPRECATION")
+        canvas.clipPath(path, Region.Op.DIFFERENCE)
+        canvas.drawColor(safeZoneFillColor)
+        canvas.restore()
+
+        canvas.drawCircle(cx, cy, r, safeZonePaint)
     }
 
     private fun drawBlob(canvas: Canvas, blob: Blob, offsetX: Float, offsetY: Float) {
