@@ -37,10 +37,34 @@
         android:layout_marginTop="12dp"
         android:max="100"
         android:min="2"
-        app:layout_constraintBottom_toTopOf="@id/playButton"
+        app:layout_constraintBottom_toTopOf="@id/powerUpCountText"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@id/botsCountText" />
+
+    <TextView
+        android:id="@+id/powerUpCountText"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="24dp"
+        android:textColor="@color/hud_text"
+        android:textSize="18sp"
+        app:layout_constraintBottom_toTopOf="@id/powerUpSeekBar"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/botsSeekBar" />
+
+    <SeekBar
+        android:id="@+id/powerUpSeekBar"
+        android:layout_width="280dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:max="10"
+        android:min="1"
+        app:layout_constraintBottom_toTopOf="@id/playButton"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/powerUpCountText" />
 
     <Button
         android:id="@+id/playButton"
@@ -51,7 +75,7 @@
         android:textSize="18sp"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/botsSeekBar" />
+        app:layout_constraintTop_toBottomOf="@id/powerUpSeekBar" />
 
     <Button
         android:id="@+id/exitButton"

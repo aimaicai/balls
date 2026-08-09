@@ -5,12 +5,14 @@ import android.os.Bundle
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import com.hyperionsoftware.balls.databinding.ActivityGameBinding
+import com.hyperionsoftware.balls.game.GameConfig
 import com.hyperionsoftware.balls.ui.GameView
 
 class GameActivity : AppCompatActivity(), GameView.Callback {
 
     private lateinit var binding: ActivityGameBinding
     private var botCount = 6
+    private var powerUpFrequencyLevel = GameConfig.POWERUP_DEFAULT_FREQUENCY_LEVEL
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -18,12 +20,16 @@ class GameActivity : AppCompatActivity(), GameView.Callback {
         setContentView(binding.root)
 
         botCount = intent.getIntExtra(EXTRA_BOT_COUNT, 6)
+        powerUpFrequencyLevel = intent.getIntExtra(
+            EXTRA_POWERUP_FREQUENCY,
+            GameConfig.POWERUP_DEFAULT_FREQUENCY_LEVEL
+        )
 
         binding.joystickView.listener = binding.gameView
         binding.gameView.callback = this
         binding.pauseButton.setOnClickListener { showPauseDialog() }
 
-        binding.gameView.startGame(botCount)
+        binding.gameView.startGame(botCount, powerUpFrequencyLevel)
     }
 
     override fun onResume() {
@@ -42,7 +48,7 @@ class GameActivity : AppCompatActivity(), GameView.Callback {
             .setTitle(getString(R.string.pause_title))
             .setCancelable(false)
             .setPositiveButton(getString(R.string.pause_resume)) { _, _ -> binding.gameView.resumeGame() }
-            .setNeutralButton(getString(R.string.pause_restart)) { _, _ -> binding.gameView.restart(botCount) }
+            .setNeutralButton(getString(R.string.pause_restart)) { _, _ -> binding.gameView.restart(botCount, powerUpFrequencyLevel) }
             .setNegativeButton(getString(R.string.pause_menu)) { _, _ -> goToMenu() }
             .show()
     }
@@ -57,7 +63,7 @@ class GameActivity : AppCompatActivity(), GameView.Callback {
             .setTitle(title)
             .setMessage(getString(R.string.game_over_stats, finalRadius, playersRemaining, opponentsAbsorbed))
             .setCancelable(false)
-            .setPositiveButton(getString(R.string.game_over_restart)) { _, _ -> binding.gameView.restart(botCount) }
+            .setPositiveButton(getString(R.string.game_over_restart)) { _, _ -> binding.gameView.restart(botCount, powerUpFrequencyLevel) }
             .setNegativeButton(getString(R.string.game_over_menu)) { _, _ -> goToMenu() }
             .show()
     }
@@ -69,5 +75,6 @@ class GameActivity : AppCompatActivity(), GameView.Callback {
 
     companion object {
         const val EXTRA_BOT_COUNT = "extra_bot_count"
+        const val EXTRA_POWERUP_FREQUENCY = "extra_powerup_frequency"
     }
 }

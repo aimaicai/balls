@@ -16,7 +16,12 @@ object GameConfig {
     const val DEFLATE_GRACE_SECONDS = 5f
     const val DEFLATE_RATE_PER_SECOND = 0.03f
 
-    const val POWERUP_MAX_COUNT = 12
+    // Power-up density is user-selectable (1..10 from the main menu). At level N there can be
+    // up to POWERUP_MAX_COUNT_PER_LEVEL * N power-ups alive, spawning N times as often.
+    const val POWERUP_MAX_COUNT_PER_LEVEL = 10
+    const val POWERUP_MIN_FREQUENCY_LEVEL = 1
+    const val POWERUP_MAX_FREQUENCY_LEVEL = 10
+    const val POWERUP_DEFAULT_FREQUENCY_LEVEL = 5
     const val POWERUP_SPAWN_MIN_SECONDS = 3f
     const val POWERUP_SPAWN_MAX_SECONDS = 6f
     const val POWERUP_RADIUS = 16f

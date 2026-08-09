@@ -122,7 +122,7 @@ class GameView @JvmOverloads constructor(
         holder.addCallback(this)
     }
 
-    fun startGame(botCount: Int) {
+    fun startGame(botCount: Int, powerUpFrequencyLevel: Int) {
         if (started) return
         started = true
         floatingTexts.clear()
@@ -130,6 +130,7 @@ class GameView @JvmOverloads constructor(
         countdownRemaining = GameConfig.COUNTDOWN_SECONDS
         engine = GameEngine(
             botCount = botCount,
+            powerUpFrequencyLevel = powerUpFrequencyLevel,
             listener = object : GameListener {
                 override fun onVibrate() {
                     vibrateBounce()
@@ -187,11 +188,11 @@ class GameView @JvmOverloads constructor(
         }
     }
 
-    fun restart(botCount: Int) {
+    fun restart(botCount: Int, powerUpFrequencyLevel: Int) {
         loopThread?.running = false
         loopThread?.join(500)
         started = false
-        startGame(botCount)
+        startGame(botCount, powerUpFrequencyLevel)
     }
 
     override fun onDirectionChanged(x: Float, y: Float) {

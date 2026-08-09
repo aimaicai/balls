@@ -11,8 +11,12 @@ interface GameListener {
 
 class GameEngine(
     botCount: Int,
+    powerUpFrequencyLevel: Int,
     private val listener: GameListener
 ) {
+    private val powerUpMaxCount = GameConfig.POWERUP_MAX_COUNT_PER_LEVEL * powerUpFrequencyLevel
+    private val powerUpFrequency = powerUpFrequencyLevel.toFloat()
+
     val player = PlayerBlob(
         id = 0,
         position = Vector2(GameConfig.WORLD_WIDTH / 2f, GameConfig.WORLD_HEIGHT / 2f),
@@ -117,7 +121,7 @@ class GameEngine(
 
     private fun updatePowerUps(dt: Float) {
         nextPowerUpSpawnIn -= dt
-        if (nextPowerUpSpawnIn <= 0f && powerUps.size < GameConfig.POWERUP_MAX_COUNT) {
+        if (nextPowerUpSpawnIn <= 0f && powerUps.size < powerUpMaxCount) {
             spawnPowerUp()
             nextPowerUpSpawnIn = randomSpawnDelay()
         }
@@ -132,9 +136,11 @@ class GameEngine(
         powerUps.add(PowerUp(PowerUpType.entries.random(), position))
     }
 
-    private fun randomSpawnDelay(): Float =
-        GameConfig.POWERUP_SPAWN_MIN_SECONDS +
+    private fun randomSpawnDelay(): Float {
+        val base = GameConfig.POWERUP_SPAWN_MIN_SECONDS +
             Random.nextFloat() * (GameConfig.POWERUP_SPAWN_MAX_SECONDS - GameConfig.POWERUP_SPAWN_MIN_SECONDS)
+        return base / powerUpFrequency
+    }
 
     private fun checkGameOver() {
         if (!player.alive) {
