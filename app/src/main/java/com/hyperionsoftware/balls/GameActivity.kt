@@ -2,6 +2,7 @@ package com.hyperionsoftware.balls
 
 import android.content.Intent
 import android.os.Bundle
+import android.view.MotionEvent
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import com.hyperionsoftware.balls.databinding.ActivityGameBinding
@@ -28,6 +29,13 @@ class GameActivity : AppCompatActivity(), GameView.Callback {
         binding.joystickView.listener = binding.gameView
         binding.gameView.callback = this
         binding.pauseButton.setOnClickListener { showPauseDialog() }
+        binding.boostButton.setOnTouchListener { _, event ->
+            when (event.actionMasked) {
+                MotionEvent.ACTION_DOWN -> binding.gameView.setBoosting(true)
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> binding.gameView.setBoosting(false)
+            }
+            true
+        }
 
         binding.gameView.startGame(botCount, powerUpFrequencyLevel)
     }
@@ -39,10 +47,12 @@ class GameActivity : AppCompatActivity(), GameView.Callback {
 
     override fun onPause() {
         super.onPause()
+        binding.gameView.setBoosting(false)
         binding.gameView.pauseGame()
     }
 
     private fun showPauseDialog() {
+        binding.gameView.setBoosting(false)
         binding.gameView.pauseGame()
         AlertDialog.Builder(this)
             .setTitle(getString(R.string.pause_title))

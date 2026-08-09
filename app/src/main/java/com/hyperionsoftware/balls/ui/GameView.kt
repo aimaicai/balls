@@ -212,6 +212,12 @@ class GameView @JvmOverloads constructor(
         startGame(botCount, powerUpFrequencyLevel)
     }
 
+    fun setBoosting(active: Boolean) {
+        if (started) {
+            engine.player.isBoosting = active
+        }
+    }
+
     override fun onDirectionChanged(x: Float, y: Float) {
         lastDirection = Vector2(x, y)
         if (started) {

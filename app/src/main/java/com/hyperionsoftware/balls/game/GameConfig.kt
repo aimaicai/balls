@@ -48,7 +48,7 @@ object GameConfig {
     // instead of letting them wander a huge, empty-feeling map in the late game.
     const val SAFE_ZONE_INITIAL_RADIUS = 4300f
     const val SAFE_ZONE_MIN_RADIUS = 500f
-    const val SAFE_ZONE_SHRINK_DURATION_SECONDS = 60f
+    const val SAFE_ZONE_SHRINK_DURATION_SECONDS = 75f
 
     // Outside the zone, size decays with no floor at baseRadius anymore (unlike normal
     // deflation) and death follows below ZONE_DEATH_RADIUS: staying out is a real risk, not
@@ -56,4 +56,9 @@ object GameConfig {
     const val SAFE_ZONE_DAMAGE_RATE_PER_SECOND = 0.12f
     const val ZONE_DEATH_RADIUS = 1f
     const val ZONE_HEAL_RATE_PER_SECOND = 0.3f
+
+    // Voluntary boost: holding the boost button burns size for extra speed, stopping once
+    // size hits baseRadius (never below it - this is a deliberate trade, not a hazard).
+    const val BOOST_DRAIN_RATE_PER_SECOND = 0.25f
+    const val BOOST_SPEED_MULTIPLIER = 1.6f
 }

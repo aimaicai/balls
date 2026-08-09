@@ -6,6 +6,8 @@
     <string name="menu_powerup_label">Frequenza power-up: %1$d</string>
     <string name="menu_exit">Esci</string>
 
+    <string name="boost_button">Spinta velocità</string>
+
     <string name="pause_title">Pausa</string>
     <string name="pause_resume">Riprendi</string>
     <string name="pause_restart">Ricomincia</string>

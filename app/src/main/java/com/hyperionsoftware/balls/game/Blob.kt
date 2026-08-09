@@ -17,6 +17,10 @@ abstract class Blob(
     // blobs visibly spin slower than smaller ones, like real wheels.
     var rotation: Float = 0f
 
+    // Voluntary speed boost: while true (player holds the boost button), size drains
+    // toward baseRadius in exchange for extra speed. Bots never set this.
+    var isBoosting: Boolean = false
+
     private var timeSinceAbsorb: Float = 0f
     private var speedBoostTimer: Float = 0f
     private var invisibilityTimer: Float = 0f
@@ -52,6 +56,11 @@ abstract class Blob(
         if (timeSinceAbsorb > GameConfig.DEFLATE_GRACE_SECONDS && radius > baseRadius) {
             val shrink = radius * GameConfig.DEFLATE_RATE_PER_SECOND * dt
             radius = max(baseRadius, radius - shrink)
+        }
+
+        if (isBoosting && radius > baseRadius) {
+            val drain = radius * GameConfig.BOOST_DRAIN_RATE_PER_SECOND * dt
+            radius = max(baseRadius, radius - drain)
         }
     }
 
@@ -103,8 +112,11 @@ abstract class Blob(
     private fun effectiveSpeed(baseSpeed: Float): Float {
         // Bigger blobs move slower; smaller ones are more nimble.
         val sizeFactor = sqrt(baseRadius / radius)
-        val boost = if (isSpeedBoosted) GameConfig.POWERUP_SPEED_MULTIPLIER else 1f
-        return baseSpeed * sizeFactor * boost
+        val powerUpBoost = if (isSpeedBoosted) GameConfig.POWERUP_SPEED_MULTIPLIER else 1f
+        // Only rewarded while there is still size left to burn this frame - matches the
+        // drain above, which also stops once radius reaches baseRadius.
+        val dashBoost = if (isBoosting && radius > baseRadius) GameConfig.BOOST_SPEED_MULTIPLIER else 1f
+        return baseSpeed * sizeFactor * powerUpBoost * dashBoost
     }
 
     private fun areaOf(r: Float): Float = Math.PI.toFloat() * r * r
