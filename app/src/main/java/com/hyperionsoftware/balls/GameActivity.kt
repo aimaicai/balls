@@ -36,6 +36,9 @@ class GameActivity : AppCompatActivity(), GameView.Callback {
             }
             true
         }
+        // Matches the player's starting size (no excess to burn yet): boost looks
+        // disabled until GameView reports it's actually available.
+        binding.boostButton.alpha = BOOST_UNAVAILABLE_ALPHA
 
         binding.gameView.startGame(botCount, powerUpFrequencyLevel)
     }
@@ -78,6 +81,10 @@ class GameActivity : AppCompatActivity(), GameView.Callback {
             .show()
     }
 
+    override fun onBoostAvailabilityChanged(available: Boolean) {
+        binding.boostButton.alpha = if (available) 1f else BOOST_UNAVAILABLE_ALPHA
+    }
+
     private fun goToMenu() {
         startActivity(Intent(this, MainMenuActivity::class.java))
         finish()
@@ -86,5 +93,6 @@ class GameActivity : AppCompatActivity(), GameView.Callback {
     companion object {
         const val EXTRA_BOT_COUNT = "extra_bot_count"
         const val EXTRA_POWERUP_FREQUENCY = "extra_powerup_frequency"
+        private const val BOOST_UNAVAILABLE_ALPHA = 0.35f
     }
 }

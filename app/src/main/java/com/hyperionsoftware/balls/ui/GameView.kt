@@ -37,6 +37,7 @@ class GameView @JvmOverloads constructor(
 
     interface Callback {
         fun onGameOver(playerWon: Boolean, finalRadius: Int, playersRemaining: Int, opponentsAbsorbed: Int)
+        fun onBoostAvailabilityChanged(available: Boolean)
     }
 
     var callback: Callback? = null
@@ -45,6 +46,7 @@ class GameView @JvmOverloads constructor(
     private var loopThread: GameThread? = null
     private var surfaceReady = false
     private var started = false
+    private var lastBoostAvailable = false
 
     private var countdownActive = false
     private var countdownRemaining = 0f
@@ -141,6 +143,7 @@ class GameView @JvmOverloads constructor(
         floatingTexts.clear()
         countdownActive = true
         countdownRemaining = GameConfig.COUNTDOWN_SECONDS
+        lastBoostAvailable = false
         engine = GameEngine(
             botCount = botCount,
             powerUpFrequencyLevel = powerUpFrequencyLevel,
@@ -218,6 +221,15 @@ class GameView @JvmOverloads constructor(
         }
     }
 
+    private fun checkBoostAvailability() {
+        val player = engine.player
+        val available = player.alive && player.radius > player.baseRadius + 0.5f
+        if (available != lastBoostAvailable) {
+            lastBoostAvailable = available
+            post { callback?.onBoostAvailabilityChanged(available) }
+        }
+    }
+
     override fun onDirectionChanged(x: Float, y: Float) {
         lastDirection = Vector2(x, y)
         if (started) {
@@ -278,6 +290,7 @@ class GameView @JvmOverloads constructor(
                     if (countdownRemaining <= 0f) countdownActive = false
                 } else {
                     engine.update(dt)
+                    checkBoostAvailability()
                 }
                 drawFrame(dt)
 

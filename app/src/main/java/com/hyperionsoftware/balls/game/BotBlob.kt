@@ -38,15 +38,23 @@ class BotBlob(
             }
         }
 
-        if (threat != null) {
-            return (position - threat.position).normalized()
+        // An about-to-collide threat always overrides everything else - no amount of
+        // courage helps if something is already close enough to absorb you.
+        val nearThreat = threat
+        if (nearThreat != null && threatDistance < (radius + nearThreat.radius) * 1.5f) {
+            return (position - nearThreat.position).normalized()
         }
 
-        // Getting hurt by the shrinking safe zone takes priority over chasing prey,
-        // but not over fleeing an immediate threat above.
+        // Braver than a plain "flee any visible threat": staying outside the safe zone is
+        // a slower but more certain death than a distant predator, so getting back to
+        // safety wins over merely fleeing something that isn't already on top of them.
         val distanceFromZoneCenter = hypot(position.x - engine.safeZoneCenterX, position.y - engine.safeZoneCenterY)
         if (distanceFromZoneCenter > engine.safeZoneRadius) {
             return Vector2(engine.safeZoneCenterX - position.x, engine.safeZoneCenterY - position.y).normalized()
+        }
+
+        if (threat != null) {
+            return (position - threat.position).normalized()
         }
 
         if (prey != null) {
