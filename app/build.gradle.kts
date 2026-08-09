@@ -15,6 +15,17 @@ android {
         versionName = "1.0"
     }
 
+    signingConfigs {
+        // Fixed, non-secret keystore committed to the repo so CI/debug builds keep a stable
+        // signature across runs (needed to reinstall over a previous debug build on device).
+        getByName("debug") {
+            storeFile = file("ci-debug.keystore")
+            storePassword = "ciDebug123"
+            keyAlias = "ci-debug"
+            keyPassword = "ciDebug123"
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = true
