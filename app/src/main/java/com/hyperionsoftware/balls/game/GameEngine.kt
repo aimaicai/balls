@@ -174,8 +174,8 @@ class GameEngine(
     // around at the same spot isn't fun. Reset the stage instead: every survivor shrinks
     // back to its original small size (so the absorb ratio actually matters again instead
     // of everyone already being tied at MAX_RADIUS), spread evenly around the (now fixed)
-    // zone edge, with a single power-up dead center pulling everyone together instead of
-    // an aimless scrum.
+    // zone edge already facing the center, with a single power-up dead center pulling
+    // everyone together instead of an aimless scrum.
     private fun triggerFinalRound() {
         finalRoundTriggered = true
         val survivors = blobs.filter { it.alive }
@@ -188,11 +188,14 @@ class GameEngine(
                     safeZoneCenterX + cos(angle) * placementRadius,
                     safeZoneCenterY + sin(angle) * placementRadius
                 )
+                blob.facingDirection = Vector2(-cos(angle), -sin(angle))
                 blob.clampToWorld()
             }
         }
+        // Only this very first power-up is dead center - every one after it (see
+        // updatePowerUps) lands somewhere random in the zone instead.
         powerUps.clear()
-        spawnFinalRoundPowerUp()
+        powerUps.add(PowerUp(weightedPowerUpTypes.random(), Vector2(safeZoneCenterX, safeZoneCenterY)))
     }
 
     fun aliveCount(): Int = blobs.count { it.alive }
@@ -258,9 +261,10 @@ class GameEngine(
     private fun updatePowerUps(dt: Float) {
         if (finalRoundTriggered) {
             // Exactly one power-up on screen at a time once the zone stops shrinking - the
-            // next one appears the instant the current one is taken, not on a timer.
+            // next one appears the instant the current one is taken, not on a timer, and
+            // (unlike the very first one) placed randomly rather than dead center.
             if (powerUps.isEmpty()) {
-                spawnFinalRoundPowerUp()
+                spawnPowerUp()
             }
             return
         }
@@ -283,10 +287,6 @@ class GameEngine(
             safeZoneCenterY + sin(angle) * distance
         )
         powerUps.add(PowerUp(weightedPowerUpTypes.random(), position))
-    }
-
-    private fun spawnFinalRoundPowerUp() {
-        powerUps.add(PowerUp(weightedPowerUpTypes.random(), Vector2(safeZoneCenterX, safeZoneCenterY)))
     }
 
     private fun randomSpawnDelay(): Float {
