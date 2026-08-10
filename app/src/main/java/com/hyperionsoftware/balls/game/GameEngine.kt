@@ -63,6 +63,7 @@ class GameEngine(
     private var nextPowerUpSpawnIn: Float = randomSpawnDelay()
     private var gameOver = false
     private var playerAbsorbCount = 0
+    private var finalRoundTriggered = false
 
     init {
         val colors = intArrayOf(
@@ -82,6 +83,10 @@ class GameEngine(
     fun update(dt: Float) {
         if (gameOver) return
         matchElapsed += dt
+
+        if (!finalRoundTriggered && safeZoneProgress >= 1f) {
+            triggerFinalRound()
+        }
 
         for (blob in blobs) {
             val baseSpeed = if (blob is PlayerBlob) GameConfig.PLAYER_BASE_SPEED else GameConfig.BOT_BASE_SPEED
@@ -165,6 +170,28 @@ class GameEngine(
         }
     }
 
+    // Once the zone finishes shrinking, a pile of max-size blobs just shoving each other
+    // around at the same spot isn't fun. Reset the stage instead: spread every survivor
+    // evenly around the (now fixed) zone edge and put a single power-up dead center, so
+    // there's one contested prize pulling everyone together instead of an aimless scrum.
+    private fun triggerFinalRound() {
+        finalRoundTriggered = true
+        val survivors = blobs.filter { it.alive }
+        if (survivors.isNotEmpty()) {
+            val placementRadius = safeZoneRadius * 0.9f
+            survivors.forEachIndexed { index, blob ->
+                val angle = (index.toFloat() / survivors.size) * 2f * Math.PI.toFloat()
+                blob.position = Vector2(
+                    safeZoneCenterX + cos(angle) * placementRadius,
+                    safeZoneCenterY + sin(angle) * placementRadius
+                )
+                blob.clampToWorld()
+            }
+        }
+        powerUps.clear()
+        spawnFinalRoundPowerUp()
+    }
+
     fun aliveCount(): Int = blobs.count { it.alive }
 
     private fun resolveCollisions() {
@@ -226,6 +253,14 @@ class GameEngine(
     }
 
     private fun updatePowerUps(dt: Float) {
+        if (finalRoundTriggered) {
+            // Exactly one power-up on screen at a time once the zone stops shrinking - the
+            // next one appears the instant the current one is taken, not on a timer.
+            if (powerUps.isEmpty()) {
+                spawnFinalRoundPowerUp()
+            }
+            return
+        }
         nextPowerUpSpawnIn -= dt
         if (nextPowerUpSpawnIn <= 0f && powerUps.size < powerUpMaxCount) {
             spawnPowerUp()
@@ -245,6 +280,10 @@ class GameEngine(
             safeZoneCenterY + sin(angle) * distance
         )
         powerUps.add(PowerUp(weightedPowerUpTypes.random(), position))
+    }
+
+    private fun spawnFinalRoundPowerUp() {
+        powerUps.add(PowerUp(weightedPowerUpTypes.random(), Vector2(safeZoneCenterX, safeZoneCenterY)))
     }
 
     private fun randomSpawnDelay(): Float {
