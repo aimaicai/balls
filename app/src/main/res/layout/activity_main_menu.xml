@@ -66,16 +66,27 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@id/powerUpCountText" />
 
+    <com.google.android.material.switchmaterial.SwitchMaterial
+        android:id="@+id/musicSwitch"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="24dp"
+        android:text="@string/menu_music_label"
+        android:textColor="@color/hud_text"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/powerUpSeekBar" />
+
     <Button
         android:id="@+id/playButton"
         android:layout_width="240dp"
         android:layout_height="64dp"
-        android:layout_marginTop="32dp"
+        android:layout_marginTop="24dp"
         android:text="@string/menu_play"
         android:textSize="18sp"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/powerUpSeekBar" />
+        app:layout_constraintTop_toBottomOf="@id/musicSwitch" />
 
     <Button
         android:id="@+id/exitButton"

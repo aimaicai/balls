@@ -76,8 +76,25 @@ class GameEngine(
                 Random.nextFloat() * (GameConfig.WORLD_WIDTH - margin * 2f) + margin,
                 Random.nextFloat() * (GameConfig.WORLD_HEIGHT - margin * 2f) + margin
             )
-            blobs.add(BotBlob(id = index + 1, position = position, color = colors[index % colors.size]))
+            val bot = BotBlob(id = index + 1, position = position, color = colors[index % colors.size])
+            // A little starting-size variance breaks the "everyone's identical, nobody can
+            // absorb anybody" opening stalemate - the player still starts at a fair
+            // baseRadius, only bots get this.
+            bot.radius = GameConfig.BASE_RADIUS * (
+                GameConfig.BOT_START_SIZE_MIN_FACTOR +
+                    Random.nextFloat() * (GameConfig.BOT_START_SIZE_MAX_FACTOR - GameConfig.BOT_START_SIZE_MIN_FACTOR)
+                )
+            blobs.add(bot)
         }
+        spawnInitialPowerUps()
+    }
+
+    // Filling in a chunk of the cap immediately, instead of waiting for the usual
+    // one-at-a-time timer to trickle them in from zero, so there's actually something to
+    // find in the opening minute instead of an empty map.
+    private fun spawnInitialPowerUps() {
+        val initialCount = (powerUpMaxCount * GameConfig.POWERUP_INITIAL_FILL_FRACTION).toInt()
+        repeat(initialCount) { spawnPowerUp() }
     }
 
     fun update(dt: Float) {

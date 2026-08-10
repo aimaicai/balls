@@ -4,6 +4,8 @@ import android.content.Intent
 import android.os.Bundle
 import android.widget.SeekBar
 import androidx.appcompat.app.AppCompatActivity
+import com.hyperionsoftware.balls.audio.BackgroundMusicPlayer
+import com.hyperionsoftware.balls.audio.MusicSettings
 import com.hyperionsoftware.balls.databinding.ActivityMainMenuBinding
 import com.hyperionsoftware.balls.game.GameConfig
 
@@ -12,6 +14,7 @@ class MainMenuActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainMenuBinding
     private var botCount = DEFAULT_BOTS
     private var powerUpFrequencyLevel = GameConfig.POWERUP_DEFAULT_FREQUENCY_LEVEL
+    private val musicPlayer = BackgroundMusicPlayer()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -24,6 +27,12 @@ class MainMenuActivity : AppCompatActivity() {
         binding.powerUpSeekBar.progress = powerUpFrequencyLevel
         updateBotCountLabel()
         updatePowerUpLabel()
+
+        binding.musicSwitch.isChecked = MusicSettings.isEnabled(this)
+        binding.musicSwitch.setOnCheckedChangeListener { _, isEnabled ->
+            MusicSettings.setEnabled(this, isEnabled)
+            if (isEnabled) musicPlayer.start() else musicPlayer.stop()
+        }
 
         binding.botsSeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar, progress: Int, fromUser: Boolean) {
@@ -53,6 +62,16 @@ class MainMenuActivity : AppCompatActivity() {
             )
         }
         binding.exitButton.setOnClickListener { finish() }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        if (MusicSettings.isEnabled(this)) musicPlayer.start()
+    }
+
+    override fun onPause() {
+        super.onPause()
+        musicPlayer.stop()
     }
 
     private fun updateBotCountLabel() {

@@ -5,6 +5,8 @@ import android.os.Bundle
 import android.view.MotionEvent
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import com.hyperionsoftware.balls.audio.BackgroundMusicPlayer
+import com.hyperionsoftware.balls.audio.MusicSettings
 import com.hyperionsoftware.balls.databinding.ActivityGameBinding
 import com.hyperionsoftware.balls.game.GameConfig
 import com.hyperionsoftware.balls.ui.GameView
@@ -14,6 +16,7 @@ class GameActivity : AppCompatActivity(), GameView.Callback {
     private lateinit var binding: ActivityGameBinding
     private var botCount = DEFAULT_BOTS
     private var powerUpFrequencyLevel = GameConfig.POWERUP_DEFAULT_FREQUENCY_LEVEL
+    private val musicPlayer = BackgroundMusicPlayer()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -46,12 +49,14 @@ class GameActivity : AppCompatActivity(), GameView.Callback {
     override fun onResume() {
         super.onResume()
         binding.gameView.resumeGame()
+        if (MusicSettings.isEnabled(this)) musicPlayer.start()
     }
 
     override fun onPause() {
         super.onPause()
         binding.gameView.setBoosting(false)
         binding.gameView.pauseGame()
+        musicPlayer.stop()
     }
 
     private fun showPauseDialog() {

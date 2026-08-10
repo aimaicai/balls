@@ -39,6 +39,15 @@ object GameConfig {
     const val POWERUP_SPEED_WEIGHT = 1
     const val POWERUP_INVISIBILITY_WEIGHT = 1
 
+    // The opening minute used to feel slow: everyone started identical and the safe zone
+    // covered nearly the whole map, so power-ups were sparse and nobody could absorb
+    // anybody. A chunk of the match's power-up cap now spawns immediately instead of
+    // trickling in from zero, and bots start at a random size around baseRadius so some
+    // early pairs can already absorb each other on sight.
+    const val POWERUP_INITIAL_FILL_FRACTION = 0.6f
+    const val BOT_START_SIZE_MIN_FACTOR = 0.8f
+    const val BOT_START_SIZE_MAX_FACTOR = 1.25f
+
     // How far off-screen the danger/prey edge indicator can still "see".
     const val AWARENESS_RADIUS = 2500f
 
