@@ -88,6 +88,7 @@ object GameConfig {
 
     // Movement is direct (joystick magnitude drives speed immediately), but direction
     // changes are gentle: facingDirection turns toward wherever it's aimed at this
-    // bounded rate instead of snapping straight to the opposite heading.
-    const val TURN_RATE_RADIANS_PER_SECOND = 2.5f
+    // bounded rate instead of snapping straight to the opposite heading. Slow enough that
+    // a full reversal visibly takes about two seconds, not an instant flip.
+    const val TURN_RATE_RADIANS_PER_SECOND = 1.6f
 }

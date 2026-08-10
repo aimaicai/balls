@@ -171,9 +171,11 @@ class GameEngine(
     }
 
     // Once the zone finishes shrinking, a pile of max-size blobs just shoving each other
-    // around at the same spot isn't fun. Reset the stage instead: spread every survivor
-    // evenly around the (now fixed) zone edge and put a single power-up dead center, so
-    // there's one contested prize pulling everyone together instead of an aimless scrum.
+    // around at the same spot isn't fun. Reset the stage instead: every survivor shrinks
+    // back to its original small size (so the absorb ratio actually matters again instead
+    // of everyone already being tied at MAX_RADIUS), spread evenly around the (now fixed)
+    // zone edge, with a single power-up dead center pulling everyone together instead of
+    // an aimless scrum.
     private fun triggerFinalRound() {
         finalRoundTriggered = true
         val survivors = blobs.filter { it.alive }
@@ -181,6 +183,7 @@ class GameEngine(
             val placementRadius = safeZoneRadius * 0.9f
             survivors.forEachIndexed { index, blob ->
                 val angle = (index.toFloat() / survivors.size) * 2f * Math.PI.toFloat()
+                blob.radius = blob.baseRadius
                 blob.position = Vector2(
                     safeZoneCenterX + cos(angle) * placementRadius,
                     safeZoneCenterY + sin(angle) * placementRadius
