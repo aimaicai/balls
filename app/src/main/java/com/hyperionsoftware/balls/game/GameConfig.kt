@@ -86,14 +86,9 @@ object GameConfig {
     const val THRUST_CONE_MIN_ALIGNMENT = 0.3f
     const val THRUST_FORCE_PER_SECOND = 320f
 
-    // Experimental movement: the joystick only aims the balloon's facing direction, and
-    // turning is speed-limited so it can't snap to the opposite heading instantly. Actual
-    // motion only comes from thrusting (holding sprint for the player; bots thrust
-    // whenever they have somewhere to go), which builds velocity up to effectiveSpeed()'s
-    // target rather than teleporting straight to it. Letting go doesn't stop the balloon -
-    // drag bleeds the existing velocity off gradually, so momentum carries it forward for a
-    // while on its own.
+    // Movement is direct again (joystick magnitude drives speed immediately, no
+    // thrust-only/inertia gate) - that experiment made the game feel too hard. Direction
+    // changes are still gentle, though: facingDirection turns toward wherever it's aimed
+    // at this bounded rate instead of snapping straight to the opposite heading.
     const val TURN_RATE_RADIANS_PER_SECOND = 2.5f
-    const val MOVEMENT_ACCELERATION_PER_SECOND = 500f
-    const val MOVEMENT_DRAG_PER_SECOND = 0.9f
 }
