@@ -34,10 +34,20 @@ object GameConfig {
     // Size now drains away constantly just from existing (see the ambient leak below), so
     // GROWTH power-ups need to spawn noticeably more often than SPEED/INVISIBILITY or
     // survival becomes pure attrition instead of a fight. Weights, not percentages: GROWTH
-    // is picked 3 times out of every 5 spawns.
+    // is picked 3 times out of every 5 spawns. SHIELD is deliberately absent here - it only
+    // ever comes from a supply drop (see below), never the regular random pool.
     const val POWERUP_GROWTH_WEIGHT = 3
     const val POWERUP_SPEED_WEIGHT = 1
     const val POWERUP_INVISIBILITY_WEIGHT = 1
+    const val POWERUP_SHIELD_DURATION = 12f
+
+    // A rare, more valuable pickup that always grants SHIELD, spawned on its own separate
+    // timer (independent of the regular power-up cap/timer) and telegraphed with a pulsing
+    // beacon so it draws a scramble instead of blending in with regular power-ups. At most
+    // one is ever alive at a time.
+    const val SUPPLY_DROP_MIN_SECONDS = 25f
+    const val SUPPLY_DROP_MAX_SECONDS = 40f
+    const val SUPPLY_DROP_RADIUS_MULTIPLIER = 1.8f
 
     // The opening minute used to feel slow: everyone started identical and the safe zone
     // covered nearly the whole map, so power-ups were sparse and nobody could absorb
@@ -59,10 +69,16 @@ object GameConfig {
 
     // Shrinking safe zone: starts covering the whole map (so nobody takes damage at the
     // start) and closes in on the arena center over the match, forcing survivors together
-    // instead of letting them wander a huge, empty-feeling map in the late game.
+    // instead of letting them wander a huge, empty-feeling map in the late game. It shrinks
+    // in stages rather than one continuous slide: a hold phase (during which the next,
+    // smaller circle is telegraphed as a preview outline) followed by an active shrink
+    // phase, repeated SAFE_ZONE_STAGE_COUNT times. Same total duration as the old single
+    // continuous shrink (COUNT * (HOLD + SHRINK) = 75s) so existing pacing/tuning still holds.
     const val SAFE_ZONE_INITIAL_RADIUS = 4300f
     const val SAFE_ZONE_MIN_RADIUS = 500f
-    const val SAFE_ZONE_SHRINK_DURATION_SECONDS = 75f
+    const val SAFE_ZONE_STAGE_COUNT = 3
+    const val SAFE_ZONE_STAGE_HOLD_SECONDS = 7f
+    const val SAFE_ZONE_STAGE_SHRINK_SECONDS = 18f
 
     // Balloons always leak air, everywhere, all the time - there is no truly "safe" state
     // anymore, only "slower". Inside the zone the leak is a slow background attrition;

@@ -8,7 +8,7 @@ import kotlin.random.Random
 
 interface GameListener {
     fun onVibrate()
-    fun onAbsorb(x: Float, y: Float, sizeGain: Int, byPlayer: Boolean)
+    fun onAbsorb(x: Float, y: Float, sizeGain: Int, byPlayer: Boolean, absorberId: Int, victimId: Int)
     fun onPowerUpCollected(x: Float, y: Float, type: PowerUpType, byPlayer: Boolean)
     fun onZoneDeath(x: Float, y: Float, wasPlayer: Boolean)
     fun onDeflateDeath(x: Float, y: Float, wasPlayer: Boolean)
@@ -53,14 +53,51 @@ class GameEngine(
 
     val safeZoneCenterX = GameConfig.WORLD_WIDTH / 2f
     val safeZoneCenterY = GameConfig.WORLD_HEIGHT / 2f
-    val safeZoneProgress: Float
-        get() = (matchElapsed / GameConfig.SAFE_ZONE_SHRINK_DURATION_SECONDS).coerceIn(0f, 1f)
+
+    private val safeZoneStageDuration =
+        GameConfig.SAFE_ZONE_STAGE_HOLD_SECONDS + GameConfig.SAFE_ZONE_STAGE_SHRINK_SECONDS
+
+    // The zone shrinks in SAFE_ZONE_STAGE_COUNT stages rather than one continuous slide:
+    // each stage holds at its current radius for a bit (see isZoneHolding, used by the UI
+    // to preview the next circle) before actively shrinking to the next, smaller target.
+    val safeZoneStageIndex: Int
+        get() = (matchElapsed / safeZoneStageDuration).toInt().coerceIn(0, GameConfig.SAFE_ZONE_STAGE_COUNT - 1)
+
+    val isZoneHolding: Boolean
+        get() {
+            val timeIntoStage = matchElapsed - safeZoneStageIndex * safeZoneStageDuration
+            return timeIntoStage < GameConfig.SAFE_ZONE_STAGE_HOLD_SECONDS
+        }
+
     val safeZoneRadius: Float
-        get() = GameConfig.SAFE_ZONE_INITIAL_RADIUS -
-            safeZoneProgress * (GameConfig.SAFE_ZONE_INITIAL_RADIUS - GameConfig.SAFE_ZONE_MIN_RADIUS)
+        get() {
+            val stage = safeZoneStageIndex
+            val timeIntoStage = matchElapsed - stage * safeZoneStageDuration
+            val startRadius = stageRadius(stage)
+            if (timeIntoStage <= GameConfig.SAFE_ZONE_STAGE_HOLD_SECONDS) return startRadius
+            val endRadius = stageRadius(stage + 1)
+            val shrinkElapsed = timeIntoStage - GameConfig.SAFE_ZONE_STAGE_HOLD_SECONDS
+            val shrinkProgress = (shrinkElapsed / GameConfig.SAFE_ZONE_STAGE_SHRINK_SECONDS).coerceIn(0f, 1f)
+            return startRadius + (endRadius - startRadius) * shrinkProgress
+        }
+
+    // The upcoming target radius, telegraphed as a preview outline while isZoneHolding.
+    val nextSafeZoneRadius: Float
+        get() = stageRadius(safeZoneStageIndex + 1)
+
+    val safeZoneProgress: Float
+        get() = ((GameConfig.SAFE_ZONE_INITIAL_RADIUS - safeZoneRadius) /
+            (GameConfig.SAFE_ZONE_INITIAL_RADIUS - GameConfig.SAFE_ZONE_MIN_RADIUS)).coerceIn(0f, 1f)
+
+    private fun stageRadius(stage: Int): Float {
+        val fraction = stage.coerceIn(0, GameConfig.SAFE_ZONE_STAGE_COUNT).toFloat() / GameConfig.SAFE_ZONE_STAGE_COUNT
+        return GameConfig.SAFE_ZONE_INITIAL_RADIUS -
+            fraction * (GameConfig.SAFE_ZONE_INITIAL_RADIUS - GameConfig.SAFE_ZONE_MIN_RADIUS)
+    }
 
     private var matchElapsed = 0f
     private var nextPowerUpSpawnIn: Float = randomSpawnDelay()
+    private var nextSupplyDropIn: Float = randomSupplyDropDelay()
     private var gameOver = false
     private var playerAbsorbCount = 0
     private var finalRoundTriggered = false
@@ -116,6 +153,7 @@ class GameEngine(
         resolveCollisions()
         cullStrandedPowerUps()
         updatePowerUps(dt)
+        updateSupplyDrop(dt)
         checkGameOver()
     }
 
@@ -256,7 +294,7 @@ class GameEngine(
             val y = smaller.position.y
             bigger.absorb(smaller)
             if (bigger === player) playerAbsorbCount++
-            listener.onAbsorb(x, y, (bigger.radius - radiusBefore).toInt(), bigger === player)
+            listener.onAbsorb(x, y, (bigger.radius - radiusBefore).toInt(), bigger === player, bigger.id, smaller.id)
         } else {
             bounce(a, b, distance)
             if (a is PlayerBlob || b is PlayerBlob) {
@@ -311,6 +349,35 @@ class GameEngine(
             Random.nextFloat() * (GameConfig.POWERUP_SPAWN_MAX_SECONDS - GameConfig.POWERUP_SPAWN_MIN_SECONDS)
         return base / powerUpFrequency
     }
+
+    // A rare, separately-timed SHIELD drop, at most one alive at a time - the regular
+    // weighted pool never produces SHIELD, so this is the only way to get one. Skipped
+    // during the final round, which already has its own single-power-up rhythm.
+    private fun updateSupplyDrop(dt: Float) {
+        if (finalRoundTriggered) return
+        if (powerUps.any { it.type == PowerUpType.SHIELD }) return
+        nextSupplyDropIn -= dt
+        if (nextSupplyDropIn <= 0f) {
+            spawnSupplyDrop()
+            nextSupplyDropIn = randomSupplyDropDelay()
+        }
+    }
+
+    private fun spawnSupplyDrop() {
+        val margin = GameConfig.POWERUP_RADIUS * GameConfig.SUPPLY_DROP_RADIUS_MULTIPLIER * 2f
+        val spawnRadius = (safeZoneRadius - margin).coerceAtLeast(margin)
+        val angle = Random.nextFloat() * 2f * Math.PI.toFloat()
+        val distance = sqrt(Random.nextFloat()) * spawnRadius
+        val position = Vector2(
+            safeZoneCenterX + cos(angle) * distance,
+            safeZoneCenterY + sin(angle) * distance
+        )
+        powerUps.add(PowerUp(PowerUpType.SHIELD, position))
+    }
+
+    private fun randomSupplyDropDelay(): Float =
+        GameConfig.SUPPLY_DROP_MIN_SECONDS +
+            Random.nextFloat() * (GameConfig.SUPPLY_DROP_MAX_SECONDS - GameConfig.SUPPLY_DROP_MIN_SECONDS)
 
     private fun checkGameOver() {
         if (!player.alive) {

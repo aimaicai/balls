@@ -31,9 +31,11 @@ abstract class Blob(
 
     private var speedBoostTimer: Float = 0f
     private var invisibilityTimer: Float = 0f
+    private var shieldTimer: Float = 0f
 
     val isInvisible: Boolean get() = invisibilityTimer > 0f
     val isSpeedBoosted: Boolean get() = speedBoostTimer > 0f
+    val isShielded: Boolean get() = shieldTimer > 0f
 
     abstract fun decideDirection(engine: GameEngine, dt: Float): Vector2
 
@@ -62,6 +64,7 @@ abstract class Blob(
 
         if (speedBoostTimer > 0f) speedBoostTimer = max(0f, speedBoostTimer - dt)
         if (invisibilityTimer > 0f) invisibilityTimer = max(0f, invisibilityTimer - dt)
+        if (shieldTimer > 0f) shieldTimer = max(0f, shieldTimer - dt)
     }
 
     // Turns current toward desired at a bounded rate instead of snapping - the source of
@@ -90,9 +93,11 @@ abstract class Blob(
     }
 
     // Balloons always leak air, in or out of the safe zone - slower inside it, faster
-    // outside - so standing still is never truly safe, only "safer". Hitting
-    // ZONE_DEATH_RADIUS deflates the balloon for good. Returns true if this was lethal.
+    // outside - so standing still is never truly safe, only "safer" - except while
+    // shielded, which pauses this leak entirely. Hitting ZONE_DEATH_RADIUS deflates the
+    // balloon for good. Returns true if this was lethal.
     fun applyAmbientDeflation(inSafeZone: Boolean, dt: Float): Boolean {
+        if (isShielded) return false
         val rate = if (inSafeZone) {
             GameConfig.AMBIENT_DEFLATE_RATE_PER_SECOND
         } else {
@@ -124,6 +129,7 @@ abstract class Blob(
         when (type) {
             PowerUpType.SPEED -> speedBoostTimer = GameConfig.POWERUP_SPEED_DURATION
             PowerUpType.INVISIBILITY -> invisibilityTimer = GameConfig.POWERUP_INVISIBILITY_DURATION
+            PowerUpType.SHIELD -> shieldTimer = GameConfig.POWERUP_SHIELD_DURATION
             PowerUpType.GROWTH -> {
                 radius = min(GameConfig.MAX_RADIUS, radius * GameConfig.POWERUP_GROWTH_MULTIPLIER)
             }

@@ -3,6 +3,7 @@ package com.hyperionsoftware.balls.ui
 import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.DashPathEffect
 import android.graphics.Matrix
 import android.graphics.Paint
 import android.graphics.Path
@@ -65,6 +66,13 @@ class GameView @JvmOverloads constructor(
 
     private val floatingTexts = mutableListOf<FloatingText>()
 
+    private class FeedEntry(val text: String, var ttl: Float, val maxTtl: Float = ttl)
+
+    // A small elimination feed (like a battle-royale kill feed) reporting every absorb,
+    // not just ones involving the player - so bot-vs-bot fights read as a living arena
+    // instead of only mattering when they happen on screen.
+    private val feedEntries = mutableListOf<FeedEntry>()
+
     private val vibrator: Vibrator by lazy {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             val manager = context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager
@@ -110,6 +118,28 @@ class GameView @JvmOverloads constructor(
         style = Paint.Style.STROKE
         strokeWidth = 6f
     }
+    // Telegraphs the next, smaller circle during a zone hold phase, so there's time to
+    // plan a rotation instead of the shrink just starting with no warning.
+    private val nextZonePreviewPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.parseColor("#FFD54F")
+        style = Paint.Style.STROKE
+        strokeWidth = 4f
+        pathEffect = DashPathEffect(floatArrayOf(20f, 14f), 0f)
+    }
+    private val shieldAuraPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.parseColor("#4FC3F7")
+        style = Paint.Style.STROKE
+        strokeWidth = 5f
+    }
+    private val supplyDropBeaconPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.parseColor("#4FC3F7")
+        style = Paint.Style.STROKE
+        strokeWidth = 4f
+    }
+    private val feedTextPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.WHITE
+        textSize = 28f
+    }
     private val powerUpPaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val iconPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = Color.WHITE
@@ -147,6 +177,7 @@ class GameView @JvmOverloads constructor(
     }
 
     private var lastDirection = Vector2(0f, 0f)
+    private var beaconPhase = 0f
 
     init {
         holder.addCallback(this)
@@ -167,13 +198,21 @@ class GameView @JvmOverloads constructor(
                     vibrateBounce()
                 }
 
-                override fun onAbsorb(x: Float, y: Float, sizeGain: Int, byPlayer: Boolean) {
+                override fun onAbsorb(
+                    x: Float,
+                    y: Float,
+                    sizeGain: Int,
+                    byPlayer: Boolean,
+                    absorberId: Int,
+                    victimId: Int
+                ) {
                     val color = if (byPlayer) Color.parseColor("#8BC34A") else Color.WHITE
                     floatingTexts.add(FloatingText(x, y, "+$sizeGain", color, 1.2f))
                     if (byPlayer) {
                         vibrateAbsorb()
                         toneGenerator.startTone(ToneGenerator.TONE_PROP_ACK, 150)
                     }
+                    addFeedEntry("${blobLabel(absorberId)} ha inglobato ${blobLabel(victimId)}")
                 }
 
                 override fun onPowerUpCollected(x: Float, y: Float, type: PowerUpType, byPlayer: Boolean) {
@@ -181,6 +220,7 @@ class GameView @JvmOverloads constructor(
                         PowerUpType.SPEED -> "Velocità!"
                         PowerUpType.GROWTH -> "Ingrandimento!"
                         PowerUpType.INVISIBILITY -> "Invisibilità!"
+                        PowerUpType.SHIELD -> "Scudo!"
                     }
                     floatingTexts.add(FloatingText(x, y, label, Color.parseColor("#FFD54F"), 1.4f))
                     if (byPlayer) {
@@ -287,6 +327,13 @@ class GameView @JvmOverloads constructor(
         track.write(buffer, 0, buffer.size)
         track.setLoopPoints(0, frameCount, -1)
         return track
+    }
+
+    private fun blobLabel(id: Int): String = if (id == 0) "Tu" else "Bot $id"
+
+    private fun addFeedEntry(text: String) {
+        feedEntries.add(FeedEntry(text, 3.5f))
+        if (feedEntries.size > 5) feedEntries.removeAt(0)
     }
 
     private fun checkBoostAvailability() {
@@ -402,6 +449,7 @@ class GameView @JvmOverloads constructor(
 
     private fun render(canvas: Canvas, dt: Float) {
         canvas.drawColor(Color.parseColor("#0F1620"))
+        beaconPhase += dt
 
         val player = engine.player
         val camX = cameraCoord(player.position.x, width, GameConfig.WORLD_WIDTH)
@@ -424,6 +472,7 @@ class GameView @JvmOverloads constructor(
         drawDangerIndicator(canvas, offsetX, offsetY)
         drawFloatingTexts(canvas, offsetX, offsetY, dt)
         drawHud(canvas)
+        drawFeed(canvas, dt)
         drawCountdown(canvas)
     }
 
@@ -479,6 +528,12 @@ class GameView @JvmOverloads constructor(
         canvas.restore()
 
         canvas.drawCircle(cx, cy, r, safeZonePaint)
+
+        // While holding, telegraph where the zone is about to shrink to next, so there's
+        // time to plan a rotation instead of the shrink starting with no warning.
+        if (engine.isZoneHolding) {
+            canvas.drawCircle(cx, cy, engine.nextSafeZoneRadius, nextZonePreviewPaint)
+        }
     }
 
     private fun drawBlob(canvas: Canvas, blob: Blob, offsetX: Float, offsetY: Float) {
@@ -488,9 +543,19 @@ class GameView @JvmOverloads constructor(
 
         drawExhaust(canvas, blob, cx, cy, alpha)
         drawBalloonBody(canvas, blob, cx, cy, alpha)
+        drawShieldAura(canvas, blob, cx, cy, alpha)
         drawSpeedBadge(canvas, blob, cx, cy, alpha)
         drawKnot(canvas, blob, cx, cy, alpha)
         drawString(canvas, blob, cx, cy, alpha)
+    }
+
+    private fun drawShieldAura(canvas: Canvas, blob: Blob, cx: Float, cy: Float, alpha: Int) {
+        // A gently pulsing ring around a shielded balloon - distinct from the speed badge,
+        // signals the ambient leak is paused rather than an active power-up timer running.
+        if (!blob.isShielded) return
+        val pulse = 0.6f + 0.4f * sin(blob.exhaustPhase * 3f)
+        shieldAuraPaint.alpha = (alpha * 0.5f * pulse).toInt().coerceIn(0, 255)
+        canvas.drawCircle(cx, cy, blob.radius * 1.18f, shieldAuraPaint)
     }
 
     private fun drawBalloonBody(canvas: Canvas, blob: Blob, cx: Float, cy: Float, alpha: Int) {
@@ -639,11 +704,24 @@ class GameView @JvmOverloads constructor(
             PowerUpType.SPEED -> Color.parseColor("#FFD54F")
             PowerUpType.GROWTH -> Color.parseColor("#81C784")
             PowerUpType.INVISIBILITY -> Color.parseColor("#B39DDB")
+            PowerUpType.SHIELD -> Color.parseColor("#4FC3F7")
         }
         val cx = powerUp.position.x + offsetX
         val cy = powerUp.position.y + offsetY
+        if (powerUp.type == PowerUpType.SHIELD) {
+            drawSupplyDropBeacon(canvas, cx, cy)
+        }
         canvas.drawCircle(cx, cy, powerUp.radius, powerUpPaint)
         drawPowerUpIcon(canvas, powerUp, cx, cy)
+    }
+
+    // A rare supply drop (always SHIELD) is telegraphed with pulsing outward rings so it
+    // draws a scramble instead of blending in with the regular power-ups.
+    private fun drawSupplyDropBeacon(canvas: Canvas, cx: Float, cy: Float) {
+        val cyclePhase = (beaconPhase % 1.2f) / 1.2f
+        val ringRadius = GameConfig.POWERUP_RADIUS * (1.6f + cyclePhase * 3f)
+        supplyDropBeaconPaint.alpha = ((1f - cyclePhase) * 180).toInt().coerceIn(0, 255)
+        canvas.drawCircle(cx, cy, ringRadius, supplyDropBeaconPaint)
     }
 
     private fun drawPowerUpIcon(canvas: Canvas, powerUp: PowerUp, cx: Float, cy: Float) {
@@ -666,6 +744,20 @@ class GameView @JvmOverloads constructor(
                 canvas.drawCircle(cx, cy, 7f, iconPaint)
                 iconPaint.style = Paint.Style.FILL
                 canvas.drawLine(cx - 8f, cy - 8f, cx + 8f, cy + 8f, iconPaint)
+            }
+            PowerUpType.SHIELD -> {
+                iconPaint.style = Paint.Style.STROKE
+                val path = Path().apply {
+                    moveTo(cx, cy - 8f)
+                    lineTo(cx + 7f, cy - 4f)
+                    lineTo(cx + 7f, cy + 4f)
+                    lineTo(cx, cy + 9f)
+                    lineTo(cx - 7f, cy + 4f)
+                    lineTo(cx - 7f, cy - 4f)
+                    close()
+                }
+                canvas.drawPath(path, iconPaint)
+                iconPaint.style = Paint.Style.FILL
             }
         }
     }
@@ -736,6 +828,22 @@ class GameView @JvmOverloads constructor(
             floatingTextPaint.color = text.color
             floatingTextPaint.alpha = (255 * (text.ttl / text.maxTtl)).toInt().coerceIn(0, 255)
             canvas.drawText(text.text, text.x + offsetX, text.y + offsetY, floatingTextPaint)
+        }
+    }
+
+    private fun drawFeed(canvas: Canvas, dt: Float) {
+        val iterator = feedEntries.iterator()
+        var row = 0
+        while (iterator.hasNext()) {
+            val entry = iterator.next()
+            entry.ttl -= dt
+            if (entry.ttl <= 0f) {
+                iterator.remove()
+                continue
+            }
+            feedTextPaint.alpha = (255 * (entry.ttl / entry.maxTtl)).toInt().coerceIn(0, 255)
+            canvas.drawText(entry.text, 24f, 100f + row * 34f, feedTextPaint)
+            row++
         }
     }
 
