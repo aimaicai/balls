@@ -13,9 +13,6 @@ object GameConfig {
     const val PLAYER_BASE_SPEED = 280f
     const val BOT_BASE_SPEED = 240f
 
-    const val DEFLATE_GRACE_SECONDS = 5f
-    const val DEFLATE_RATE_PER_SECOND = 0.03f
-
     // Power-up density is user-selectable (1..30 from the main menu). At level N there can be
     // up to POWERUP_MAX_COUNT_PER_LEVEL * N power-ups alive at full safe-zone area, spawning
     // N times as often. The actual cap scales down with the zone's area as it shrinks (see
@@ -50,21 +47,28 @@ object GameConfig {
     const val SAFE_ZONE_MIN_RADIUS = 500f
     const val SAFE_ZONE_SHRINK_DURATION_SECONDS = 75f
 
-    // Outside the zone, size decays with no floor at baseRadius anymore (unlike normal
-    // deflation) and death follows below ZONE_DEATH_RADIUS: staying out is a real risk, not
-    // just a nuisance. Getting back inside heals lost size back up to baseRadius.
-    const val SAFE_ZONE_DAMAGE_RATE_PER_SECOND = 0.12f
+    // Balloons always leak air, everywhere, all the time - there is no truly "safe" state
+    // anymore, only "slower". Inside the zone the leak is a slow background attrition;
+    // outside it it's much faster. Either way, dropping below ZONE_DEATH_RADIUS deflates
+    // the balloon for good and ends the match for it.
+    const val AMBIENT_DEFLATE_RATE_PER_SECOND = 0.015f
+    const val OUT_OF_ZONE_DEFLATE_RATE_PER_SECOND = 0.12f
     const val ZONE_DEATH_RADIUS = 1f
-    const val ZONE_HEAL_RATE_PER_SECOND = 0.3f
 
-    // Voluntary boost/sprint: works everywhere, any time, trading size for extra speed with
-    // no floor - burning all the way down to ZONE_DEATH_RADIUS kills the balloon.
+    // Voluntary boost/sprint: works everywhere, any time, stacking on top of the ambient
+    // leak above and trading size for extra speed with no floor - burning all the way down
+    // to ZONE_DEATH_RADIUS kills the balloon.
     const val BOOST_DRAIN_RATE_PER_SECOND = 0.25f
     const val BOOST_SPEED_MULTIPLIER = 1.6f
 
-    // Bots only risk sprinting when they have at least this many times baseRadius in size,
-    // so they don't suicide themselves fleeing a threat.
-    const val BOT_SAFE_BOOST_SIZE_MULTIPLIER = 1.5f
+    // Bots only need a real margin above death to sprint - not tied to baseRadius, since
+    // drifting below it is now the normal state, not an emergency, thanks to the ambient
+    // leak above.
+    const val BOT_MIN_SPRINT_RADIUS = 12f
+
+    // Below this fraction of baseRadius, a bot treats itself as running low and actively
+    // hunts the nearest growth power-up to refill, instead of whatever's merely closest.
+    const val BOT_LOW_SIZE_FRACTION = 0.7f
 
     // Balloons are pushed by their own exhaust: a moving balloon blows a cone of air out its
     // back that shoves any other balloon caught in it further away. Range scales with the

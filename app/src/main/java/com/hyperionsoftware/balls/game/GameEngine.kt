@@ -11,7 +11,7 @@ interface GameListener {
     fun onAbsorb(x: Float, y: Float, sizeGain: Int, byPlayer: Boolean)
     fun onPowerUpCollected(x: Float, y: Float, type: PowerUpType, byPlayer: Boolean)
     fun onZoneDeath(x: Float, y: Float, wasPlayer: Boolean)
-    fun onBoostDeath(x: Float, y: Float, wasPlayer: Boolean)
+    fun onDeflateDeath(x: Float, y: Float, wasPlayer: Boolean)
     fun onGameOver(playerWon: Boolean, finalRadius: Float, playersRemaining: Int, opponentsAbsorbed: Int)
 }
 
@@ -82,7 +82,7 @@ class GameEngine(
 
         applyThrustEffects(dt)
         applyBoostEffects(dt)
-        updateSafeZoneEffects(dt)
+        applyAmbientDeflation(dt)
         resolveCollisions()
         cullStrandedPowerUps()
         updatePowerUps(dt)
@@ -116,13 +116,14 @@ class GameEngine(
         }
     }
 
-    // Sprinting drains size everywhere, in or out of the zone, and can kill on its own.
+    // Sprinting drains size everywhere, in or out of the zone, stacking on top of the
+    // ambient leak below, and can kill on its own.
     private fun applyBoostEffects(dt: Float) {
         for (blob in blobs) {
             if (!blob.alive || !blob.isBoosting) continue
             val died = blob.applyBoostDrain(dt)
             if (died) {
-                listener.onBoostDeath(blob.position.x, blob.position.y, blob === player)
+                listener.onDeflateDeath(blob.position.x, blob.position.y, blob === player)
             }
         }
     }
@@ -135,18 +136,23 @@ class GameEngine(
         powerUps.removeAll { hypot(it.position.x - safeZoneCenterX, it.position.y - safeZoneCenterY) > radius }
     }
 
-    private fun updateSafeZoneEffects(dt: Float) {
+    // Balloons always leak air, everywhere - slower inside the safe zone, faster outside
+    // it. A death caught outside the zone is reported distinctly (onZoneDeath) from one
+    // that came from simply running dry over time while inside it (onDeflateDeath), even
+    // though both end the match for that blob the same way.
+    private fun applyAmbientDeflation(dt: Float) {
         val radius = safeZoneRadius
         for (blob in blobs) {
             if (!blob.alive) continue
             val distance = hypot(blob.position.x - safeZoneCenterX, blob.position.y - safeZoneCenterY)
-            if (distance > radius) {
-                val died = blob.applyZoneDamage(dt)
-                if (died) {
+            val inZone = distance <= radius
+            val died = blob.applyAmbientDeflation(inZone, dt)
+            if (died) {
+                if (inZone) {
+                    listener.onDeflateDeath(blob.position.x, blob.position.y, blob === player)
+                } else {
                     listener.onZoneDeath(blob.position.x, blob.position.y, blob === player)
                 }
-            } else {
-                blob.healInZone(dt)
             }
         }
     }

@@ -38,8 +38,10 @@ class BotBlob(
             }
         }
 
-        // Sprinting can now kill if overused, so only risk it with enough size to spare.
-        val safeToSprint = radius > baseRadius * GameConfig.BOT_SAFE_BOOST_SIZE_MULTIPLIER
+        // Ambient deflation never stops, in or out of the zone, so "safe to sprint" is now
+        // about having a real margin above death to spend - not about being above
+        // baseRadius, since drifting below it is the normal state, not an emergency.
+        val safeToSprint = radius > GameConfig.BOT_MIN_SPRINT_RADIUS
 
         // An about-to-collide threat always overrides everything else - no amount of
         // courage helps if something is already close enough to absorb you.
@@ -58,21 +60,38 @@ class BotBlob(
             return Vector2(engine.safeZoneCenterX - position.x, engine.safeZoneCenterY - position.y).normalized()
         }
 
-        isBoosting = false
+        // Constant deflation means running low is a real survival problem, not just a
+        // setback: chase down the nearest growth power-up instead of whatever's merely
+        // closest, sprinting there since every second spent low is size lost for good.
+        if (radius < baseRadius * GameConfig.BOT_LOW_SIZE_FRACTION) {
+            val refill = engine.powerUps
+                .filter { it.type == PowerUpType.GROWTH }
+                .minByOrNull { position.distanceTo(it.position) }
+            if (refill != null && position.distanceTo(refill.position) < visionRadius) {
+                isBoosting = safeToSprint
+                return (refill.position - position).normalized()
+            }
+        }
 
         if (threat != null) {
+            isBoosting = safeToSprint
             return (position - threat.position).normalized()
         }
 
         if (prey != null) {
+            // Absorbing prey is the other way to fight the constant leak, so it's worth
+            // sprinting to actually catch them instead of just drifting along behind.
+            isBoosting = safeToSprint
             return (prey.position - position).normalized()
         }
 
         val nearestPowerUp = engine.powerUps.minByOrNull { position.distanceTo(it.position) }
         if (nearestPowerUp != null && position.distanceTo(nearestPowerUp.position) < visionRadius) {
+            isBoosting = safeToSprint
             return (nearestPowerUp.position - position).normalized()
         }
 
+        isBoosting = false
         wanderTimer -= dt
         if (wanderTimer <= 0f) {
             wanderDirection = randomDirection()

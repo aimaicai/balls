@@ -13,8 +13,8 @@ abstract class Blob(
     var radius: Float = baseRadius
     var alive: Boolean = true
 
-    // Voluntary speed boost: while true (player holds the boost button), size drains
-    // toward baseRadius in exchange for extra speed. Bots never set this.
+    // Voluntary speed boost: while true, size drains (with no floor, on top of the
+    // ambient leak) in exchange for extra speed. Both the player and bots can set this.
     var isBoosting: Boolean = false
 
     // Balloons drift, so they need a "front" independent of any single frame's input: it
@@ -24,7 +24,6 @@ abstract class Blob(
     var isThrusting: Boolean = false
     var exhaustPhase: Float = 0f
 
-    private var timeSinceAbsorb: Float = 0f
     private var speedBoostTimer: Float = 0f
     private var invisibilityTimer: Float = 0f
 
@@ -56,12 +55,6 @@ abstract class Blob(
 
         if (speedBoostTimer > 0f) speedBoostTimer = max(0f, speedBoostTimer - dt)
         if (invisibilityTimer > 0f) invisibilityTimer = max(0f, invisibilityTimer - dt)
-
-        timeSinceAbsorb += dt
-        if (timeSinceAbsorb > GameConfig.DEFLATE_GRACE_SECONDS && radius > baseRadius) {
-            val shrink = radius * GameConfig.DEFLATE_RATE_PER_SECOND * dt
-            radius = max(baseRadius, radius - shrink)
-        }
     }
 
     fun clampToWorld() {
@@ -72,30 +65,25 @@ abstract class Blob(
     fun absorb(other: Blob) {
         val newArea = areaOf(radius) + areaOf(other.radius)
         radius = min(GameConfig.MAX_RADIUS, sqrt(newArea / Math.PI.toFloat()))
-        timeSinceAbsorb = 0f
         other.alive = false
     }
 
-    // Outside the safe zone, size decays with no floor at baseRadius (unlike normal
-    // deflation): staying out too long can shrink a blob below its starting size and,
-    // past ZONE_DEATH_RADIUS, kill it outright. Returns true if this damage was lethal.
-    fun applyZoneDamage(dt: Float): Boolean {
-        val shrink = radius * GameConfig.SAFE_ZONE_DAMAGE_RATE_PER_SECOND * dt
+    // Balloons always leak air, in or out of the safe zone - slower inside it, faster
+    // outside - so standing still is never truly safe, only "safer". Hitting
+    // ZONE_DEATH_RADIUS deflates the balloon for good. Returns true if this was lethal.
+    fun applyAmbientDeflation(inSafeZone: Boolean, dt: Float): Boolean {
+        val rate = if (inSafeZone) {
+            GameConfig.AMBIENT_DEFLATE_RATE_PER_SECOND
+        } else {
+            GameConfig.OUT_OF_ZONE_DEFLATE_RATE_PER_SECOND
+        }
+        val shrink = radius * rate * dt
         radius -= shrink
         if (radius < GameConfig.ZONE_DEATH_RADIUS) {
             alive = false
             return true
         }
         return false
-    }
-
-    // Getting back inside the safe zone heals lost size back up to baseRadius (but never
-    // beyond it - regaining size above that still requires absorbing or a power-up).
-    fun healInZone(dt: Float) {
-        if (radius < baseRadius) {
-            val growth = baseRadius * GameConfig.ZONE_HEAL_RATE_PER_SECOND * dt
-            radius = min(baseRadius, radius + growth)
-        }
     }
 
     // Sprinting works everywhere, any time, with no floor at baseRadius: it always drains
@@ -117,7 +105,6 @@ abstract class Blob(
             PowerUpType.INVISIBILITY -> invisibilityTimer = GameConfig.POWERUP_INVISIBILITY_DURATION
             PowerUpType.GROWTH -> {
                 radius = min(GameConfig.MAX_RADIUS, radius * GameConfig.POWERUP_GROWTH_MULTIPLIER)
-                timeSinceAbsorb = 0f
             }
         }
     }

@@ -193,7 +193,7 @@ class GameView @JvmOverloads constructor(
                     floatingTexts.add(FloatingText(x, y, "Eliminato!", Color.parseColor("#B71C1C"), 1.3f))
                 }
 
-                override fun onBoostDeath(x: Float, y: Float, wasPlayer: Boolean) {
+                override fun onDeflateDeath(x: Float, y: Float, wasPlayer: Boolean) {
                     floatingTexts.add(FloatingText(x, y, "Sgonfiato!", Color.parseColor("#FF6F00"), 1.3f))
                 }
 
