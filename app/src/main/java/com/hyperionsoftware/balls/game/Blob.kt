@@ -1,7 +1,11 @@
 package com.hyperionsoftware.balls.game
 
+import kotlin.math.atan2
+import kotlin.math.cos
+import kotlin.math.exp
 import kotlin.math.max
 import kotlin.math.min
+import kotlin.math.sin
 import kotlin.math.sqrt
 
 abstract class Blob(
@@ -15,12 +19,16 @@ abstract class Blob(
 
     // Voluntary speed boost: while true, size drains (with no floor, on top of the
     // ambient leak) in exchange for extra speed. Both the player and bots can set this.
+    // For the player this is also the sole thrust input (see wantsToAccelerate below);
+    // bots keep it strictly for the emergency dash on top of their normal movement.
     var isBoosting: Boolean = false
 
-    // Balloons drift, so they need a "front" independent of any single frame's input: it
-    // only updates while actually thrusting and holds steady otherwise. The exhaust (visual
-    // and the push it applies to others) comes out the opposite side.
+    // The joystick/AI only ever aims this - it turns gradually (see steerTowards), never
+    // snapping straight to the opposite heading. Actual motion is carried by velocity,
+    // which thrusting builds up and drag bleeds off; the exhaust (visual and the push it
+    // applies to others) comes out the opposite side of facingDirection.
     var facingDirection: Vector2 = Vector2(0f, -1f)
+    var velocity: Vector2 = Vector2(0f, 0f)
     var isThrusting: Boolean = false
     var exhaustPhase: Float = 0f
 
@@ -32,29 +40,56 @@ abstract class Blob(
 
     abstract fun decideDirection(engine: GameEngine, dt: Float): Vector2
 
+    // Bots thrust whenever they have somewhere to go, same as always. The player only
+    // thrusts while actually holding sprint - the joystick alone just aims, it never moves
+    // them - so this is overridden in PlayerBlob.
+    protected open fun wantsToAccelerate(hasHeading: Boolean): Boolean = hasHeading
+
     open fun update(dt: Float, engine: GameEngine, baseSpeed: Float) {
         if (!alive) return
 
-        // The raw vector's length doubles as desired-speed fraction: bots always return
-        // unit-length vectors (full speed), while the player's joystick vector length
-        // reflects how far the stick is pushed, giving proportional analog control.
         val rawDirection = decideDirection(engine, dt)
-        val magnitude = rawDirection.length().coerceAtMost(1f)
-        val heading = rawDirection.normalized()
-
-        isThrusting = magnitude > 0.05f
-        if (isThrusting) {
-            facingDirection = heading
+        val hasHeading = rawDirection.length() > 0.05f
+        if (hasHeading) {
+            val desiredHeading = rawDirection.normalized()
+            facingDirection = steerTowards(facingDirection, desiredHeading, GameConfig.TURN_RATE_RADIANS_PER_SECOND * dt)
         }
+
+        isThrusting = wantsToAccelerate(hasHeading)
         exhaustPhase += dt
 
-        val speed = effectiveSpeed(baseSpeed)
-        val movement = heading * (speed * magnitude * dt)
-        position += movement
+        if (isThrusting) {
+            val maxSpeed = effectiveSpeed(baseSpeed)
+            velocity += facingDirection * (GameConfig.MOVEMENT_ACCELERATION_PER_SECOND * dt)
+            val speed = velocity.length()
+            if (speed > maxSpeed) {
+                velocity *= maxSpeed / speed
+            }
+        } else {
+            // No thrust doesn't mean no motion - existing momentum bleeds off gradually
+            // instead of stopping the instant the button is released.
+            velocity *= exp(-GameConfig.MOVEMENT_DRAG_PER_SECOND * dt)
+        }
+
+        position += velocity * dt
         clampToWorld()
 
         if (speedBoostTimer > 0f) speedBoostTimer = max(0f, speedBoostTimer - dt)
         if (invisibilityTimer > 0f) invisibilityTimer = max(0f, invisibilityTimer - dt)
+    }
+
+    // Turns current toward desired at a bounded rate instead of snapping - the source of
+    // "no abrupt reversals" for facingDirection.
+    private fun steerTowards(current: Vector2, desired: Vector2, maxTurnRadians: Float): Vector2 {
+        val currentAngle = atan2(current.y, current.x)
+        val desiredAngle = atan2(desired.y, desired.x)
+        val twoPi = (Math.PI * 2).toFloat()
+        var diff = (desiredAngle - currentAngle) % twoPi
+        if (diff > Math.PI.toFloat()) diff -= twoPi
+        if (diff < -Math.PI.toFloat()) diff += twoPi
+        val clamped = diff.coerceIn(-maxTurnRadians, maxTurnRadians)
+        val newAngle = currentAngle + clamped
+        return Vector2(cos(newAngle), sin(newAngle))
     }
 
     fun clampToWorld() {

@@ -2,7 +2,7 @@ name: Dev debug APK
 
 on:
   push:
-    branches: [main]
+    branches: [feature/inertia-thrust-movement]
 
 permissions:
   contents: write
@@ -32,13 +32,13 @@ jobs:
       - name: Build debug APK
         run: ./gradlew assembleDebug --no-daemon
 
-      - name: Replace dev prerelease
+      - name: Replace dev-inertia prerelease
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release delete dev --yes --cleanup-tag || true
-          gh release create dev app/build/outputs/apk/debug/app-debug.apk \
-            --title "Dev build" \
-            --notes "Build automatica dell'ultimo commit su main: ${GITHUB_SHA}" \
+          gh release delete dev-inertia --yes --cleanup-tag || true
+          gh release create dev-inertia app/build/outputs/apk/debug/app-debug.apk \
+            --title "Dev build (inertia movement experiment)" \
+            --notes "Build automatica dell'ultimo commit su feature/inertia-thrust-movement: ${GITHUB_SHA}" \
             --prerelease \
             --target "${GITHUB_SHA}"
