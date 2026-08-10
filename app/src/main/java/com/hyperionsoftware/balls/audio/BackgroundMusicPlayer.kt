@@ -7,9 +7,10 @@ import kotlin.math.PI
 import kotlin.math.exp
 import kotlin.math.sin
 
-// A short, cheerful tune looped forever - synthesized entirely in code like every other
-// sound in the game, no audio assets. A plucked-bell pentatonic melody, quiet enough to
-// sit under the sound effects without fighting them for attention.
+// A short, driving electronic loop - synthesized entirely in code like every other sound
+// in the game, no audio assets. Three layers mixed together: a punchy bass line on the
+// beat, a fast 16th-note lead arpeggio, and a kick-drum thump, closer to an energetic
+// arcade/EDM feel than a calm melody.
 class BackgroundMusicPlayer {
     private var track: AudioTrack? = null
 
@@ -28,28 +29,67 @@ class BackgroundMusicPlayer {
 
     private fun buildTrack(): AudioTrack {
         val sampleRate = 22050
-        val noteHz = floatArrayOf(
-            523.25f, 659.25f, 783.99f, 659.25f,
-            587.33f, 783.99f, 880.00f, 783.99f,
-            523.25f, 659.25f, 587.33f, 440.00f
-        )
-        val noteSeconds = 0.32f
-        val framesPerNote = (sampleRate * noteSeconds).toInt()
-        val buffer = ShortArray(framesPerNote * noteHz.size)
+        val bpm = 150.0
+        val beatSeconds = 60.0 / bpm
+        val stepsPerBeat = 4
+        val beats = 8
+        val framesPerBeat = (sampleRate * beatSeconds).toInt()
+        val framesPerStep = framesPerBeat / stepsPerBeat
+        val totalFrames = framesPerBeat * beats
+        val mix = DoubleArray(totalFrames)
 
-        for (noteIndex in noteHz.indices) {
-            val freq = noteHz[noteIndex]
-            val base = noteIndex * framesPerNote
-            for (i in 0 until framesPerNote) {
-                val t = i / sampleRate.toFloat()
-                // A quick pluck-like decay per note, warmed up with a touch of its own
-                // octave overtone instead of a flat sine buzz.
-                val envelope = exp(-t * 6f)
-                val fundamental = sin(2.0 * PI * freq * t)
-                val overtone = sin(2.0 * PI * freq * 2f * t) * 0.25
-                val sample = ((fundamental + overtone) * envelope * 0.22).toFloat()
-                buffer[base + i] = (sample * Short.MAX_VALUE).toInt().toShort()
+        // Bass: a driving root-note riff, a fundamental plus a fifth-ish harmonic for a
+        // saw-like buzz, with a fast pluck envelope per beat so it pushes forward instead
+        // of droning.
+        val bassNotesHz = doubleArrayOf(110.00, 110.00, 130.81, 98.00, 110.00, 110.00, 146.83, 98.00)
+        for (beat in 0 until beats) {
+            val freq = bassNotesHz[beat % bassNotesHz.size]
+            val base = beat * framesPerBeat
+            for (i in 0 until framesPerBeat) {
+                val idx = base + i
+                if (idx >= mix.size) break
+                val t = i / sampleRate.toDouble()
+                val envelope = exp(-t * 4.0)
+                val wave = sin(2.0 * PI * freq * t) + 0.5 * sin(2.0 * PI * freq * 2.0 * t)
+                mix[idx] += wave * envelope * 0.28
             }
+        }
+
+        // Lead: quick 16th-note arpeggio plucks, higher register and brighter (an extra
+        // overtone) so it cuts through the bass instead of blending into it.
+        val leadNotesHz = doubleArrayOf(440.0, 523.25, 659.25, 880.0, 659.25, 523.25, 880.0, 659.25)
+        val totalSteps = beats * stepsPerBeat
+        for (step in 0 until totalSteps) {
+            val freq = leadNotesHz[step % leadNotesHz.size]
+            val base = step * framesPerStep
+            for (i in 0 until framesPerStep) {
+                val idx = base + i
+                if (idx >= mix.size) break
+                val t = i / sampleRate.toDouble()
+                val envelope = exp(-t * 12.0)
+                val wave = sin(2.0 * PI * freq * t) + 0.35 * sin(2.0 * PI * freq * 2.0 * t)
+                mix[idx] += wave * envelope * 0.16
+            }
+        }
+
+        // Kick: a fast pitch-drop thump on every beat, for the punch a driving track needs.
+        val kickFrames = (sampleRate * 0.09).toInt()
+        for (beat in 0 until beats) {
+            val base = beat * framesPerBeat
+            for (i in 0 until kickFrames) {
+                val idx = base + i
+                if (idx >= mix.size) break
+                val t = i / sampleRate.toDouble()
+                val envelope = exp(-t * 28.0)
+                val freq = 120.0 * exp(-t * 18.0) + 40.0
+                mix[idx] += sin(2.0 * PI * freq * t) * envelope * 0.5
+            }
+        }
+
+        val buffer = ShortArray(totalFrames)
+        for (i in mix.indices) {
+            val clamped = mix[i].coerceIn(-1.0, 1.0)
+            buffer[i] = (clamped * Short.MAX_VALUE).toInt().toShort()
         }
 
         val audioTrack = AudioTrack.Builder()
