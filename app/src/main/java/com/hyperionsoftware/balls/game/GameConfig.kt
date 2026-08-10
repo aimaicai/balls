@@ -85,4 +85,9 @@ object GameConfig {
     const val THRUST_RANGE_MULTIPLIER = 4f
     const val THRUST_CONE_MIN_ALIGNMENT = 0.3f
     const val THRUST_FORCE_PER_SECOND = 320f
+
+    // Movement is direct (joystick magnitude drives speed immediately), but direction
+    // changes are gentle: facingDirection turns toward wherever it's aimed at this
+    // bounded rate instead of snapping straight to the opposite heading.
+    const val TURN_RATE_RADIANS_PER_SECOND = 2.5f
 }

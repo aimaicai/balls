@@ -1,7 +1,10 @@
 package com.hyperionsoftware.balls.game
 
+import kotlin.math.atan2
+import kotlin.math.cos
 import kotlin.math.max
 import kotlin.math.min
+import kotlin.math.sin
 import kotlin.math.sqrt
 
 abstract class Blob(
@@ -17,9 +20,11 @@ abstract class Blob(
     // ambient leak) in exchange for extra speed. Both the player and bots can set this.
     var isBoosting: Boolean = false
 
-    // Balloons drift, so they need a "front" independent of any single frame's input: it
-    // only updates while actually thrusting and holds steady otherwise. The exhaust (visual
-    // and the push it applies to others) comes out the opposite side.
+    // The joystick/AI drives movement directly (joystick magnitude scales speed
+    // immediately), but facingDirection still turns gradually toward wherever it's aimed
+    // (see steerTowards) instead of snapping straight to the opposite heading, and
+    // movement follows that smoothed direction. The exhaust (visual and the push it
+    // applies to others) comes out the opposite side of facingDirection.
     var facingDirection: Vector2 = Vector2(0f, -1f)
     var isThrusting: Boolean = false
     var exhaustPhase: Float = 0f
@@ -40,21 +45,37 @@ abstract class Blob(
         // reflects how far the stick is pushed, giving proportional analog control.
         val rawDirection = decideDirection(engine, dt)
         val magnitude = rawDirection.length().coerceAtMost(1f)
-        val heading = rawDirection.normalized()
+        val hasHeading = magnitude > 0.05f
 
-        isThrusting = magnitude > 0.05f
-        if (isThrusting) {
-            facingDirection = heading
+        if (hasHeading) {
+            val desiredHeading = rawDirection.normalized()
+            facingDirection = steerTowards(facingDirection, desiredHeading, GameConfig.TURN_RATE_RADIANS_PER_SECOND * dt)
         }
+
+        isThrusting = hasHeading
         exhaustPhase += dt
 
         val speed = effectiveSpeed(baseSpeed)
-        val movement = heading * (speed * magnitude * dt)
+        val movement = facingDirection * (speed * magnitude * dt)
         position += movement
         clampToWorld()
 
         if (speedBoostTimer > 0f) speedBoostTimer = max(0f, speedBoostTimer - dt)
         if (invisibilityTimer > 0f) invisibilityTimer = max(0f, invisibilityTimer - dt)
+    }
+
+    // Turns current toward desired at a bounded rate instead of snapping - the source of
+    // "no abrupt reversals" for facingDirection.
+    private fun steerTowards(current: Vector2, desired: Vector2, maxTurnRadians: Float): Vector2 {
+        val currentAngle = atan2(current.y, current.x)
+        val desiredAngle = atan2(desired.y, desired.x)
+        val twoPi = (Math.PI * 2).toFloat()
+        var diff = (desiredAngle - currentAngle) % twoPi
+        if (diff > Math.PI.toFloat()) diff -= twoPi
+        if (diff < -Math.PI.toFloat()) diff += twoPi
+        val clamped = diff.coerceIn(-maxTurnRadians, maxTurnRadians)
+        val newAngle = currentAngle + clamped
+        return Vector2(cos(newAngle), sin(newAngle))
     }
 
     fun clampToWorld() {
