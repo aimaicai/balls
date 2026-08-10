@@ -2,7 +2,7 @@ name: Dev debug APK
 
 on:
   push:
-    branches: [feature/balloon-style]
+    branches: [main]
 
 permissions:
   contents: write
@@ -32,13 +32,13 @@ jobs:
       - name: Build debug APK
         run: ./gradlew assembleDebug --no-daemon
 
-      - name: Replace dev-balloon prerelease
+      - name: Replace dev prerelease
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release delete dev-balloon --yes --cleanup-tag || true
-          gh release create dev-balloon app/build/outputs/apk/debug/app-debug.apk \
-            --title "Dev build (balloon experiment)" \
-            --notes "Build automatica dell'ultimo commit su feature/balloon-style: ${GITHUB_SHA}" \
+          gh release delete dev --yes --cleanup-tag || true
+          gh release create dev app/build/outputs/apk/debug/app-debug.apk \
+            --title "Dev build" \
+            --notes "Build automatica dell'ultimo commit su main: ${GITHUB_SHA}" \
             --prerelease \
             --target "${GITHUB_SHA}"

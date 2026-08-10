@@ -23,6 +23,14 @@ class GameEngine(
     private val powerUpBaseMaxCount = GameConfig.POWERUP_MAX_COUNT_PER_LEVEL * powerUpFrequencyLevel
     private val powerUpFrequency = powerUpFrequencyLevel.toFloat()
 
+    // GROWTH is weighted heavier than the other two types (see GameConfig) since size
+    // constantly drains away on its own now.
+    private val weightedPowerUpTypes: List<PowerUpType> = buildList {
+        repeat(GameConfig.POWERUP_GROWTH_WEIGHT) { add(PowerUpType.GROWTH) }
+        repeat(GameConfig.POWERUP_SPEED_WEIGHT) { add(PowerUpType.SPEED) }
+        repeat(GameConfig.POWERUP_INVISIBILITY_WEIGHT) { add(PowerUpType.INVISIBILITY) }
+    }
+
     // More power-ups when the safe zone is large, fewer (but never none) as it shrinks,
     // so density roughly tracks the zone's area instead of staying fixed all match.
     private val powerUpMaxCount: Int
@@ -236,7 +244,7 @@ class GameEngine(
             safeZoneCenterX + cos(angle) * distance,
             safeZoneCenterY + sin(angle) * distance
         )
-        powerUps.add(PowerUp(PowerUpType.entries.random(), position))
+        powerUps.add(PowerUp(weightedPowerUpTypes.random(), position))
     }
 
     private fun randomSpawnDelay(): Float {

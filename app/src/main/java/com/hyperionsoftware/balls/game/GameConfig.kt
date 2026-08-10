@@ -31,6 +31,14 @@ object GameConfig {
     const val POWERUP_INVISIBILITY_DURATION = 8f
     const val POWERUP_GROWTH_MULTIPLIER = 2f
 
+    // Size now drains away constantly just from existing (see the ambient leak below), so
+    // GROWTH power-ups need to spawn noticeably more often than SPEED/INVISIBILITY or
+    // survival becomes pure attrition instead of a fight. Weights, not percentages: GROWTH
+    // is picked 3 times out of every 5 spawns.
+    const val POWERUP_GROWTH_WEIGHT = 3
+    const val POWERUP_SPEED_WEIGHT = 1
+    const val POWERUP_INVISIBILITY_WEIGHT = 1
+
     // How far off-screen the danger/prey edge indicator can still "see".
     const val AWARENESS_RADIUS = 2500f
 
