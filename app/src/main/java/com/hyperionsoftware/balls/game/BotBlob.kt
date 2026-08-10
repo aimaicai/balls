@@ -38,10 +38,10 @@ class BotBlob(
             }
         }
 
-        // Ambient deflation never stops, in or out of the zone, so "safe to sprint" is now
-        // about having a real margin above death to spend - not about being above
-        // baseRadius, since drifting below it is the normal state, not an emergency.
-        val safeToSprint = radius > GameConfig.BOT_MIN_SPRINT_RADIUS
+        // Sprinting is reserved for genuine emergencies with a comfortable buffer to spend
+        // - not routine chasing or wandering - so bots don't burn themselves out before
+        // ever getting into a fight.
+        val safeToSprint = radius > GameConfig.BOT_SPRINT_MIN_RADIUS
 
         // An about-to-collide threat always overrides everything else - no amount of
         // courage helps if something is already close enough to absorb you.
@@ -60,38 +60,36 @@ class BotBlob(
             return Vector2(engine.safeZoneCenterX - position.x, engine.safeZoneCenterY - position.y).normalized()
         }
 
+        // Past this point nothing is a genuine emergency, so save whatever size is left
+        // instead of spending it - a bot that's merely peckish or cautious shouldn't
+        // sprint itself to death before an opponent ever gets the chance to fight it.
+        isBoosting = false
+
         // Constant deflation means running low is a real survival problem, not just a
         // setback: chase down the nearest growth power-up instead of whatever's merely
-        // closest, sprinting there since every second spent low is size lost for good.
+        // closest.
         if (radius < baseRadius * GameConfig.BOT_LOW_SIZE_FRACTION) {
             val refill = engine.powerUps
                 .filter { it.type == PowerUpType.GROWTH }
                 .minByOrNull { position.distanceTo(it.position) }
             if (refill != null && position.distanceTo(refill.position) < visionRadius) {
-                isBoosting = safeToSprint
                 return (refill.position - position).normalized()
             }
         }
 
         if (threat != null) {
-            isBoosting = safeToSprint
             return (position - threat.position).normalized()
         }
 
         if (prey != null) {
-            // Absorbing prey is the other way to fight the constant leak, so it's worth
-            // sprinting to actually catch them instead of just drifting along behind.
-            isBoosting = safeToSprint
             return (prey.position - position).normalized()
         }
 
         val nearestPowerUp = engine.powerUps.minByOrNull { position.distanceTo(it.position) }
         if (nearestPowerUp != null && position.distanceTo(nearestPowerUp.position) < visionRadius) {
-            isBoosting = safeToSprint
             return (nearestPowerUp.position - position).normalized()
         }
 
-        isBoosting = false
         wanderTimer -= dt
         if (wanderTimer <= 0f) {
             wanderDirection = randomDirection()

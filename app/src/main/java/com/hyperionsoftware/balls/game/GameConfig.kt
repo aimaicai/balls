@@ -61,10 +61,11 @@ object GameConfig {
     const val BOOST_DRAIN_RATE_PER_SECOND = 0.25f
     const val BOOST_SPEED_MULTIPLIER = 1.6f
 
-    // Bots only need a real margin above death to sprint - not tied to baseRadius, since
-    // drifting below it is now the normal state, not an emergency, thanks to the ambient
-    // leak above.
-    const val BOT_MIN_SPRINT_RADIUS = 12f
+    // Bots only spend size sprinting during genuine emergencies (an imminent threat or
+    // being caught outside the shrinking zone), never for routine chasing or wandering,
+    // and only with a comfortable buffer left to spend - otherwise they burn themselves
+    // out chasing/fleeing and never survive long enough to actually fight anyone.
+    const val BOT_SPRINT_MIN_RADIUS = 22f
 
     // Below this fraction of baseRadius, a bot treats itself as running low and actively
     // hunts the nearest growth power-up to refill, instead of whatever's merely closest.
