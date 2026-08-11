@@ -1,10 +1,13 @@
 package com.hyperionsoftware.balls.game
 
 object GameConfig {
-    // Arena size is user-selectable from the main menu. WORLD_WIDTH/HEIGHT and the safe
-    // zone's starting radius all scale together by the chosen tier's factor, applied via
-    // applyArenaSize() before a match starts; SAFE_ZONE_MIN_RADIUS deliberately does not
-    // scale, so the endgame's final circle feels the same tightness at every arena size.
+    // Arena size is user-selectable from the main menu. WORLD_WIDTH/HEIGHT, the safe zone's
+    // starting radius, and how long the zone takes to shrink through its stages all scale
+    // together by the chosen tier's factor, applied via applyArenaSize() before a match
+    // starts - a bigger arena also takes proportionally longer to close in, instead of
+    // covering more ground in the same amount of time. SAFE_ZONE_MIN_RADIUS and the final
+    // round's own tightening (SAFE_ZONE_FINAL_MIN_RADIUS/SAFE_ZONE_FINAL_SHRINK_SECONDS)
+    // deliberately do not scale, so the endgame feels the same at every arena size.
     enum class ArenaSize(val scaleFactor: Float) {
         SMALL(0.65f),
         NORMAL(1f),
@@ -15,6 +18,7 @@ object GameConfig {
     private const val BASE_WORLD_WIDTH = 6000f
     private const val BASE_WORLD_HEIGHT = 6000f
     private const val BASE_SAFE_ZONE_INITIAL_RADIUS = 4300f
+    private const val BASE_SAFE_ZONE_STAGE_SHRINK_SECONDS = 18f
 
     var WORLD_WIDTH = BASE_WORLD_WIDTH
         private set
@@ -117,14 +121,16 @@ object GameConfig {
     const val SAFE_ZONE_MIN_RADIUS = 500f
     const val SAFE_ZONE_STAGE_COUNT = 3
     const val SAFE_ZONE_STAGE_HOLD_SECONDS = 7f
-    const val SAFE_ZONE_STAGE_SHRINK_SECONDS = 18f
+    var SAFE_ZONE_STAGE_SHRINK_SECONDS = BASE_SAFE_ZONE_STAGE_SHRINK_SECONDS
+        private set
 
     // The zone used to freeze at SAFE_ZONE_MIN_RADIUS once the final round started, which
     // turned the finale into a static standoff decided almost entirely by whoever reached
     // the first power-up. Instead it keeps tightening after the final round begins, holding
     // once it reaches this smaller floor, so there's sustained pressure to keep moving and
-    // fighting instead of camping a fixed circle.
-    const val SAFE_ZONE_FINAL_MIN_RADIUS = 150f
+    // fighting instead of camping a fixed circle. The floor is generous enough to still
+    // leave real room to maneuver rather than a pure scrum.
+    const val SAFE_ZONE_FINAL_MIN_RADIUS = 300f
     const val SAFE_ZONE_FINAL_SHRINK_SECONDS = 30f
 
     // Balloons always leak air, everywhere, all the time - there is no truly "safe" state
@@ -168,5 +174,6 @@ object GameConfig {
         WORLD_WIDTH = BASE_WORLD_WIDTH * size.scaleFactor
         WORLD_HEIGHT = BASE_WORLD_HEIGHT * size.scaleFactor
         SAFE_ZONE_INITIAL_RADIUS = BASE_SAFE_ZONE_INITIAL_RADIUS * size.scaleFactor
+        SAFE_ZONE_STAGE_SHRINK_SECONDS = BASE_SAFE_ZONE_STAGE_SHRINK_SECONDS * size.scaleFactor
     }
 }
