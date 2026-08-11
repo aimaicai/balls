@@ -81,6 +81,21 @@ class GameView @JvmOverloads constructor(
     // reads clearly even though it only affects things for an instant.
     private val effectRipples = mutableListOf<EffectRipple>()
 
+    // The victim otherwise just vanishes the instant it dies (Blob.alive flips off and the
+    // render loop skips it) - this shrinks and pulls it toward whoever's still eating it,
+    // so an absorption actually reads as being swallowed instead of despawning.
+    private class AbsorbAnim(
+        val startX: Float,
+        val startY: Float,
+        val startRadius: Float,
+        val color: Int,
+        val absorber: Blob,
+        var elapsed: Float = 0f,
+        val duration: Float = 0.35f
+    )
+
+    private val absorbAnims = mutableListOf<AbsorbAnim>()
+
     private val vibrator: Vibrator by lazy {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             val manager = context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager
@@ -147,6 +162,7 @@ class GameView @JvmOverloads constructor(
         style = Paint.Style.STROKE
         strokeWidth = 6f
     }
+    private val absorbAnimPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
     private val supplyDropBeaconPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = Color.parseColor("#4FC3F7")
         style = Paint.Style.STROKE
@@ -205,10 +221,11 @@ class GameView @JvmOverloads constructor(
         holder.addCallback(this)
     }
 
-    fun startGame(botCount: Int, powerUpFrequencyLevel: Int) {
+    fun startGame(botCount: Int, powerUpFrequencyLevel: Int, arenaSize: GameConfig.ArenaSize = GameConfig.ArenaSize.NORMAL) {
         if (started) return
         started = true
         floatingTexts.clear()
+        absorbAnims.clear()
         countdownActive = true
         countdownRemaining = GameConfig.COUNTDOWN_SECONDS
         lastBoostAvailable = false
@@ -216,6 +233,7 @@ class GameView @JvmOverloads constructor(
         engine = GameEngine(
             botCount = botCount,
             powerUpFrequencyLevel = powerUpFrequencyLevel,
+            arenaSize = arenaSize,
             listener = object : GameListener {
                 override fun onVibrate() {
                     vibrateBounce()
@@ -236,6 +254,12 @@ class GameView @JvmOverloads constructor(
                         toneGenerator.startTone(ToneGenerator.TONE_PROP_ACK, 150)
                     }
                     addFeedEntry("${blobLabel(absorberId)} ha inglobato ${blobLabel(victimId)}")
+
+                    val victim = engine.blobs.find { it.id == victimId }
+                    val absorber = engine.blobs.find { it.id == absorberId }
+                    if (victim != null && absorber != null) {
+                        absorbAnims.add(AbsorbAnim(x, y, victim.radius, victim.color, absorber))
+                    }
                 }
 
                 override fun onPowerUpCollected(x: Float, y: Float, type: PowerUpType, byPlayer: Boolean) {
@@ -325,11 +349,11 @@ class GameView @JvmOverloads constructor(
         }
     }
 
-    fun restart(botCount: Int, powerUpFrequencyLevel: Int) {
+    fun restart(botCount: Int, powerUpFrequencyLevel: Int, arenaSize: GameConfig.ArenaSize = GameConfig.ArenaSize.NORMAL) {
         loopThread?.running = false
         loopThread?.join(500)
         started = false
-        startGame(botCount, powerUpFrequencyLevel)
+        startGame(botCount, powerUpFrequencyLevel, arenaSize)
     }
 
     fun setBoosting(active: Boolean) {
@@ -545,6 +569,7 @@ class GameView @JvmOverloads constructor(
             if (blob.alive) drawBlob(canvas, blob, offsetX, offsetY)
         }
 
+        drawAbsorbAnimations(canvas, offsetX, offsetY, dt)
         drawEffectRipples(canvas, offsetX, offsetY, dt)
         drawDangerIndicator(canvas, offsetX, offsetY)
         drawFloatingTexts(canvas, offsetX, offsetY, dt)
@@ -633,6 +658,28 @@ class GameView @JvmOverloads constructor(
         if (!blob.isFrozen) return
         frozenOverlayPaint.alpha = (alpha * 0.4f).toInt().coerceIn(0, 255)
         canvas.drawCircle(cx, cy, blob.radius * 1.05f, frozenOverlayPaint)
+    }
+
+    private fun drawAbsorbAnimations(canvas: Canvas, offsetX: Float, offsetY: Float, dt: Float) {
+        val iterator = absorbAnims.iterator()
+        while (iterator.hasNext()) {
+            val anim = iterator.next()
+            anim.elapsed += dt
+            val progress = (anim.elapsed / anim.duration).coerceIn(0f, 1f)
+            if (progress >= 1f) {
+                iterator.remove()
+                continue
+            }
+            // Eased pull toward the absorber's current (moving) position, shrinking and
+            // fading out as it goes, so it visibly gets dragged in and swallowed.
+            val eased = progress * progress
+            val x = anim.startX + (anim.absorber.position.x - anim.startX) * eased
+            val y = anim.startY + (anim.absorber.position.y - anim.startY) * eased
+            val radius = anim.startRadius * (1f - progress)
+            absorbAnimPaint.color = anim.color
+            absorbAnimPaint.alpha = (255 * (1f - progress)).toInt().coerceIn(0, 255)
+            canvas.drawCircle(x + offsetX, y + offsetY, radius.coerceAtLeast(0f), absorbAnimPaint)
+        }
     }
 
     private fun drawEffectRipples(canvas: Canvas, offsetX: Float, offsetY: Float, dt: Float) {
@@ -1002,9 +1049,9 @@ class GameView @JvmOverloads constructor(
         drawPermanentStatsHud(canvas, player)
     }
 
-    // Small, muted pip bars (max STAT_PIP_COUNT) instead of raw percentages - started low
-    // enough to clear the pause button in the same corner, which used to sit right on top
-    // of this text.
+    // Small, muted pip bars (GameConfig.PERMANENT_STAT_TIER_COUNT of them) instead of raw
+    // percentages - started low enough to clear the pause button in the same corner, which
+    // used to sit right on top of this text.
     private fun drawPermanentStatsHud(canvas: Canvas, player: Blob) {
         val density = resources.displayMetrics.density
         var y = (16f + 52f + 14f) * density
@@ -1026,28 +1073,25 @@ class GameView @JvmOverloads constructor(
         filledColor: Int,
         y: Float
     ): Float {
+        val pipCount = GameConfig.PERMANENT_STAT_TIER_COUNT
         val fraction = ((multiplier - 1f) / (maxMultiplier - 1f)).coerceIn(0f, 1f)
-        val filledCount = Math.round(fraction * STAT_PIP_COUNT.toFloat()).coerceIn(0, STAT_PIP_COUNT)
+        val filledCount = Math.round(fraction * pipCount).coerceIn(0, pipCount)
 
         val pipSize = 13f
         val pipGap = 4f
-        val pipsWidth = STAT_PIP_COUNT * pipSize + (STAT_PIP_COUNT - 1) * pipGap
+        val pipsWidth = pipCount * pipSize + (pipCount - 1) * pipGap
         val rightEdge = width - 24f
         val blockLeft = rightEdge - pipsWidth
         val labelWidth = statsHudPaint.measureText(label)
         canvas.drawText(label, blockLeft - labelWidth - 12f, y, statsHudPaint)
 
-        for (i in 0 until STAT_PIP_COUNT) {
+        for (i in 0 until pipCount) {
             val left = blockLeft + i * (pipSize + pipGap)
             val top = y - pipSize + 4f
             statPipPaint.color = if (i < filledCount) filledColor else statPipEmptyColor
             canvas.drawRoundRect(left, top, left + pipSize, top + pipSize, 3f, 3f, statPipPaint)
         }
         return y + 28f
-    }
-
-    private companion object {
-        private const val STAT_PIP_COUNT = 10
     }
 
     private fun drawCountdown(canvas: Canvas) {

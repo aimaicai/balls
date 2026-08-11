@@ -1,8 +1,25 @@
 package com.hyperionsoftware.balls.game
 
 object GameConfig {
-    const val WORLD_WIDTH = 6000f
-    const val WORLD_HEIGHT = 6000f
+    // Arena size is user-selectable from the main menu. WORLD_WIDTH/HEIGHT and the safe
+    // zone's starting radius all scale together by the chosen tier's factor, applied via
+    // applyArenaSize() before a match starts; SAFE_ZONE_MIN_RADIUS deliberately does not
+    // scale, so the endgame's final circle feels the same tightness at every arena size.
+    enum class ArenaSize(val scaleFactor: Float) {
+        SMALL(0.65f),
+        NORMAL(1f),
+        LARGE(1.5f),
+        HUGE(2.2f)
+    }
+
+    private const val BASE_WORLD_WIDTH = 6000f
+    private const val BASE_WORLD_HEIGHT = 6000f
+    private const val BASE_SAFE_ZONE_INITIAL_RADIUS = 4300f
+
+    var WORLD_WIDTH = BASE_WORLD_WIDTH
+        private set
+    var WORLD_HEIGHT = BASE_WORLD_HEIGHT
+        private set
 
     const val BASE_RADIUS = 40f
     const val MAX_RADIUS = 260f
@@ -54,15 +71,13 @@ object GameConfig {
     const val FREEZE_RANGE_MULTIPLIER = 5f
     const val FREEZE_DURATION_SECONDS = 1.8f
 
-    // Permanent stat pickups (SPEED_UP/AGILITY_UP): each one closes a fraction of the
-    // remaining gap to its own cap instead of adding a flat amount, so the first pickup
-    // matters a lot and it's impossible to stack these into an unbounded advantage.
-    // Agility's cap is more generous than speed's since a nimbler turn is a different
-    // kind of edge than raw power.
+    // Permanent stat pickups (SPEED_UP/AGILITY_UP): each pickup advances one discrete tier
+    // out of PERMANENT_STAT_TIER_COUNT, capped there, so a single pickup always fills
+    // exactly one HUD pip and stacking stays bounded. Agility's cap is more generous than
+    // speed's since a nimbler turn is a different kind of edge than raw power.
+    const val PERMANENT_STAT_TIER_COUNT = 10
     const val PERMANENT_SPEED_MAX_MULTIPLIER = 1.5f
-    const val PERMANENT_SPEED_STEP_FRACTION = 0.35f
     const val PERMANENT_TURN_RATE_MAX_MULTIPLIER = 3f
-    const val PERMANENT_TURN_RATE_STEP_FRACTION = 0.35f
 
     // A rare, more valuable pickup that always grants SHIELD, spawned on its own separate
     // timer (independent of the regular power-up cap/timer) and telegraphed with a pulsing
@@ -97,7 +112,8 @@ object GameConfig {
     // smaller circle is telegraphed as a preview outline) followed by an active shrink
     // phase, repeated SAFE_ZONE_STAGE_COUNT times. Same total duration as the old single
     // continuous shrink (COUNT * (HOLD + SHRINK) = 75s) so existing pacing/tuning still holds.
-    const val SAFE_ZONE_INITIAL_RADIUS = 4300f
+    var SAFE_ZONE_INITIAL_RADIUS = BASE_SAFE_ZONE_INITIAL_RADIUS
+        private set
     const val SAFE_ZONE_MIN_RADIUS = 500f
     const val SAFE_ZONE_STAGE_COUNT = 3
     const val SAFE_ZONE_STAGE_HOLD_SECONDS = 7f
@@ -139,4 +155,10 @@ object GameConfig {
     // bounded rate instead of snapping straight to the opposite heading. Slow enough that
     // a full reversal visibly takes about two seconds, not an instant flip.
     const val TURN_RATE_RADIANS_PER_SECOND = 1.6f
+
+    fun applyArenaSize(size: ArenaSize) {
+        WORLD_WIDTH = BASE_WORLD_WIDTH * size.scaleFactor
+        WORLD_HEIGHT = BASE_WORLD_HEIGHT * size.scaleFactor
+        SAFE_ZONE_INITIAL_RADIUS = BASE_SAFE_ZONE_INITIAL_RADIUS * size.scaleFactor
+    }
 }

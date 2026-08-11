@@ -19,8 +19,16 @@ interface GameListener {
 class GameEngine(
     botCount: Int,
     powerUpFrequencyLevel: Int,
+    arenaSize: GameConfig.ArenaSize = GameConfig.ArenaSize.NORMAL,
     private val listener: GameListener
 ) {
+    // Must run before any property below reads WORLD_WIDTH/HEIGHT or
+    // SAFE_ZONE_INITIAL_RADIUS, since Kotlin runs init blocks and property initializers
+    // in declaration order.
+    init {
+        GameConfig.applyArenaSize(arenaSize)
+    }
+
     private val powerUpBaseMaxCount = GameConfig.POWERUP_MAX_COUNT_PER_LEVEL * powerUpFrequencyLevel
     private val powerUpFrequency = powerUpFrequencyLevel.toFloat()
 

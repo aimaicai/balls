@@ -45,9 +45,11 @@ abstract class Blob(
     var carriedItem: PowerUpType? = null
         private set
 
-    // Permanent stat multipliers from SPEED_UP/AGILITY_UP pickups. Each pickup closes part
-    // of the remaining gap to its cap (see increasePermanentSpeed/Agility), so they can
-    // never be stacked into an unbounded advantage.
+    // Permanent stat multipliers from SPEED_UP/AGILITY_UP pickups. Each pickup advances one
+    // discrete tier toward its cap (see increasePermanentSpeed/Agility), so a single pickup
+    // always moves the HUD by exactly one pip and stacking stays bounded.
+    private var permanentSpeedTier = 0
+    private var permanentTurnRateTier = 0
     var permanentSpeedMultiplier: Float = 1f
         private set
     var permanentTurnRateMultiplier: Float = 1f
@@ -187,17 +189,20 @@ abstract class Blob(
         frozenTimer = duration
     }
 
-    // Each pickup closes PERMANENT_SPEED_STEP_FRACTION of the remaining gap to the cap,
-    // rather than adding a flat amount - so the first pickup matters a lot and the tenth
-    // barely moves the needle, instead of an unbounded stack.
+    // Each pickup advances one tier out of PERMANENT_STAT_TIER_COUNT, linearly interpolating
+    // toward the cap - a flat, predictable step per pickup instead of a diminishing one.
     private fun increasePermanentSpeed() {
-        val gap = GameConfig.PERMANENT_SPEED_MAX_MULTIPLIER - permanentSpeedMultiplier
-        permanentSpeedMultiplier += gap * GameConfig.PERMANENT_SPEED_STEP_FRACTION
+        if (permanentSpeedTier >= GameConfig.PERMANENT_STAT_TIER_COUNT) return
+        permanentSpeedTier++
+        permanentSpeedMultiplier = 1f +
+            (GameConfig.PERMANENT_SPEED_MAX_MULTIPLIER - 1f) * permanentSpeedTier / GameConfig.PERMANENT_STAT_TIER_COUNT
     }
 
     private fun increasePermanentAgility() {
-        val gap = GameConfig.PERMANENT_TURN_RATE_MAX_MULTIPLIER - permanentTurnRateMultiplier
-        permanentTurnRateMultiplier += gap * GameConfig.PERMANENT_TURN_RATE_STEP_FRACTION
+        if (permanentTurnRateTier >= GameConfig.PERMANENT_STAT_TIER_COUNT) return
+        permanentTurnRateTier++
+        permanentTurnRateMultiplier = 1f +
+            (GameConfig.PERMANENT_TURN_RATE_MAX_MULTIPLIER - 1f) * permanentTurnRateTier / GameConfig.PERMANENT_STAT_TIER_COUNT
     }
 
     private fun effectiveSpeed(baseSpeed: Float): Float {

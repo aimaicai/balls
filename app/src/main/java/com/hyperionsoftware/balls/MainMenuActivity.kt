@@ -14,6 +14,7 @@ class MainMenuActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainMenuBinding
     private var botCount = DEFAULT_BOTS
     private var powerUpFrequencyLevel = GameConfig.POWERUP_DEFAULT_FREQUENCY_LEVEL
+    private var arenaSize = GameConfig.ArenaSize.NORMAL
     private val musicPlayer = BackgroundMusicPlayer()
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -25,8 +26,10 @@ class MainMenuActivity : AppCompatActivity() {
         // so progress IS the actual value directly (API 26+ semantics).
         binding.botsSeekBar.progress = botCount
         binding.powerUpSeekBar.progress = powerUpFrequencyLevel
+        binding.arenaSizeSeekBar.progress = arenaSize.ordinal
         updateBotCountLabel()
         updatePowerUpLabel()
+        updateArenaSizeLabel()
 
         binding.musicSwitch.isChecked = MusicSettings.isEnabled(this)
         binding.musicSwitch.setOnCheckedChangeListener { _, isEnabled ->
@@ -54,11 +57,22 @@ class MainMenuActivity : AppCompatActivity() {
             override fun onStopTrackingTouch(seekBar: SeekBar) = Unit
         })
 
+        binding.arenaSizeSeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(seekBar: SeekBar, progress: Int, fromUser: Boolean) {
+                arenaSize = GameConfig.ArenaSize.entries[progress]
+                updateArenaSizeLabel()
+            }
+
+            override fun onStartTrackingTouch(seekBar: SeekBar) = Unit
+            override fun onStopTrackingTouch(seekBar: SeekBar) = Unit
+        })
+
         binding.playButton.setOnClickListener {
             startActivity(
                 Intent(this, GameActivity::class.java)
                     .putExtra(GameActivity.EXTRA_BOT_COUNT, botCount)
                     .putExtra(GameActivity.EXTRA_POWERUP_FREQUENCY, powerUpFrequencyLevel)
+                    .putExtra(GameActivity.EXTRA_ARENA_SIZE, arenaSize.name)
             )
         }
         binding.exitButton.setOnClickListener { finish() }
@@ -80,6 +94,16 @@ class MainMenuActivity : AppCompatActivity() {
 
     private fun updatePowerUpLabel() {
         binding.powerUpCountText.text = getString(R.string.menu_powerup_label, powerUpFrequencyLevel)
+    }
+
+    private fun updateArenaSizeLabel() {
+        val sizeLabelRes = when (arenaSize) {
+            GameConfig.ArenaSize.SMALL -> R.string.arena_size_small
+            GameConfig.ArenaSize.NORMAL -> R.string.arena_size_normal
+            GameConfig.ArenaSize.LARGE -> R.string.arena_size_large
+            GameConfig.ArenaSize.HUGE -> R.string.arena_size_huge
+        }
+        binding.arenaSizeText.text = getString(R.string.menu_arena_label, getString(sizeLabelRes))
     }
 
     companion object {

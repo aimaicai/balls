@@ -17,6 +17,7 @@ class GameActivity : AppCompatActivity(), GameView.Callback {
     private lateinit var binding: ActivityGameBinding
     private var botCount = DEFAULT_BOTS
     private var powerUpFrequencyLevel = GameConfig.POWERUP_DEFAULT_FREQUENCY_LEVEL
+    private var arenaSize = GameConfig.ArenaSize.NORMAL
     private val musicPlayer = BackgroundMusicPlayer()
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -29,6 +30,9 @@ class GameActivity : AppCompatActivity(), GameView.Callback {
             EXTRA_POWERUP_FREQUENCY,
             GameConfig.POWERUP_DEFAULT_FREQUENCY_LEVEL
         )
+        arenaSize = intent.getStringExtra(EXTRA_ARENA_SIZE)?.let {
+            runCatching { GameConfig.ArenaSize.valueOf(it) }.getOrNull()
+        } ?: GameConfig.ArenaSize.NORMAL
 
         binding.joystickView.listener = binding.gameView
         binding.gameView.callback = this
@@ -47,7 +51,7 @@ class GameActivity : AppCompatActivity(), GameView.Callback {
         // No carried item at match start either.
         binding.activeItemButton.alpha = ACTIVE_ITEM_UNAVAILABLE_ALPHA
 
-        binding.gameView.startGame(botCount, powerUpFrequencyLevel)
+        binding.gameView.startGame(botCount, powerUpFrequencyLevel, arenaSize)
     }
 
     override fun onResume() {
@@ -70,7 +74,7 @@ class GameActivity : AppCompatActivity(), GameView.Callback {
             .setTitle(getString(R.string.pause_title))
             .setCancelable(false)
             .setPositiveButton(getString(R.string.pause_resume)) { _, _ -> binding.gameView.resumeGame() }
-            .setNeutralButton(getString(R.string.pause_restart)) { _, _ -> binding.gameView.restart(botCount, powerUpFrequencyLevel) }
+            .setNeutralButton(getString(R.string.pause_restart)) { _, _ -> binding.gameView.restart(botCount, powerUpFrequencyLevel, arenaSize) }
             .setNegativeButton(getString(R.string.pause_menu)) { _, _ -> goToMenu() }
             .show()
     }
@@ -85,7 +89,7 @@ class GameActivity : AppCompatActivity(), GameView.Callback {
             .setTitle(title)
             .setMessage(getString(R.string.game_over_stats, finalRadius, playersRemaining, opponentsAbsorbed))
             .setCancelable(false)
-            .setPositiveButton(getString(R.string.game_over_restart)) { _, _ -> binding.gameView.restart(botCount, powerUpFrequencyLevel) }
+            .setPositiveButton(getString(R.string.game_over_restart)) { _, _ -> binding.gameView.restart(botCount, powerUpFrequencyLevel, arenaSize) }
             .setNegativeButton(getString(R.string.game_over_menu)) { _, _ -> goToMenu() }
             .show()
     }
@@ -121,6 +125,7 @@ class GameActivity : AppCompatActivity(), GameView.Callback {
     companion object {
         const val EXTRA_BOT_COUNT = "extra_bot_count"
         const val EXTRA_POWERUP_FREQUENCY = "extra_powerup_frequency"
+        const val EXTRA_ARENA_SIZE = "extra_arena_size"
         private const val BOOST_UNAVAILABLE_ALPHA = 0.35f
         private const val ACTIVE_ITEM_UNAVAILABLE_ALPHA = 0.35f
         private const val DEFAULT_BOTS = 100
