@@ -65,6 +65,14 @@ class BotBlob(
             return Vector2(engine.safeZoneCenterX - position.x, engine.safeZoneCenterY - position.y).normalized()
         }
 
+        // Proactive: head back in well before actually leaving, since the zone keeps
+        // shrinking underneath them - reacting only once already outside meant bots
+        // routinely got caught by surprise and paid the much faster out-of-zone deflation
+        // rate for it. Not an emergency yet, so no need to spend size sprinting for it.
+        if (distanceFromZoneCenter > engine.safeZoneRadius * GameConfig.BOT_ZONE_SAFETY_MARGIN_FRACTION) {
+            return Vector2(engine.safeZoneCenterX - position.x, engine.safeZoneCenterY - position.y).normalized()
+        }
+
         // Past this point nothing is a genuine emergency, so save whatever size is left
         // instead of spending it - a bot that's merely peckish or cautious shouldn't
         // sprint itself to death before an opponent ever gets the chance to fight it.

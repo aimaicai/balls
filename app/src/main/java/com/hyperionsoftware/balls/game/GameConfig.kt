@@ -146,10 +146,14 @@ object GameConfig {
     // Balloons always leak air, everywhere, all the time - there is no truly "safe" state
     // anymore, only "slower". Inside the zone the leak is a slow background attrition;
     // outside it it's much faster. Either way, dropping below ZONE_DEATH_RADIUS deflates
-    // the balloon for good and ends the match for it.
+    // the balloon for good and ends the match for it. Kept fairly high (not near zero) on
+    // purpose: effectiveSpeed's sizeFactor grows sharply as radius shrinks, so a balloon left
+    // to keep leaking down toward zero would get faster and faster while barely able to
+    // turn - dying at ZONE_DEATH_RADIUS instead means it never lingers in that
+    // fast-but-unsteerable state.
     const val AMBIENT_DEFLATE_RATE_PER_SECOND = 0.015f
     const val OUT_OF_ZONE_DEFLATE_RATE_PER_SECOND = 0.12f
-    const val ZONE_DEATH_RADIUS = 1f
+    const val ZONE_DEATH_RADIUS = 10f
 
     // Voluntary boost/sprint: works everywhere, any time, stacking on top of the ambient
     // leak above and trading size for extra speed with no floor - burning all the way down
@@ -166,6 +170,13 @@ object GameConfig {
     // Below this fraction of baseRadius, a bot treats itself as running low and actively
     // hunts the nearest growth power-up to refill, instead of whatever's merely closest.
     const val BOT_LOW_SIZE_FRACTION = 0.7f
+
+    // Bots only used to react to the safe zone once already outside it, which meant many
+    // got caught by surprise now that the zone keeps shrinking continuously - especially in
+    // the final round. Within this fraction of the current radius (the outer band, still
+    // technically inside), they start heading back toward center proactively instead of
+    // waiting to actually cross the line.
+    const val BOT_ZONE_SAFETY_MARGIN_FRACTION = 0.85f
 
     // Balloons are pushed by their own exhaust: a moving balloon blows a cone of air out its
     // back that shoves any other balloon caught in it further away. Range scales with the
