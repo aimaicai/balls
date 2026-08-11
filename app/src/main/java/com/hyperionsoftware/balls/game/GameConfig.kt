@@ -133,12 +133,15 @@ object GameConfig {
 
     // The zone used to freeze at SAFE_ZONE_MIN_RADIUS once the final round started, which
     // turned the finale into a static standoff decided almost entirely by whoever reached
-    // the first power-up. Instead it keeps tightening after the final round begins, holding
-    // once it reaches this smaller floor, so there's sustained pressure to keep moving and
-    // fighting instead of camping a fixed circle. The floor is generous enough to still
-    // leave real room to maneuver rather than a pure scrum.
+    // the first power-up. Instead it keeps shrinking indefinitely from SAFE_ZONE_MIN_RADIUS
+    // at a constant rate - the one that would reach SAFE_ZONE_FINAL_MIN_RADIUS after
+    // SAFE_ZONE_FINAL_SHRINK_SECONDS - all the way down to SAFE_ZONE_ABSOLUTE_MIN_RADIUS,
+    // rather than holding anywhere, so there's sustained pressure to keep moving and
+    // fighting instead of camping a fixed circle, and a stalling match is eventually forced
+    // to a decisive end.
     const val SAFE_ZONE_FINAL_MIN_RADIUS = 600f
     const val SAFE_ZONE_FINAL_SHRINK_SECONDS = 30f
+    const val SAFE_ZONE_ABSOLUTE_MIN_RADIUS = 10f
 
     // Balloons always leak air, everywhere, all the time - there is no truly "safe" state
     // anymore, only "slower". Inside the zone the leak is a slow background attrition;

@@ -91,10 +91,15 @@ class GameEngine(
     val safeZoneRadius: Float
         get() {
             if (finalRoundTriggered) {
+                // Keeps shrinking at the same rate indefinitely instead of holding once it
+                // reaches SAFE_ZONE_FINAL_MIN_RADIUS - a standoff at a fixed floor was still
+                // a standoff, just a bigger one. A small floor stops it from going degenerate
+                // (zero/negative), but by then it's forcing a decisive end either way.
                 val shrinkElapsed = matchElapsed - finalRoundTriggeredAt
-                val shrinkProgress = (shrinkElapsed / GameConfig.SAFE_ZONE_FINAL_SHRINK_SECONDS).coerceIn(0f, 1f)
-                return GameConfig.SAFE_ZONE_MIN_RADIUS +
-                    (GameConfig.SAFE_ZONE_FINAL_MIN_RADIUS - GameConfig.SAFE_ZONE_MIN_RADIUS) * shrinkProgress
+                val shrinkRate = (GameConfig.SAFE_ZONE_MIN_RADIUS - GameConfig.SAFE_ZONE_FINAL_MIN_RADIUS) /
+                    GameConfig.SAFE_ZONE_FINAL_SHRINK_SECONDS
+                return (GameConfig.SAFE_ZONE_MIN_RADIUS - shrinkRate * shrinkElapsed)
+                    .coerceAtLeast(GameConfig.SAFE_ZONE_ABSOLUTE_MIN_RADIUS)
             }
             val stage = safeZoneStageIndex
             val timeIntoStage = matchElapsed - stage * safeZoneStageDuration
