@@ -42,7 +42,7 @@ class GameView @JvmOverloads constructor(
     interface Callback {
         fun onGameOver(playerWon: Boolean, finalRadius: Int, playersRemaining: Int, opponentsAbsorbed: Int)
         fun onBoostAvailabilityChanged(available: Boolean)
-        fun onCarriedItemAvailabilityChanged(available: Boolean)
+        fun onCarriedItemChanged(type: PowerUpType?)
     }
 
     var callback: Callback? = null
@@ -52,7 +52,7 @@ class GameView @JvmOverloads constructor(
     private var surfaceReady = false
     private var started = false
     private var lastBoostAvailable = false
-    private var lastCarriedItemAvailable = false
+    private var lastCarriedItemType: PowerUpType? = null
 
     private var countdownActive = false
     private var countdownRemaining = 0f
@@ -212,7 +212,7 @@ class GameView @JvmOverloads constructor(
         countdownActive = true
         countdownRemaining = GameConfig.COUNTDOWN_SECONDS
         lastBoostAvailable = false
-        lastCarriedItemAvailable = false
+        lastCarriedItemType = null
         engine = GameEngine(
             botCount = botCount,
             powerUpFrequencyLevel = powerUpFrequencyLevel,
@@ -415,10 +415,10 @@ class GameView @JvmOverloads constructor(
 
     private fun checkCarriedItemAvailability() {
         val player = engine.player
-        val available = player.alive && player.carriedItem != null
-        if (available != lastCarriedItemAvailable) {
-            lastCarriedItemAvailable = available
-            post { callback?.onCarriedItemAvailabilityChanged(available) }
+        val type = if (player.alive) player.carriedItem else null
+        if (type != lastCarriedItemType) {
+            lastCarriedItemType = type
+            post { callback?.onCarriedItemChanged(type) }
         }
     }
 
@@ -1002,8 +1002,9 @@ class GameView @JvmOverloads constructor(
         drawPermanentStatsHud(canvas, player)
     }
 
-    // Small, muted pip bars (max 5) instead of raw percentages - started low enough to
-    // clear the pause button in the same corner, which used to sit right on top of this text.
+    // Small, muted pip bars (max STAT_PIP_COUNT) instead of raw percentages - started low
+    // enough to clear the pause button in the same corner, which used to sit right on top
+    // of this text.
     private fun drawPermanentStatsHud(canvas: Canvas, player: Blob) {
         val density = resources.displayMetrics.density
         var y = (16f + 52f + 14f) * density
@@ -1026,23 +1027,27 @@ class GameView @JvmOverloads constructor(
         y: Float
     ): Float {
         val fraction = ((multiplier - 1f) / (maxMultiplier - 1f)).coerceIn(0f, 1f)
-        val filledCount = Math.round(fraction * 5f).coerceIn(0, 5)
+        val filledCount = Math.round(fraction * STAT_PIP_COUNT.toFloat()).coerceIn(0, STAT_PIP_COUNT)
 
-        val pipSize = 16f
-        val pipGap = 6f
-        val pipsWidth = 5 * pipSize + 4 * pipGap
+        val pipSize = 13f
+        val pipGap = 4f
+        val pipsWidth = STAT_PIP_COUNT * pipSize + (STAT_PIP_COUNT - 1) * pipGap
         val rightEdge = width - 24f
         val blockLeft = rightEdge - pipsWidth
         val labelWidth = statsHudPaint.measureText(label)
         canvas.drawText(label, blockLeft - labelWidth - 12f, y, statsHudPaint)
 
-        for (i in 0 until 5) {
+        for (i in 0 until STAT_PIP_COUNT) {
             val left = blockLeft + i * (pipSize + pipGap)
             val top = y - pipSize + 4f
             statPipPaint.color = if (i < filledCount) filledColor else statPipEmptyColor
             canvas.drawRoundRect(left, top, left + pipSize, top + pipSize, 3f, 3f, statPipPaint)
         }
-        return y + 30f
+        return y + 28f
+    }
+
+    private companion object {
+        private const val STAT_PIP_COUNT = 10
     }
 
     private fun drawCountdown(canvas: Canvas) {

@@ -9,6 +9,7 @@ import com.hyperionsoftware.balls.audio.BackgroundMusicPlayer
 import com.hyperionsoftware.balls.audio.MusicSettings
 import com.hyperionsoftware.balls.databinding.ActivityGameBinding
 import com.hyperionsoftware.balls.game.GameConfig
+import com.hyperionsoftware.balls.game.PowerUpType
 import com.hyperionsoftware.balls.ui.GameView
 
 class GameActivity : AppCompatActivity(), GameView.Callback {
@@ -93,8 +94,23 @@ class GameActivity : AppCompatActivity(), GameView.Callback {
         binding.boostButton.alpha = if (available) 1f else BOOST_UNAVAILABLE_ALPHA
     }
 
-    override fun onCarriedItemAvailabilityChanged(available: Boolean) {
-        binding.activeItemButton.alpha = if (available) 1f else ACTIVE_ITEM_UNAVAILABLE_ALPHA
+    override fun onCarriedItemChanged(type: PowerUpType?) {
+        binding.activeItemButton.alpha = if (type != null) 1f else ACTIVE_ITEM_UNAVAILABLE_ALPHA
+        val iconRes = when (type) {
+            PowerUpType.SPEED -> R.drawable.ic_item_speed
+            PowerUpType.INVISIBILITY -> R.drawable.ic_item_invisibility
+            PowerUpType.REPEL -> R.drawable.ic_item_repel
+            PowerUpType.FREEZE -> R.drawable.ic_item_freeze
+            else -> R.drawable.ic_active_item
+        }
+        binding.activeItemButton.setImageResource(iconRes)
+        binding.activeItemButton.contentDescription = when (type) {
+            PowerUpType.SPEED -> getString(R.string.active_item_speed)
+            PowerUpType.INVISIBILITY -> getString(R.string.active_item_invisibility)
+            PowerUpType.REPEL -> getString(R.string.active_item_repel)
+            PowerUpType.FREEZE -> getString(R.string.active_item_freeze)
+            else -> getString(R.string.active_item_button)
+        }
     }
 
     private fun goToMenu() {

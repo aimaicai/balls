@@ -57,11 +57,11 @@ object GameConfig {
     // Permanent stat pickups (SPEED_UP/AGILITY_UP): each one closes a fraction of the
     // remaining gap to its own cap instead of adding a flat amount, so the first pickup
     // matters a lot and it's impossible to stack these into an unbounded advantage.
-    // Speed's cap is deliberately modest ("just a little"); agility's is more generous
-    // since a nimbler turn is a different kind of edge than raw power.
-    const val PERMANENT_SPEED_MAX_MULTIPLIER = 1.25f
+    // Agility's cap is more generous than speed's since a nimbler turn is a different
+    // kind of edge than raw power.
+    const val PERMANENT_SPEED_MAX_MULTIPLIER = 1.5f
     const val PERMANENT_SPEED_STEP_FRACTION = 0.35f
-    const val PERMANENT_TURN_RATE_MAX_MULTIPLIER = 2f
+    const val PERMANENT_TURN_RATE_MAX_MULTIPLIER = 3f
     const val PERMANENT_TURN_RATE_STEP_FRACTION = 0.35f
 
     // A rare, more valuable pickup that always grants SHIELD, spawned on its own separate
