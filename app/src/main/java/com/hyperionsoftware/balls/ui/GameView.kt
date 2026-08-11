@@ -227,7 +227,12 @@ class GameView @JvmOverloads constructor(
         holder.addCallback(this)
     }
 
-    fun startGame(botCount: Int, powerUpFrequencyLevel: Int, arenaSize: GameConfig.ArenaSize = GameConfig.ArenaSize.NORMAL) {
+    fun startGame(
+        botCount: Int,
+        powerUpFrequencyLevel: Int,
+        arenaSize: GameConfig.ArenaSize = GameConfig.ArenaSize.NORMAL,
+        skipToFinalRound: Boolean = false
+    ) {
         if (started) return
         started = true
         floatingTexts.clear()
@@ -240,6 +245,7 @@ class GameView @JvmOverloads constructor(
             botCount = botCount,
             powerUpFrequencyLevel = powerUpFrequencyLevel,
             arenaSize = arenaSize,
+            skipToFinalRound = skipToFinalRound,
             listener = object : GameListener {
                 override fun onVibrate() {
                     vibrateBounce()
@@ -360,11 +366,16 @@ class GameView @JvmOverloads constructor(
         }
     }
 
-    fun restart(botCount: Int, powerUpFrequencyLevel: Int, arenaSize: GameConfig.ArenaSize = GameConfig.ArenaSize.NORMAL) {
+    fun restart(
+        botCount: Int,
+        powerUpFrequencyLevel: Int,
+        arenaSize: GameConfig.ArenaSize = GameConfig.ArenaSize.NORMAL,
+        skipToFinalRound: Boolean = false
+    ) {
         loopThread?.running = false
         loopThread?.join(500)
         started = false
-        startGame(botCount, powerUpFrequencyLevel, arenaSize)
+        startGame(botCount, powerUpFrequencyLevel, arenaSize, skipToFinalRound)
     }
 
     fun setBoosting(active: Boolean) {

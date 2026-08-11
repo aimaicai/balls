@@ -2,6 +2,7 @@
     <string name="app_name">Balls Arena</string>
 
     <string name="menu_play">Gioca</string>
+    <string name="menu_test_finale">Testa il finale</string>
     <string name="menu_bots_label">Avversari: %1$d</string>
     <string name="menu_powerup_label">Frequenza power-up: %1$d</string>
     <string name="menu_exit">Esci</string>

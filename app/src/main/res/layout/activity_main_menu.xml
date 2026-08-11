@@ -110,6 +110,17 @@
         app:layout_constraintTop_toBottomOf="@id/musicSwitch" />
 
     <Button
+        android:id="@+id/testFinaleButton"
+        style="?attr/materialButtonOutlinedStyle"
+        android:layout_width="240dp"
+        android:layout_height="56dp"
+        android:layout_marginTop="12dp"
+        android:text="@string/menu_test_finale"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/playButton" />
+
+    <Button
         android:id="@+id/exitButton"
         style="?attr/materialButtonOutlinedStyle"
         android:layout_width="240dp"
@@ -118,6 +129,6 @@
         android:text="@string/menu_exit"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/playButton" />
+        app:layout_constraintTop_toBottomOf="@id/testFinaleButton" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

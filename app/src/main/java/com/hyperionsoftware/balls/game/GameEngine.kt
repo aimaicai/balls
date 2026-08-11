@@ -20,6 +20,10 @@ class GameEngine(
     botCount: Int,
     powerUpFrequencyLevel: Int,
     arenaSize: GameConfig.ArenaSize = GameConfig.ArenaSize.NORMAL,
+    // Lets the main menu drop straight into the final-round setup (all blobs alive, circled
+    // around a single centered power-up) with whatever bot count is chosen, instead of
+    // having to play a full match down to a handful of survivors just to test that stage.
+    private val skipToFinalRound: Boolean = false,
     private val listener: GameListener
 ) {
     // Must run before any property below reads WORLD_WIDTH/HEIGHT or
@@ -146,7 +150,7 @@ class GameEngine(
                 )
             blobs.add(bot)
         }
-        spawnInitialPowerUps()
+        if (skipToFinalRound) triggerFinalRound() else spawnInitialPowerUps()
     }
 
     // Filling in a chunk of the cap immediately, instead of waiting for the usual

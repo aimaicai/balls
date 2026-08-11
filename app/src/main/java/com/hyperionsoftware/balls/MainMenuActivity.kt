@@ -75,6 +75,15 @@ class MainMenuActivity : AppCompatActivity() {
                     .putExtra(GameActivity.EXTRA_ARENA_SIZE, arenaSize.name)
             )
         }
+        binding.testFinaleButton.setOnClickListener {
+            startActivity(
+                Intent(this, GameActivity::class.java)
+                    .putExtra(GameActivity.EXTRA_BOT_COUNT, botCount)
+                    .putExtra(GameActivity.EXTRA_POWERUP_FREQUENCY, powerUpFrequencyLevel)
+                    .putExtra(GameActivity.EXTRA_ARENA_SIZE, arenaSize.name)
+                    .putExtra(GameActivity.EXTRA_SKIP_TO_FINAL_ROUND, true)
+            )
+        }
         binding.exitButton.setOnClickListener { finish() }
     }
 

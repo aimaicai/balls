@@ -18,6 +18,7 @@ class GameActivity : AppCompatActivity(), GameView.Callback {
     private var botCount = DEFAULT_BOTS
     private var powerUpFrequencyLevel = GameConfig.POWERUP_DEFAULT_FREQUENCY_LEVEL
     private var arenaSize = GameConfig.ArenaSize.NORMAL
+    private var skipToFinalRound = false
     private val musicPlayer = BackgroundMusicPlayer()
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -33,6 +34,7 @@ class GameActivity : AppCompatActivity(), GameView.Callback {
         arenaSize = intent.getStringExtra(EXTRA_ARENA_SIZE)?.let {
             runCatching { GameConfig.ArenaSize.valueOf(it) }.getOrNull()
         } ?: GameConfig.ArenaSize.NORMAL
+        skipToFinalRound = intent.getBooleanExtra(EXTRA_SKIP_TO_FINAL_ROUND, false)
 
         binding.joystickView.listener = binding.gameView
         binding.gameView.callback = this
@@ -51,7 +53,7 @@ class GameActivity : AppCompatActivity(), GameView.Callback {
         // No carried item at match start either.
         binding.activeItemButton.alpha = ACTIVE_ITEM_UNAVAILABLE_ALPHA
 
-        binding.gameView.startGame(botCount, powerUpFrequencyLevel, arenaSize)
+        binding.gameView.startGame(botCount, powerUpFrequencyLevel, arenaSize, skipToFinalRound)
     }
 
     override fun onResume() {
@@ -74,7 +76,7 @@ class GameActivity : AppCompatActivity(), GameView.Callback {
             .setTitle(getString(R.string.pause_title))
             .setCancelable(false)
             .setPositiveButton(getString(R.string.pause_resume)) { _, _ -> binding.gameView.resumeGame() }
-            .setNeutralButton(getString(R.string.pause_restart)) { _, _ -> binding.gameView.restart(botCount, powerUpFrequencyLevel, arenaSize) }
+            .setNeutralButton(getString(R.string.pause_restart)) { _, _ -> binding.gameView.restart(botCount, powerUpFrequencyLevel, arenaSize, skipToFinalRound) }
             .setNegativeButton(getString(R.string.pause_menu)) { _, _ -> goToMenu() }
             .show()
     }
@@ -96,7 +98,7 @@ class GameActivity : AppCompatActivity(), GameView.Callback {
             .setTitle(title)
             .setMessage(getString(R.string.game_over_stats, timeText, finalRadius, playersRemaining, opponentsAbsorbed))
             .setCancelable(false)
-            .setPositiveButton(getString(R.string.game_over_restart)) { _, _ -> binding.gameView.restart(botCount, powerUpFrequencyLevel, arenaSize) }
+            .setPositiveButton(getString(R.string.game_over_restart)) { _, _ -> binding.gameView.restart(botCount, powerUpFrequencyLevel, arenaSize, skipToFinalRound) }
             .setNegativeButton(getString(R.string.game_over_menu)) { _, _ -> goToMenu() }
             .show()
     }
@@ -133,6 +135,7 @@ class GameActivity : AppCompatActivity(), GameView.Callback {
         const val EXTRA_BOT_COUNT = "extra_bot_count"
         const val EXTRA_POWERUP_FREQUENCY = "extra_powerup_frequency"
         const val EXTRA_ARENA_SIZE = "extra_arena_size"
+        const val EXTRA_SKIP_TO_FINAL_ROUND = "extra_skip_to_final_round"
         private const val BOOST_UNAVAILABLE_ALPHA = 0.35f
         private const val ACTIVE_ITEM_UNAVAILABLE_ALPHA = 0.35f
         private const val DEFAULT_BOTS = 100
