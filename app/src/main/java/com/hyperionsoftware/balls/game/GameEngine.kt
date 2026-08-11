@@ -25,14 +25,17 @@ class GameEngine(
     private val powerUpFrequency = powerUpFrequencyLevel.toFloat()
 
     // GROWTH is weighted heavier than the other types (see GameConfig) since size
-    // constantly drains away on its own now. REPEL/FREEZE are carried items rather than
-    // instant effects, but spawn from this same pool.
+    // constantly drains away on its own now. SPEED/INVISIBILITY/REPEL/FREEZE are all
+    // carried items rather than instant effects, but spawn from this same pool; SPEED_UP
+    // and AGILITY_UP are instant, permanent stat increases.
     private val weightedPowerUpTypes: List<PowerUpType> = buildList {
         repeat(GameConfig.POWERUP_GROWTH_WEIGHT) { add(PowerUpType.GROWTH) }
         repeat(GameConfig.POWERUP_SPEED_WEIGHT) { add(PowerUpType.SPEED) }
         repeat(GameConfig.POWERUP_INVISIBILITY_WEIGHT) { add(PowerUpType.INVISIBILITY) }
         repeat(GameConfig.POWERUP_REPEL_WEIGHT) { add(PowerUpType.REPEL) }
         repeat(GameConfig.POWERUP_FREEZE_WEIGHT) { add(PowerUpType.FREEZE) }
+        repeat(GameConfig.POWERUP_SPEED_UP_WEIGHT) { add(PowerUpType.SPEED_UP) }
+        repeat(GameConfig.POWERUP_AGILITY_UP_WEIGHT) { add(PowerUpType.AGILITY_UP) }
     }
 
     // More power-ups when the safe zone is large, fewer (but never none) as it shrinks,
@@ -265,6 +268,8 @@ class GameEngine(
         when (item) {
             PowerUpType.REPEL -> applyRepelBlast(blob)
             PowerUpType.FREEZE -> applyFreezeBlast(blob)
+            PowerUpType.SPEED -> blob.activateSpeedBoost()
+            PowerUpType.INVISIBILITY -> blob.activateInvisibility()
             else -> Unit
         }
         listener.onActiveItemUsed(blob.position.x, blob.position.y, item, blob === player)

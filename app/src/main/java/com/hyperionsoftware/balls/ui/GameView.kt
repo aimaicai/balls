@@ -185,6 +185,10 @@ class GameView @JvmOverloads constructor(
         isFakeBoldText = true
         textAlign = Paint.Align.CENTER
     }
+    private val statsHudPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.parseColor("#B0BEC5")
+        textSize = 26f
+    }
     private val countdownPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = Color.WHITE
         textSize = 180f
@@ -234,12 +238,14 @@ class GameView @JvmOverloads constructor(
 
                 override fun onPowerUpCollected(x: Float, y: Float, type: PowerUpType, byPlayer: Boolean) {
                     val label = when (type) {
-                        PowerUpType.SPEED -> "Velocità!"
+                        PowerUpType.SPEED -> "Velocità pronta!"
                         PowerUpType.GROWTH -> "Ingrandimento!"
-                        PowerUpType.INVISIBILITY -> "Invisibilità!"
+                        PowerUpType.INVISIBILITY -> "Invisibilità pronta!"
                         PowerUpType.SHIELD -> "Scudo!"
                         PowerUpType.REPEL -> "Respingi pronto!"
                         PowerUpType.FREEZE -> "Congela pronto!"
+                        PowerUpType.SPEED_UP -> "Velocità permanente!"
+                        PowerUpType.AGILITY_UP -> "Agilità permanente!"
                     }
                     floatingTexts.add(FloatingText(x, y, label, Color.parseColor("#FFD54F"), 1.4f))
                     if (byPlayer) {
@@ -249,21 +255,30 @@ class GameView @JvmOverloads constructor(
                 }
 
                 override fun onActiveItemUsed(x: Float, y: Float, type: PowerUpType, byPlayer: Boolean) {
-                    val (label, color, maxRadius) = when (type) {
-                        PowerUpType.REPEL -> Triple(
-                            "Respinto!",
-                            Color.parseColor("#FFB74D"),
-                            GameConfig.BASE_RADIUS * GameConfig.REPEL_RANGE_MULTIPLIER
-                        )
-                        PowerUpType.FREEZE -> Triple(
-                            "Congelato!",
-                            Color.parseColor("#4FC3F7"),
-                            GameConfig.BASE_RADIUS * GameConfig.FREEZE_RANGE_MULTIPLIER
-                        )
+                    val label = when (type) {
+                        PowerUpType.REPEL -> "Respinto!"
+                        PowerUpType.FREEZE -> "Congelato!"
+                        PowerUpType.SPEED -> "Velocità!"
+                        PowerUpType.INVISIBILITY -> "Invisibilità!"
                         else -> return
                     }
+                    val color = when (type) {
+                        PowerUpType.REPEL -> Color.parseColor("#FFB74D")
+                        PowerUpType.FREEZE -> Color.parseColor("#4FC3F7")
+                        PowerUpType.SPEED -> Color.parseColor("#FFD54F")
+                        else -> Color.parseColor("#B39DDB")
+                    }
                     floatingTexts.add(FloatingText(x, y, label, color, 1.2f))
-                    effectRipples.add(EffectRipple(x, y, maxRadius, color, 0.5f))
+                    // Only the two area effects get an expanding ring - SPEED/INVISIBILITY
+                    // are self-buffs with nothing to telegraph in the world.
+                    val rippleRadius = when (type) {
+                        PowerUpType.REPEL -> GameConfig.BASE_RADIUS * GameConfig.REPEL_RANGE_MULTIPLIER
+                        PowerUpType.FREEZE -> GameConfig.BASE_RADIUS * GameConfig.FREEZE_RANGE_MULTIPLIER
+                        else -> null
+                    }
+                    if (rippleRadius != null) {
+                        effectRipples.add(EffectRipple(x, y, rippleRadius, color, 0.5f))
+                    }
                     if (byPlayer) {
                         vibratePowerUp()
                         toneGenerator.startTone(ToneGenerator.TONE_PROP_BEEP2, 150)
@@ -797,6 +812,8 @@ class GameView @JvmOverloads constructor(
             PowerUpType.SHIELD -> Color.parseColor("#4FC3F7")
             PowerUpType.REPEL -> Color.parseColor("#FFB74D")
             PowerUpType.FREEZE -> Color.parseColor("#80DEEA")
+            PowerUpType.SPEED_UP -> Color.parseColor("#FF7043")
+            PowerUpType.AGILITY_UP -> Color.parseColor("#CE93D8")
         }
         val cx = powerUp.position.x + offsetX
         val cy = powerUp.position.y + offsetY
@@ -863,6 +880,23 @@ class GameView @JvmOverloads constructor(
                 canvas.drawLine(cx - 8f, cy, cx + 8f, cy, iconPaint)
                 canvas.drawLine(cx - 6f, cy - 6f, cx + 6f, cy + 6f, iconPaint)
                 canvas.drawLine(cx - 6f, cy + 6f, cx + 6f, cy - 6f, iconPaint)
+            }
+            PowerUpType.SPEED_UP -> {
+                // A bold, stacked double chevron - a permanent boost rather than the
+                // temporary SPEED item's sideways motion lines.
+                for (i in 0..1) {
+                    val oy = cy + 5f - i * 7f
+                    canvas.drawLine(cx - 6f, oy + 4f, cx, oy - 4f, iconPaint)
+                    canvas.drawLine(cx, oy - 4f, cx + 6f, oy + 4f, iconPaint)
+                }
+            }
+            PowerUpType.AGILITY_UP -> {
+                // A curved arrow suggests sharper turning.
+                iconPaint.style = Paint.Style.STROKE
+                canvas.drawArc(cx - 7f, cy - 7f, cx + 7f, cy + 7f, -30f, 270f, false, iconPaint)
+                iconPaint.style = Paint.Style.FILL
+                canvas.drawLine(cx + 6f, cy - 4f, cx + 9f, cy - 1f, iconPaint)
+                canvas.drawLine(cx + 6f, cy - 4f, cx + 3f, cy - 6f, iconPaint)
             }
         }
     }
@@ -962,6 +996,25 @@ class GameView @JvmOverloads constructor(
 
         val zonePercent = (engine.safeZoneProgress * 100f).toInt()
         canvas.drawText("Zona: $zonePercent%", width / 2f, 56f, zoneHudPaint)
+
+        drawPermanentStatsHud(canvas, player)
+    }
+
+    // Small, muted, and only shown once a stat is actually above its baseline - stays out
+    // of the way of the feed on the opposite side until there's something worth reporting.
+    private fun drawPermanentStatsHud(canvas: Canvas, player: Blob) {
+        var y = 88f
+        if (player.permanentSpeedMultiplier > 1.01f) {
+            val text = "Velocità: ${(player.permanentSpeedMultiplier * 100f).toInt()}%"
+            val textWidth = statsHudPaint.measureText(text)
+            canvas.drawText(text, width - textWidth - 24f, y, statsHudPaint)
+            y += 26f
+        }
+        if (player.permanentTurnRateMultiplier > 1.01f) {
+            val text = "Agilità: ${(player.permanentTurnRateMultiplier * 100f).toInt()}%"
+            val textWidth = statsHudPaint.measureText(text)
+            canvas.drawText(text, width - textWidth - 24f, y, statsHudPaint)
+        }
     }
 
     private fun drawCountdown(canvas: Canvas) {

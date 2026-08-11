@@ -39,10 +39,18 @@ abstract class Blob(
     val isShielded: Boolean get() = shieldTimer > 0f
     val isFrozen: Boolean get() = frozenTimer > 0f
 
-    // A single carried/active item slot (REPEL or FREEZE) - picked up like a regular
-    // power-up but stored instead of applied immediately, spent later via a dedicated
-    // button. Picking up a new one while already holding one replaces it.
+    // A single carried/active item slot - picked up like a regular power-up but stored
+    // instead of applied immediately, spent later via a dedicated button. Picking up a new
+    // one while already holding one replaces it, whatever the two types are.
     var carriedItem: PowerUpType? = null
+        private set
+
+    // Permanent stat multipliers from SPEED_UP/AGILITY_UP pickups. Each pickup closes part
+    // of the remaining gap to its cap (see increasePermanentSpeed/Agility), so they can
+    // never be stacked into an unbounded advantage.
+    var permanentSpeedMultiplier: Float = 1f
+        private set
+    var permanentTurnRateMultiplier: Float = 1f
         private set
 
     abstract fun decideDirection(engine: GameEngine, dt: Float): Vector2
@@ -63,7 +71,8 @@ abstract class Blob(
 
             if (hasHeading) {
                 val desiredHeading = rawDirection.normalized()
-                facingDirection = steerTowards(facingDirection, desiredHeading, GameConfig.TURN_RATE_RADIANS_PER_SECOND * dt)
+                val turnRate = GameConfig.TURN_RATE_RADIANS_PER_SECOND * permanentTurnRateMultiplier
+                facingDirection = steerTowards(facingDirection, desiredHeading, turnRate * dt)
             }
 
             isThrusting = hasHeading
@@ -140,13 +149,13 @@ abstract class Blob(
 
     fun applyPowerUp(type: PowerUpType) {
         when (type) {
-            PowerUpType.SPEED -> speedBoostTimer = GameConfig.POWERUP_SPEED_DURATION
-            PowerUpType.INVISIBILITY -> invisibilityTimer = GameConfig.POWERUP_INVISIBILITY_DURATION
             PowerUpType.SHIELD -> shieldTimer = GameConfig.POWERUP_SHIELD_DURATION
             PowerUpType.GROWTH -> {
                 radius = min(GameConfig.MAX_RADIUS, radius * GameConfig.POWERUP_GROWTH_MULTIPLIER)
             }
-            PowerUpType.REPEL, PowerUpType.FREEZE -> pickUpCarriedItem(type)
+            PowerUpType.SPEED_UP -> increasePermanentSpeed()
+            PowerUpType.AGILITY_UP -> increasePermanentAgility()
+            PowerUpType.SPEED, PowerUpType.INVISIBILITY, PowerUpType.REPEL, PowerUpType.FREEZE -> pickUpCarriedItem(type)
         }
     }
 
@@ -162,9 +171,33 @@ abstract class Blob(
         return item
     }
 
+    // These two are only ever invoked from GameEngine.activateCarriedItem, once the player
+    // (or bot) actually spends a carried SPEED/INVISIBILITY rather than the instant they
+    // pick it up - so a duration is never ticking away unused before it's wanted.
+    fun activateSpeedBoost() {
+        speedBoostTimer = GameConfig.POWERUP_SPEED_DURATION
+    }
+
+    fun activateInvisibility() {
+        invisibilityTimer = GameConfig.POWERUP_INVISIBILITY_DURATION
+    }
+
     // Applied to targets caught by someone else's FREEZE, not to oneself.
     fun applyFreeze(duration: Float) {
         frozenTimer = duration
+    }
+
+    // Each pickup closes PERMANENT_SPEED_STEP_FRACTION of the remaining gap to the cap,
+    // rather than adding a flat amount - so the first pickup matters a lot and the tenth
+    // barely moves the needle, instead of an unbounded stack.
+    private fun increasePermanentSpeed() {
+        val gap = GameConfig.PERMANENT_SPEED_MAX_MULTIPLIER - permanentSpeedMultiplier
+        permanentSpeedMultiplier += gap * GameConfig.PERMANENT_SPEED_STEP_FRACTION
+    }
+
+    private fun increasePermanentAgility() {
+        val gap = GameConfig.PERMANENT_TURN_RATE_MAX_MULTIPLIER - permanentTurnRateMultiplier
+        permanentTurnRateMultiplier += gap * GameConfig.PERMANENT_TURN_RATE_STEP_FRACTION
     }
 
     private fun effectiveSpeed(baseSpeed: Float): Float {
@@ -178,7 +211,7 @@ abstract class Blob(
         } else {
             1f
         }
-        return baseSpeed * sizeFactor * powerUpBoost * dashBoost
+        return baseSpeed * sizeFactor * powerUpBoost * dashBoost * permanentSpeedMultiplier
     }
 
     private fun areaOf(r: Float): Float = Math.PI.toFloat() * r * r

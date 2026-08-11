@@ -41,6 +41,8 @@ object GameConfig {
     const val POWERUP_INVISIBILITY_WEIGHT = 1
     const val POWERUP_REPEL_WEIGHT = 1
     const val POWERUP_FREEZE_WEIGHT = 1
+    const val POWERUP_SPEED_UP_WEIGHT = 1
+    const val POWERUP_AGILITY_UP_WEIGHT = 1
     const val POWERUP_SHIELD_DURATION = 12f
 
     // REPEL: an instant burst that shoves everyone within range away from whoever used it.
@@ -51,6 +53,16 @@ object GameConfig {
     // enough to escape or catch up, short enough not to be oppressive.
     const val FREEZE_RANGE_MULTIPLIER = 5f
     const val FREEZE_DURATION_SECONDS = 1.8f
+
+    // Permanent stat pickups (SPEED_UP/AGILITY_UP): each one closes a fraction of the
+    // remaining gap to its own cap instead of adding a flat amount, so the first pickup
+    // matters a lot and it's impossible to stack these into an unbounded advantage.
+    // Speed's cap is deliberately modest ("just a little"); agility's is more generous
+    // since a nimbler turn is a different kind of edge than raw power.
+    const val PERMANENT_SPEED_MAX_MULTIPLIER = 1.25f
+    const val PERMANENT_SPEED_STEP_FRACTION = 0.35f
+    const val PERMANENT_TURN_RATE_MAX_MULTIPLIER = 2f
+    const val PERMANENT_TURN_RATE_STEP_FRACTION = 0.35f
 
     // A rare, more valuable pickup that always grants SHIELD, spawned on its own separate
     // timer (independent of the regular power-up cap/timer) and telegraphed with a pulsing

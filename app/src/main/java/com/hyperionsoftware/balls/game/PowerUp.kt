@@ -1,13 +1,15 @@
 package com.hyperionsoftware.balls.game
 
 enum class PowerUpType {
-    SPEED, GROWTH, INVISIBILITY, SHIELD, REPEL, FREEZE;
+    // SPEED and INVISIBILITY are carried now too (see Blob.applyPowerUp): stored in the
+    // single item slot and spent on demand via the same button as REPEL/FREEZE, instead of
+    // applying - and potentially wasting their duration - the instant they're picked up.
+    SPEED, GROWTH, INVISIBILITY, SHIELD, REPEL, FREEZE,
 
-    // Carried items aren't applied on pickup - they're stored in a single slot (picking up
-    // a new one replaces whatever's already held) and spent later with a dedicated button,
-    // unlike the instant-effect types above.
-    val isCarriedItem: Boolean
-        get() = this == REPEL || this == FREEZE
+    // Permanent, instant-on-pickup stat increases (not carried). Each one closes part of
+    // the remaining gap to its own cap, so early pickups matter more than later ones and
+    // no one stacks these into an unbounded advantage.
+    SPEED_UP, AGILITY_UP
 }
 
 class PowerUp(
