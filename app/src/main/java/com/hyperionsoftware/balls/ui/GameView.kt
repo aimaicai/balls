@@ -189,6 +189,8 @@ class GameView @JvmOverloads constructor(
         color = Color.parseColor("#B0BEC5")
         textSize = 26f
     }
+    private val statPipPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
+    private val statPipEmptyColor = Color.parseColor("#3A4750")
     private val countdownPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = Color.WHITE
         textSize = 180f
@@ -1000,21 +1002,47 @@ class GameView @JvmOverloads constructor(
         drawPermanentStatsHud(canvas, player)
     }
 
-    // Small, muted, and only shown once a stat is actually above its baseline - stays out
-    // of the way of the feed on the opposite side until there's something worth reporting.
+    // Small, muted pip bars (max 5) instead of raw percentages - started low enough to
+    // clear the pause button in the same corner, which used to sit right on top of this text.
     private fun drawPermanentStatsHud(canvas: Canvas, player: Blob) {
-        var y = 88f
-        if (player.permanentSpeedMultiplier > 1.01f) {
-            val text = "Velocità: ${(player.permanentSpeedMultiplier * 100f).toInt()}%"
-            val textWidth = statsHudPaint.measureText(text)
-            canvas.drawText(text, width - textWidth - 24f, y, statsHudPaint)
-            y += 26f
+        val density = resources.displayMetrics.density
+        var y = (16f + 52f + 14f) * density
+        y = drawStatPips(
+            canvas, "Velocità", player.permanentSpeedMultiplier,
+            GameConfig.PERMANENT_SPEED_MAX_MULTIPLIER, Color.parseColor("#FF7043"), y
+        )
+        drawStatPips(
+            canvas, "Agilità", player.permanentTurnRateMultiplier,
+            GameConfig.PERMANENT_TURN_RATE_MAX_MULTIPLIER, Color.parseColor("#CE93D8"), y
+        )
+    }
+
+    private fun drawStatPips(
+        canvas: Canvas,
+        label: String,
+        multiplier: Float,
+        maxMultiplier: Float,
+        filledColor: Int,
+        y: Float
+    ): Float {
+        val fraction = ((multiplier - 1f) / (maxMultiplier - 1f)).coerceIn(0f, 1f)
+        val filledCount = Math.round(fraction * 5f).coerceIn(0, 5)
+
+        val pipSize = 16f
+        val pipGap = 6f
+        val pipsWidth = 5 * pipSize + 4 * pipGap
+        val rightEdge = width - 24f
+        val blockLeft = rightEdge - pipsWidth
+        val labelWidth = statsHudPaint.measureText(label)
+        canvas.drawText(label, blockLeft - labelWidth - 12f, y, statsHudPaint)
+
+        for (i in 0 until 5) {
+            val left = blockLeft + i * (pipSize + pipGap)
+            val top = y - pipSize + 4f
+            statPipPaint.color = if (i < filledCount) filledColor else statPipEmptyColor
+            canvas.drawRoundRect(left, top, left + pipSize, top + pipSize, 3f, 3f, statPipPaint)
         }
-        if (player.permanentTurnRateMultiplier > 1.01f) {
-            val text = "Agilità: ${(player.permanentTurnRateMultiplier * 100f).toInt()}%"
-            val textWidth = statsHudPaint.measureText(text)
-            canvas.drawText(text, width - textWidth - 24f, y, statsHudPaint)
-        }
+        return y + 30f
     }
 
     private fun drawCountdown(canvas: Canvas) {
