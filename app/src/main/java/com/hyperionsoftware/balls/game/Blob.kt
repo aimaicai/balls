@@ -32,36 +32,49 @@ abstract class Blob(
     private var speedBoostTimer: Float = 0f
     private var invisibilityTimer: Float = 0f
     private var shieldTimer: Float = 0f
+    private var frozenTimer: Float = 0f
 
     val isInvisible: Boolean get() = invisibilityTimer > 0f
     val isSpeedBoosted: Boolean get() = speedBoostTimer > 0f
     val isShielded: Boolean get() = shieldTimer > 0f
+    val isFrozen: Boolean get() = frozenTimer > 0f
+
+    // A single carried/active item slot (REPEL or FREEZE) - picked up like a regular
+    // power-up but stored instead of applied immediately, spent later via a dedicated
+    // button. Picking up a new one while already holding one replaces it.
+    var carriedItem: PowerUpType? = null
+        private set
 
     abstract fun decideDirection(engine: GameEngine, dt: Float): Vector2
 
     open fun update(dt: Float, engine: GameEngine, baseSpeed: Float) {
         if (!alive) return
 
-        // The raw vector's length doubles as desired-speed fraction: bots always return
-        // unit-length vectors (full speed), while the player's joystick vector length
-        // reflects how far the stick is pushed, giving proportional analog control.
-        val rawDirection = decideDirection(engine, dt)
-        val magnitude = rawDirection.length().coerceAtMost(1f)
-        val hasHeading = magnitude > 0.05f
+        if (isFrozen) {
+            frozenTimer = max(0f, frozenTimer - dt)
+            isThrusting = false
+        } else {
+            // The raw vector's length doubles as desired-speed fraction: bots always return
+            // unit-length vectors (full speed), while the player's joystick vector length
+            // reflects how far the stick is pushed, giving proportional analog control.
+            val rawDirection = decideDirection(engine, dt)
+            val magnitude = rawDirection.length().coerceAtMost(1f)
+            val hasHeading = magnitude > 0.05f
 
-        if (hasHeading) {
-            val desiredHeading = rawDirection.normalized()
-            facingDirection = steerTowards(facingDirection, desiredHeading, GameConfig.TURN_RATE_RADIANS_PER_SECOND * dt)
+            if (hasHeading) {
+                val desiredHeading = rawDirection.normalized()
+                facingDirection = steerTowards(facingDirection, desiredHeading, GameConfig.TURN_RATE_RADIANS_PER_SECOND * dt)
+            }
+
+            isThrusting = hasHeading
+
+            val speed = effectiveSpeed(baseSpeed)
+            val movement = facingDirection * (speed * magnitude * dt)
+            position += movement
+            clampToWorld()
         }
 
-        isThrusting = hasHeading
         exhaustPhase += dt
-
-        val speed = effectiveSpeed(baseSpeed)
-        val movement = facingDirection * (speed * magnitude * dt)
-        position += movement
-        clampToWorld()
-
         if (speedBoostTimer > 0f) speedBoostTimer = max(0f, speedBoostTimer - dt)
         if (invisibilityTimer > 0f) invisibilityTimer = max(0f, invisibilityTimer - dt)
         if (shieldTimer > 0f) shieldTimer = max(0f, shieldTimer - dt)
@@ -133,7 +146,25 @@ abstract class Blob(
             PowerUpType.GROWTH -> {
                 radius = min(GameConfig.MAX_RADIUS, radius * GameConfig.POWERUP_GROWTH_MULTIPLIER)
             }
+            PowerUpType.REPEL, PowerUpType.FREEZE -> pickUpCarriedItem(type)
         }
+    }
+
+    fun pickUpCarriedItem(type: PowerUpType) {
+        carriedItem = type
+    }
+
+    // Spends whatever's carried, if anything, clearing the slot. Returns the spent item so
+    // the caller can apply its actual effect.
+    fun consumeCarriedItem(): PowerUpType? {
+        val item = carriedItem
+        carriedItem = null
+        return item
+    }
+
+    // Applied to targets caught by someone else's FREEZE, not to oneself.
+    fun applyFreeze(duration: Float) {
+        frozenTimer = duration
     }
 
     private fun effectiveSpeed(baseSpeed: Float): Float {

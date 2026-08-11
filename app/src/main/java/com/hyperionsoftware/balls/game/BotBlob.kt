@@ -44,9 +44,14 @@ class BotBlob(
         val safeToSprint = radius > GameConfig.BOT_SPRINT_MIN_RADIUS
 
         // An about-to-collide threat always overrides everything else - no amount of
-        // courage helps if something is already close enough to absorb you.
+        // courage helps if something is already close enough to absorb you. A carried
+        // item is a panic button here: REPEL shoves the threat away, FREEZE locks it in
+        // place, either way it's spent to survive rather than saved for later.
         val nearThreat = threat
         if (nearThreat != null && threatDistance < (radius + nearThreat.radius) * 1.5f) {
+            if (carriedItem != null) {
+                engine.activateCarriedItem(this)
+            }
             isBoosting = safeToSprint
             return (position - nearThreat.position).normalized()
         }

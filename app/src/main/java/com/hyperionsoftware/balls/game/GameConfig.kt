@@ -39,7 +39,18 @@ object GameConfig {
     const val POWERUP_GROWTH_WEIGHT = 3
     const val POWERUP_SPEED_WEIGHT = 1
     const val POWERUP_INVISIBILITY_WEIGHT = 1
+    const val POWERUP_REPEL_WEIGHT = 1
+    const val POWERUP_FREEZE_WEIGHT = 1
     const val POWERUP_SHIELD_DURATION = 12f
+
+    // REPEL: an instant burst that shoves everyone within range away from whoever used it.
+    const val REPEL_RANGE_MULTIPLIER = 6f
+    const val REPEL_FORCE = 260f
+
+    // FREEZE: locks movement for everyone caught within range for a short window - long
+    // enough to escape or catch up, short enough not to be oppressive.
+    const val FREEZE_RANGE_MULTIPLIER = 5f
+    const val FREEZE_DURATION_SECONDS = 1.8f
 
     // A rare, more valuable pickup that always grants SHIELD, spawned on its own separate
     // timer (independent of the regular power-up cap/timer) and telegraphed with a pulsing

@@ -10,6 +10,7 @@ interface GameListener {
     fun onVibrate()
     fun onAbsorb(x: Float, y: Float, sizeGain: Int, byPlayer: Boolean, absorberId: Int, victimId: Int)
     fun onPowerUpCollected(x: Float, y: Float, type: PowerUpType, byPlayer: Boolean)
+    fun onActiveItemUsed(x: Float, y: Float, type: PowerUpType, byPlayer: Boolean)
     fun onZoneDeath(x: Float, y: Float, wasPlayer: Boolean)
     fun onDeflateDeath(x: Float, y: Float, wasPlayer: Boolean)
     fun onGameOver(playerWon: Boolean, finalRadius: Float, playersRemaining: Int, opponentsAbsorbed: Int)
@@ -23,12 +24,15 @@ class GameEngine(
     private val powerUpBaseMaxCount = GameConfig.POWERUP_MAX_COUNT_PER_LEVEL * powerUpFrequencyLevel
     private val powerUpFrequency = powerUpFrequencyLevel.toFloat()
 
-    // GROWTH is weighted heavier than the other two types (see GameConfig) since size
-    // constantly drains away on its own now.
+    // GROWTH is weighted heavier than the other types (see GameConfig) since size
+    // constantly drains away on its own now. REPEL/FREEZE are carried items rather than
+    // instant effects, but spawn from this same pool.
     private val weightedPowerUpTypes: List<PowerUpType> = buildList {
         repeat(GameConfig.POWERUP_GROWTH_WEIGHT) { add(PowerUpType.GROWTH) }
         repeat(GameConfig.POWERUP_SPEED_WEIGHT) { add(PowerUpType.SPEED) }
         repeat(GameConfig.POWERUP_INVISIBILITY_WEIGHT) { add(PowerUpType.INVISIBILITY) }
+        repeat(GameConfig.POWERUP_REPEL_WEIGHT) { add(PowerUpType.REPEL) }
+        repeat(GameConfig.POWERUP_FREEZE_WEIGHT) { add(PowerUpType.FREEZE) }
     }
 
     // More power-ups when the safe zone is large, fewer (but never none) as it shrinks,
@@ -251,6 +255,43 @@ class GameEngine(
         // updatePowerUps) lands somewhere random in the zone instead.
         powerUps.clear()
         powerUps.add(PowerUp(weightedPowerUpTypes.random(), Vector2(safeZoneCenterX, safeZoneCenterY)))
+    }
+
+    // Spends whatever the blob is carrying (REPEL or FREEZE), if anything, and applies its
+    // effect centered on the blob's current position. A no-op if the slot is empty.
+    fun activateCarriedItem(blob: Blob) {
+        if (!blob.alive) return
+        val item = blob.consumeCarriedItem() ?: return
+        when (item) {
+            PowerUpType.REPEL -> applyRepelBlast(blob)
+            PowerUpType.FREEZE -> applyFreezeBlast(blob)
+            else -> Unit
+        }
+        listener.onActiveItemUsed(blob.position.x, blob.position.y, item, blob === player)
+    }
+
+    private fun applyRepelBlast(source: Blob) {
+        val range = source.radius * GameConfig.REPEL_RANGE_MULTIPLIER
+        for (target in blobs) {
+            if (target === source || !target.alive) continue
+            val offset = target.position - source.position
+            val distance = offset.length()
+            if (distance > range || distance < 0.01f) continue
+            val direction = offset * (1f / distance)
+            val falloff = 1f - distance / range
+            val strength = GameConfig.REPEL_FORCE * (0.4f + 0.6f * falloff)
+            target.position += direction * strength
+            target.clampToWorld()
+        }
+    }
+
+    private fun applyFreezeBlast(source: Blob) {
+        val range = source.radius * GameConfig.FREEZE_RANGE_MULTIPLIER
+        for (target in blobs) {
+            if (target === source || !target.alive) continue
+            if (target.position.distanceTo(source.position) > range) continue
+            target.applyFreeze(GameConfig.FREEZE_DURATION_SECONDS)
+        }
     }
 
     fun aliveCount(): Int = blobs.count { it.alive }

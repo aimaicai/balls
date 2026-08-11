@@ -39,9 +39,12 @@ class GameActivity : AppCompatActivity(), GameView.Callback {
             }
             true
         }
+        binding.activeItemButton.setOnClickListener { binding.gameView.useActiveItem() }
         // Matches the player's starting size (no excess to burn yet): boost looks
         // disabled until GameView reports it's actually available.
         binding.boostButton.alpha = BOOST_UNAVAILABLE_ALPHA
+        // No carried item at match start either.
+        binding.activeItemButton.alpha = ACTIVE_ITEM_UNAVAILABLE_ALPHA
 
         binding.gameView.startGame(botCount, powerUpFrequencyLevel)
     }
@@ -90,6 +93,10 @@ class GameActivity : AppCompatActivity(), GameView.Callback {
         binding.boostButton.alpha = if (available) 1f else BOOST_UNAVAILABLE_ALPHA
     }
 
+    override fun onCarriedItemAvailabilityChanged(available: Boolean) {
+        binding.activeItemButton.alpha = if (available) 1f else ACTIVE_ITEM_UNAVAILABLE_ALPHA
+    }
+
     private fun goToMenu() {
         startActivity(Intent(this, MainMenuActivity::class.java))
         finish()
@@ -99,6 +106,7 @@ class GameActivity : AppCompatActivity(), GameView.Callback {
         const val EXTRA_BOT_COUNT = "extra_bot_count"
         const val EXTRA_POWERUP_FREQUENCY = "extra_powerup_frequency"
         private const val BOOST_UNAVAILABLE_ALPHA = 0.35f
+        private const val ACTIVE_ITEM_UNAVAILABLE_ALPHA = 0.35f
         private const val DEFAULT_BOTS = 100
     }
 }

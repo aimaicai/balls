@@ -42,6 +42,7 @@ class GameView @JvmOverloads constructor(
     interface Callback {
         fun onGameOver(playerWon: Boolean, finalRadius: Int, playersRemaining: Int, opponentsAbsorbed: Int)
         fun onBoostAvailabilityChanged(available: Boolean)
+        fun onCarriedItemAvailabilityChanged(available: Boolean)
     }
 
     var callback: Callback? = null
@@ -51,6 +52,7 @@ class GameView @JvmOverloads constructor(
     private var surfaceReady = false
     private var started = false
     private var lastBoostAvailable = false
+    private var lastCarriedItemAvailable = false
 
     private var countdownActive = false
     private var countdownRemaining = 0f
@@ -72,6 +74,12 @@ class GameView @JvmOverloads constructor(
     // not just ones involving the player - so bot-vs-bot fights read as a living arena
     // instead of only mattering when they happen on screen.
     private val feedEntries = mutableListOf<FeedEntry>()
+
+    private class EffectRipple(val x: Float, val y: Float, val maxRadius: Float, val ringColor: Int, var ttl: Float, val maxTtl: Float = ttl)
+
+    // An expanding ring wherever a carried item (REPEL/FREEZE) gets used, so the burst
+    // reads clearly even though it only affects things for an instant.
+    private val effectRipples = mutableListOf<EffectRipple>()
 
     private val vibrator: Vibrator by lazy {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -130,6 +138,14 @@ class GameView @JvmOverloads constructor(
         color = Color.parseColor("#4FC3F7")
         style = Paint.Style.STROKE
         strokeWidth = 5f
+    }
+    private val frozenOverlayPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.parseColor("#B3E5FC")
+        style = Paint.Style.FILL
+    }
+    private val ripplePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE
+        strokeWidth = 6f
     }
     private val supplyDropBeaconPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = Color.parseColor("#4FC3F7")
@@ -190,6 +206,7 @@ class GameView @JvmOverloads constructor(
         countdownActive = true
         countdownRemaining = GameConfig.COUNTDOWN_SECONDS
         lastBoostAvailable = false
+        lastCarriedItemAvailable = false
         engine = GameEngine(
             botCount = botCount,
             powerUpFrequencyLevel = powerUpFrequencyLevel,
@@ -221,11 +238,35 @@ class GameView @JvmOverloads constructor(
                         PowerUpType.GROWTH -> "Ingrandimento!"
                         PowerUpType.INVISIBILITY -> "Invisibilità!"
                         PowerUpType.SHIELD -> "Scudo!"
+                        PowerUpType.REPEL -> "Respingi pronto!"
+                        PowerUpType.FREEZE -> "Congela pronto!"
                     }
                     floatingTexts.add(FloatingText(x, y, label, Color.parseColor("#FFD54F"), 1.4f))
                     if (byPlayer) {
                         vibratePowerUp()
                         toneGenerator.startTone(ToneGenerator.TONE_PROP_BEEP, 120)
+                    }
+                }
+
+                override fun onActiveItemUsed(x: Float, y: Float, type: PowerUpType, byPlayer: Boolean) {
+                    val (label, color, maxRadius) = when (type) {
+                        PowerUpType.REPEL -> Triple(
+                            "Respinto!",
+                            Color.parseColor("#FFB74D"),
+                            GameConfig.BASE_RADIUS * GameConfig.REPEL_RANGE_MULTIPLIER
+                        )
+                        PowerUpType.FREEZE -> Triple(
+                            "Congelato!",
+                            Color.parseColor("#4FC3F7"),
+                            GameConfig.BASE_RADIUS * GameConfig.FREEZE_RANGE_MULTIPLIER
+                        )
+                        else -> return
+                    }
+                    floatingTexts.add(FloatingText(x, y, label, color, 1.2f))
+                    effectRipples.add(EffectRipple(x, y, maxRadius, color, 0.5f))
+                    if (byPlayer) {
+                        vibratePowerUp()
+                        toneGenerator.startTone(ToneGenerator.TONE_PROP_BEEP2, 150)
                     }
                 }
 
@@ -296,6 +337,14 @@ class GameView @JvmOverloads constructor(
         }
     }
 
+    // Spends whatever the player is currently carrying (REPEL or FREEZE), if anything.
+    // A no-op if the slot is empty.
+    fun useActiveItem() {
+        if (started) {
+            engine.activateCarriedItem(engine.player)
+        }
+    }
+
     // A synthesized air-escaping hiss for sprinting: soft-clipped white noise looped
     // seamlessly, closer to a deflating balloon than raw hard noise or a beep.
     private fun createHissTrack(): AudioTrack {
@@ -344,6 +393,15 @@ class GameView @JvmOverloads constructor(
         if (available != lastBoostAvailable) {
             lastBoostAvailable = available
             post { callback?.onBoostAvailabilityChanged(available) }
+        }
+    }
+
+    private fun checkCarriedItemAvailability() {
+        val player = engine.player
+        val available = player.alive && player.carriedItem != null
+        if (available != lastCarriedItemAvailable) {
+            lastCarriedItemAvailable = available
+            post { callback?.onCarriedItemAvailabilityChanged(available) }
         }
     }
 
@@ -414,6 +472,7 @@ class GameView @JvmOverloads constructor(
                 } else {
                     engine.update(dt)
                     checkBoostAvailability()
+                    checkCarriedItemAvailability()
                 }
                 drawFrame(dt)
 
@@ -469,6 +528,7 @@ class GameView @JvmOverloads constructor(
             if (blob.alive) drawBlob(canvas, blob, offsetX, offsetY)
         }
 
+        drawEffectRipples(canvas, offsetX, offsetY, dt)
         drawDangerIndicator(canvas, offsetX, offsetY)
         drawFloatingTexts(canvas, offsetX, offsetY, dt)
         drawHud(canvas)
@@ -543,10 +603,40 @@ class GameView @JvmOverloads constructor(
 
         drawExhaust(canvas, blob, cx, cy, alpha)
         drawBalloonBody(canvas, blob, cx, cy, alpha)
+        drawFrozenOverlay(canvas, blob, cx, cy, alpha)
         drawShieldAura(canvas, blob, cx, cy, alpha)
         drawSpeedBadge(canvas, blob, cx, cy, alpha)
         drawKnot(canvas, blob, cx, cy, alpha)
         drawString(canvas, blob, cx, cy, alpha)
+    }
+
+    private fun drawFrozenOverlay(canvas: Canvas, blob: Blob, cx: Float, cy: Float, alpha: Int) {
+        // A pale icy tint over the whole body - distinct from the shield ring, signals
+        // movement is locked rather than a defensive buff running.
+        if (!blob.isFrozen) return
+        frozenOverlayPaint.alpha = (alpha * 0.4f).toInt().coerceIn(0, 255)
+        canvas.drawCircle(cx, cy, blob.radius * 1.05f, frozenOverlayPaint)
+    }
+
+    private fun drawEffectRipples(canvas: Canvas, offsetX: Float, offsetY: Float, dt: Float) {
+        val iterator = effectRipples.iterator()
+        while (iterator.hasNext()) {
+            val ripple = iterator.next()
+            ripple.ttl -= dt
+            if (ripple.ttl <= 0f) {
+                iterator.remove()
+                continue
+            }
+            val progress = 1f - (ripple.ttl / ripple.maxTtl)
+            ripplePaint.color = ripple.ringColor
+            ripplePaint.alpha = (255 * (1f - progress)).toInt().coerceIn(0, 255)
+            canvas.drawCircle(
+                ripple.x + offsetX,
+                ripple.y + offsetY,
+                ripple.maxRadius * progress,
+                ripplePaint
+            )
+        }
     }
 
     private fun drawShieldAura(canvas: Canvas, blob: Blob, cx: Float, cy: Float, alpha: Int) {
@@ -705,6 +795,8 @@ class GameView @JvmOverloads constructor(
             PowerUpType.GROWTH -> Color.parseColor("#81C784")
             PowerUpType.INVISIBILITY -> Color.parseColor("#B39DDB")
             PowerUpType.SHIELD -> Color.parseColor("#4FC3F7")
+            PowerUpType.REPEL -> Color.parseColor("#FFB74D")
+            PowerUpType.FREEZE -> Color.parseColor("#80DEEA")
         }
         val cx = powerUp.position.x + offsetX
         val cy = powerUp.position.y + offsetY
@@ -758,6 +850,19 @@ class GameView @JvmOverloads constructor(
                 }
                 canvas.drawPath(path, iconPaint)
                 iconPaint.style = Paint.Style.FILL
+            }
+            PowerUpType.REPEL -> {
+                // Four short diagonal strokes pointing outward suggest a push/burst.
+                val dirs = arrayOf(0.707f to 0.707f, -0.707f to 0.707f, 0.707f to -0.707f, -0.707f to -0.707f)
+                for ((dx, dy) in dirs) {
+                    canvas.drawLine(cx + dx * 3f, cy + dy * 3f, cx + dx * 9f, cy + dy * 9f, iconPaint)
+                }
+            }
+            PowerUpType.FREEZE -> {
+                // A simple snowflake: three crossing lines.
+                canvas.drawLine(cx - 8f, cy, cx + 8f, cy, iconPaint)
+                canvas.drawLine(cx - 6f, cy - 6f, cx + 6f, cy + 6f, iconPaint)
+                canvas.drawLine(cx - 6f, cy + 6f, cx + 6f, cy - 6f, iconPaint)
             }
         }
     }

@@ -38,4 +38,16 @@
         android:padding="20dp"
         android:src="@drawable/ic_boost" />
 
+    <ImageButton
+        android:id="@+id/activeItemButton"
+        android:layout_width="64dp"
+        android:layout_height="64dp"
+        android:layout_gravity="bottom|end"
+        android:layout_marginEnd="28dp"
+        android:layout_marginBottom="116dp"
+        android:background="@drawable/bg_round_button"
+        android:contentDescription="@string/active_item_button"
+        android:padding="16dp"
+        android:src="@drawable/ic_active_item" />
+
 </FrameLayout>

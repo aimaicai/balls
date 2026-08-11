@@ -1,7 +1,13 @@
 package com.hyperionsoftware.balls.game
 
 enum class PowerUpType {
-    SPEED, GROWTH, INVISIBILITY, SHIELD
+    SPEED, GROWTH, INVISIBILITY, SHIELD, REPEL, FREEZE;
+
+    // Carried items aren't applied on pickup - they're stored in a single slot (picking up
+    // a new one replaces whatever's already held) and spent later with a dedicated button,
+    // unlike the instant-effect types above.
+    val isCarriedItem: Boolean
+        get() = this == REPEL || this == FREEZE
 }
 
 class PowerUp(

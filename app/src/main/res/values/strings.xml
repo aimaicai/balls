@@ -8,6 +8,7 @@
     <string name="menu_music_label">Musica di sottofondo</string>
 
     <string name="boost_button">Spinta velocità</string>
+    <string name="active_item_button">Usa oggetto</string>
 
     <string name="pause_title">Pausa</string>
     <string name="pause_resume">Riprendi</string>
