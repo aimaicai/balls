@@ -337,7 +337,12 @@ class GameEngine(
             for (powerUp in powerUps) {
                 if (powerUp.collected) continue
                 if (blob.position.distanceTo(powerUp.position) < blob.radius + powerUp.radius) {
-                    blob.applyPowerUp(powerUp.type)
+                    val growthMultiplier = if (finalRoundTriggered) {
+                        GameConfig.POWERUP_GROWTH_MULTIPLIER_FINAL_ROUND
+                    } else {
+                        GameConfig.POWERUP_GROWTH_MULTIPLIER
+                    }
+                    blob.applyPowerUp(powerUp.type, growthMultiplier)
                     powerUp.collected = true
                     listener.onPowerUpCollected(powerUp.position.x, powerUp.position.y, powerUp.type, blob === player)
                 }

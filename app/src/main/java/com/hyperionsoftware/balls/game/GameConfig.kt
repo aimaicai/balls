@@ -52,6 +52,13 @@ object GameConfig {
     const val POWERUP_INVISIBILITY_DURATION = 8f
     const val POWERUP_GROWTH_MULTIPLIER = 2f
 
+    // In the final round, a single GROWTH at the normal multiplier instantly cleared
+    // ABSORB_RATIO against everyone else (freshly reset to the same base size), turning the
+    // finale into "whoever reaches the first power-up wins". This weaker multiplier keeps
+    // GROWTH worth fighting for without letting one pickup alone decide the match - it takes
+    // two before the ratio crosses ABSORB_RATIO.
+    const val POWERUP_GROWTH_MULTIPLIER_FINAL_ROUND = 1.15f
+
     // Size now drains away constantly just from existing (see the ambient leak below), so
     // GROWTH power-ups need to spawn noticeably more often than SPEED/INVISIBILITY or
     // survival becomes pure attrition instead of a fight. Weights, not percentages: GROWTH
@@ -118,7 +125,7 @@ object GameConfig {
     // continuous shrink (COUNT * (HOLD + SHRINK) = 75s) so existing pacing/tuning still holds.
     var SAFE_ZONE_INITIAL_RADIUS = BASE_SAFE_ZONE_INITIAL_RADIUS
         private set
-    const val SAFE_ZONE_MIN_RADIUS = 500f
+    const val SAFE_ZONE_MIN_RADIUS = 1000f
     const val SAFE_ZONE_STAGE_COUNT = 3
     const val SAFE_ZONE_STAGE_HOLD_SECONDS = 7f
     var SAFE_ZONE_STAGE_SHRINK_SECONDS = BASE_SAFE_ZONE_STAGE_SHRINK_SECONDS
@@ -130,7 +137,7 @@ object GameConfig {
     // once it reaches this smaller floor, so there's sustained pressure to keep moving and
     // fighting instead of camping a fixed circle. The floor is generous enough to still
     // leave real room to maneuver rather than a pure scrum.
-    const val SAFE_ZONE_FINAL_MIN_RADIUS = 300f
+    const val SAFE_ZONE_FINAL_MIN_RADIUS = 600f
     const val SAFE_ZONE_FINAL_SHRINK_SECONDS = 30f
 
     // Balloons always leak air, everywhere, all the time - there is no truly "safe" state
