@@ -86,6 +86,12 @@ class GameEngine(
 
     val safeZoneRadius: Float
         get() {
+            if (finalRoundTriggered) {
+                val shrinkElapsed = matchElapsed - finalRoundTriggeredAt
+                val shrinkProgress = (shrinkElapsed / GameConfig.SAFE_ZONE_FINAL_SHRINK_SECONDS).coerceIn(0f, 1f)
+                return GameConfig.SAFE_ZONE_MIN_RADIUS +
+                    (GameConfig.SAFE_ZONE_FINAL_MIN_RADIUS - GameConfig.SAFE_ZONE_MIN_RADIUS) * shrinkProgress
+            }
             val stage = safeZoneStageIndex
             val timeIntoStage = matchElapsed - stage * safeZoneStageDuration
             val startRadius = stageRadius(stage)
@@ -117,6 +123,7 @@ class GameEngine(
     private var gameOver = false
     private var playerAbsorbCount = 0
     private var finalRoundTriggered = false
+    private var finalRoundTriggeredAt = 0f
 
     init {
         val colors = intArrayOf(
@@ -249,6 +256,7 @@ class GameEngine(
     // everyone together instead of an aimless scrum.
     private fun triggerFinalRound() {
         finalRoundTriggered = true
+        finalRoundTriggeredAt = matchElapsed
         val survivors = blobs.filter { it.alive }
         if (survivors.isNotEmpty()) {
             val placementRadius = safeZoneRadius * 0.9f

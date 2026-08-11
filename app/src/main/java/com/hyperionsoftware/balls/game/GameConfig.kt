@@ -119,6 +119,14 @@ object GameConfig {
     const val SAFE_ZONE_STAGE_HOLD_SECONDS = 7f
     const val SAFE_ZONE_STAGE_SHRINK_SECONDS = 18f
 
+    // The zone used to freeze at SAFE_ZONE_MIN_RADIUS once the final round started, which
+    // turned the finale into a static standoff decided almost entirely by whoever reached
+    // the first power-up. Instead it keeps tightening after the final round begins, holding
+    // once it reaches this smaller floor, so there's sustained pressure to keep moving and
+    // fighting instead of camping a fixed circle.
+    const val SAFE_ZONE_FINAL_MIN_RADIUS = 150f
+    const val SAFE_ZONE_FINAL_SHRINK_SECONDS = 30f
+
     // Balloons always leak air, everywhere, all the time - there is no truly "safe" state
     // anymore, only "slower". Inside the zone the leak is a slow background attrition;
     // outside it it's much faster. Either way, dropping below ZONE_DEATH_RADIUS deflates
