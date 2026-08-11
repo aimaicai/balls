@@ -13,7 +13,7 @@ interface GameListener {
     fun onActiveItemUsed(x: Float, y: Float, type: PowerUpType, byPlayer: Boolean)
     fun onZoneDeath(x: Float, y: Float, wasPlayer: Boolean)
     fun onDeflateDeath(x: Float, y: Float, wasPlayer: Boolean)
-    fun onGameOver(playerWon: Boolean, finalRadius: Float, playersRemaining: Int, opponentsAbsorbed: Int)
+    fun onGameOver(playerWon: Boolean, finalRadius: Float, playersRemaining: Int, opponentsAbsorbed: Int, elapsedSeconds: Float)
 }
 
 class GameEngine(
@@ -110,7 +110,8 @@ class GameEngine(
             fraction * (GameConfig.SAFE_ZONE_INITIAL_RADIUS - GameConfig.SAFE_ZONE_MIN_RADIUS)
     }
 
-    private var matchElapsed = 0f
+    var matchElapsed = 0f
+        private set
     private var nextPowerUpSpawnIn: Float = randomSpawnDelay()
     private var nextSupplyDropIn: Float = randomSupplyDropDelay()
     private var gameOver = false
@@ -436,12 +437,12 @@ class GameEngine(
     private fun checkGameOver() {
         if (!player.alive) {
             gameOver = true
-            listener.onGameOver(false, player.radius, aliveCount(), playerAbsorbCount)
+            listener.onGameOver(false, player.radius, aliveCount(), playerAbsorbCount, matchElapsed)
             return
         }
         if (aliveCount() <= 1) {
             gameOver = true
-            listener.onGameOver(true, player.radius, 1, playerAbsorbCount)
+            listener.onGameOver(true, player.radius, 1, playerAbsorbCount, matchElapsed)
         }
     }
 }

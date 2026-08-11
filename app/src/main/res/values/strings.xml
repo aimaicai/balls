@@ -26,7 +26,7 @@
 
     <string name="game_over_win_title">Hai vinto!</string>
     <string name="game_over_lose_title">Sei stato inglobato</string>
-    <string name="game_over_stats">Dimensione finale: %1$d\nGiocatori rimasti: %2$d\nAvversari inglobati: %3$d</string>
+    <string name="game_over_stats">Tempo di gioco: %1$s\nDimensione finale: %2$d\nGiocatori rimasti: %3$d\nAvversari inglobati: %4$d</string>
     <string name="game_over_restart">Rigioca</string>
     <string name="game_over_menu">Menu principale</string>
 </resources>

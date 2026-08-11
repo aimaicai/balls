@@ -40,7 +40,7 @@ class GameView @JvmOverloads constructor(
 ) : SurfaceView(context, attrs), SurfaceHolder.Callback, JoystickView.Listener {
 
     interface Callback {
-        fun onGameOver(playerWon: Boolean, finalRadius: Int, playersRemaining: Int, opponentsAbsorbed: Int)
+        fun onGameOver(playerWon: Boolean, finalRadius: Int, playersRemaining: Int, opponentsAbsorbed: Int, elapsedSeconds: Int)
         fun onBoostAvailabilityChanged(available: Boolean)
         fun onCarriedItemChanged(type: PowerUpType?)
     }
@@ -201,6 +201,12 @@ class GameView @JvmOverloads constructor(
         isFakeBoldText = true
         textAlign = Paint.Align.CENTER
     }
+    private val timerHudPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.WHITE
+        textSize = 30f
+        isFakeBoldText = true
+        textAlign = Paint.Align.CENTER
+    }
     private val statsHudPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = Color.parseColor("#B0BEC5")
         textSize = 26f
@@ -323,14 +329,19 @@ class GameView @JvmOverloads constructor(
                     playerWon: Boolean,
                     finalRadius: Float,
                     playersRemaining: Int,
-                    opponentsAbsorbed: Int
+                    opponentsAbsorbed: Int,
+                    elapsedSeconds: Float
                 ) {
                     loopThread?.running = false
                     toneGenerator.startTone(
                         if (playerWon) ToneGenerator.TONE_PROP_ACK else ToneGenerator.TONE_PROP_NACK,
                         400
                     )
-                    post { callback?.onGameOver(playerWon, finalRadius.toInt(), playersRemaining, opponentsAbsorbed) }
+                    post {
+                        callback?.onGameOver(
+                            playerWon, finalRadius.toInt(), playersRemaining, opponentsAbsorbed, elapsedSeconds.toInt()
+                        )
+                    }
                 }
             }
         )
@@ -1045,6 +1056,10 @@ class GameView @JvmOverloads constructor(
 
         val zonePercent = (engine.safeZoneProgress * 100f).toInt()
         canvas.drawText("Zona: $zonePercent%", width / 2f, 56f, zoneHudPaint)
+
+        val elapsedSeconds = engine.matchElapsed.toInt()
+        val timeText = "%02d:%02d".format(elapsedSeconds / 60, elapsedSeconds % 60)
+        canvas.drawText(timeText, width / 2f, 90f, timerHudPaint)
 
         drawPermanentStatsHud(canvas, player)
     }
