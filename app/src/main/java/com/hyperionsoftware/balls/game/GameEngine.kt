@@ -310,9 +310,14 @@ class GameEngine(
             if (target === source || !target.alive) continue
             val offset = target.position - source.position
             val distance = offset.length()
-            if (distance > range || distance < 0.01f) continue
+            // The check is a circle-circle overlap (effect radius vs the target's own body),
+            // not center-to-center against a bare range - otherwise a huge target right next
+            // to the source could still be "out of range" because its center is far away even
+            // though its edge is touching.
+            val effectiveRange = range + target.radius
+            if (distance > effectiveRange || distance < 0.01f) continue
             val direction = offset * (1f / distance)
-            val falloff = 1f - distance / range
+            val falloff = 1f - distance / effectiveRange
             val strength = GameConfig.REPEL_FORCE * (0.4f + 0.6f * falloff)
             target.position += direction * strength
             target.clampToWorld()
@@ -320,11 +325,12 @@ class GameEngine(
     }
 
     private fun applyFreezeBlast(source: Blob) {
-        // Same reasoning as applyRepelBlast: range off baseRadius, not current size.
+        // Same reasoning as applyRepelBlast: range off baseRadius, and checked as a
+        // circle-circle overlap against the target's own body, not just its center point.
         val range = source.baseRadius * GameConfig.FREEZE_RANGE_MULTIPLIER
         for (target in blobs) {
             if (target === source || !target.alive) continue
-            if (target.position.distanceTo(source.position) > range) continue
+            if (target.position.distanceTo(source.position) > range + target.radius) continue
             target.applyFreeze(GameConfig.FREEZE_DURATION_SECONDS)
         }
     }
