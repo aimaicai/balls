@@ -20,6 +20,11 @@ abstract class Blob(
     // ambient leak) in exchange for extra speed. Both the player and bots can set this.
     var isBoosting: Boolean = false
 
+    // How long isBoosting has been continuously true - drives the ramp-up in
+    // effectiveSpeed(). Resets the instant boosting stops, so it's about a single
+    // sustained press, not a lifetime total.
+    private var boostHoldSeconds: Float = 0f
+
     // The joystick/AI drives movement directly (joystick magnitude scales speed
     // immediately), but facingDirection still turns gradually toward wherever it's aimed
     // (see steerTowards) instead of snapping straight to the opposite heading, and
@@ -78,6 +83,7 @@ abstract class Blob(
             }
 
             isThrusting = hasHeading
+            boostHoldSeconds = if (isBoosting) boostHoldSeconds + dt else 0f
 
             val speed = effectiveSpeed(baseSpeed)
             val movement = facingDirection * (speed * magnitude * dt)
@@ -157,7 +163,8 @@ abstract class Blob(
             }
             PowerUpType.SPEED_UP -> increasePermanentSpeed()
             PowerUpType.AGILITY_UP -> increasePermanentAgility()
-            PowerUpType.SPEED, PowerUpType.INVISIBILITY, PowerUpType.REPEL, PowerUpType.FREEZE -> pickUpCarriedItem(type)
+            PowerUpType.SPEED, PowerUpType.INVISIBILITY, PowerUpType.REPEL,
+            PowerUpType.FREEZE, PowerUpType.HOOK -> pickUpCarriedItem(type)
         }
     }
 
@@ -210,9 +217,12 @@ abstract class Blob(
         val sizeFactor = sqrt(baseRadius / radius)
         val powerUpBoost = if (isSpeedBoosted) GameConfig.POWERUP_SPEED_MULTIPLIER else 1f
         // Rewarded as long as there is still any size left to burn - sprinting keeps
-        // working right up until it kills the balloon.
+        // working right up until it kills the balloon. Ramps from the base multiplier up
+        // to the cap the longer it's held continuously (see boostHoldSeconds).
         val dashBoost = if (isBoosting && radius > GameConfig.ZONE_DEATH_RADIUS) {
-            GameConfig.BOOST_SPEED_MULTIPLIER
+            val rampProgress = (boostHoldSeconds / GameConfig.BOOST_RAMP_UP_SECONDS).coerceIn(0f, 1f)
+            GameConfig.BOOST_SPEED_MULTIPLIER +
+                (GameConfig.BOOST_MAX_SPEED_MULTIPLIER - GameConfig.BOOST_SPEED_MULTIPLIER) * rampProgress
         } else {
             1f
         }

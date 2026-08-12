@@ -69,6 +69,7 @@ object GameConfig {
     const val POWERUP_INVISIBILITY_WEIGHT = 1
     const val POWERUP_REPEL_WEIGHT = 1
     const val POWERUP_FREEZE_WEIGHT = 1
+    const val POWERUP_HOOK_WEIGHT = 1
     const val POWERUP_SPEED_UP_WEIGHT = 1
     const val POWERUP_AGILITY_UP_WEIGHT = 1
     const val POWERUP_SHIELD_DURATION = 12f
@@ -81,6 +82,12 @@ object GameConfig {
     // enough to escape or catch up, short enough not to be oppressive.
     const val FREEZE_RANGE_MULTIPLIER = 5f
     const val FREEZE_DURATION_SECONDS = 1.8f
+
+    // HOOK: REPEL's opposite - yanks the single nearest blob (whatever its size) toward the
+    // user instead of pushing everyone away. A stronger single-target pull rather than a
+    // wide, weaker push since it only ever affects one target.
+    const val HOOK_RANGE_MULTIPLIER = 6f
+    const val HOOK_FORCE = 320f
 
     // Permanent stat pickups (SPEED_UP/AGILITY_UP): each pickup advances one discrete tier
     // out of PERMANENT_STAT_TIER_COUNT, capped there, so a single pickup always fills
@@ -160,6 +167,13 @@ object GameConfig {
     // to ZONE_DEATH_RADIUS kills the balloon.
     const val BOOST_DRAIN_RATE_PER_SECOND = 0.25f
     const val BOOST_SPEED_MULTIPLIER = 1.6f
+
+    // Sprint ramps up the longer it's held continuously, rather than a single flat
+    // multiplier, so committing to a sustained chase/escape pays off far more than a quick
+    // tap - though the drain above keeps compounding the whole time, so holding it all the
+    // way to the cap is a real bet, not a free upgrade.
+    const val BOOST_MAX_SPEED_MULTIPLIER = 2.6f
+    const val BOOST_RAMP_UP_SECONDS = 4f
 
     // Bots only spend size sprinting during genuine emergencies (an imminent threat or
     // being caught outside the shrinking zone), never for routine chasing or wandering,

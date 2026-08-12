@@ -46,10 +46,12 @@ class BotBlob(
         // An about-to-collide threat always overrides everything else - no amount of
         // courage helps if something is already close enough to absorb you. A carried
         // item is a panic button here: REPEL shoves the threat away, FREEZE locks it in
-        // place, either way it's spent to survive rather than saved for later.
+        // place, either way it's spent to survive rather than saved for later. HOOK is the
+        // one exception - it would pull the very threat that's already on top of them even
+        // closer, so it's held back rather than used defensively.
         val nearThreat = threat
         if (nearThreat != null && threatDistance < (radius + nearThreat.radius) * 1.5f) {
-            if (carriedItem != null) {
+            if (carriedItem != null && carriedItem != PowerUpType.HOOK) {
                 engine.activateCarriedItem(this)
             }
             isBoosting = safeToSprint
@@ -95,6 +97,11 @@ class BotBlob(
         }
 
         if (prey != null) {
+            // HOOK is offensive rather than defensive - reel prey in while it's still in
+            // reach instead of only ever saving carried items for emergencies.
+            if (carriedItem == PowerUpType.HOOK) {
+                engine.activateCarriedItem(this)
+            }
             return (prey.position - position).normalized()
         }
 

@@ -19,6 +19,7 @@
     <string name="active_item_invisibility">Usa Invisibilità</string>
     <string name="active_item_repel">Usa Respingi</string>
     <string name="active_item_freeze">Usa Congela</string>
+    <string name="active_item_hook">Usa Aggancio</string>
 
     <string name="pause_title">Pausa</string>
     <string name="pause_resume">Riprendi</string>

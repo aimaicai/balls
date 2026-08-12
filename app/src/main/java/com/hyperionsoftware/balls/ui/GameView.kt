@@ -282,6 +282,7 @@ class GameView @JvmOverloads constructor(
                         PowerUpType.SHIELD -> "Scudo!"
                         PowerUpType.REPEL -> "Respingi pronto!"
                         PowerUpType.FREEZE -> "Congela pronto!"
+                        PowerUpType.HOOK -> "Aggancio pronto!"
                         PowerUpType.SPEED_UP -> "Velocità permanente!"
                         PowerUpType.AGILITY_UP -> "Agilità permanente!"
                     }
@@ -296,6 +297,7 @@ class GameView @JvmOverloads constructor(
                     val label = when (type) {
                         PowerUpType.REPEL -> "Respinto!"
                         PowerUpType.FREEZE -> "Congelato!"
+                        PowerUpType.HOOK -> "Agganciato!"
                         PowerUpType.SPEED -> "Velocità!"
                         PowerUpType.INVISIBILITY -> "Invisibilità!"
                         else -> return
@@ -303,15 +305,17 @@ class GameView @JvmOverloads constructor(
                     val color = when (type) {
                         PowerUpType.REPEL -> Color.parseColor("#FFB74D")
                         PowerUpType.FREEZE -> Color.parseColor("#4FC3F7")
+                        PowerUpType.HOOK -> Color.parseColor("#A1887F")
                         PowerUpType.SPEED -> Color.parseColor("#FFD54F")
                         else -> Color.parseColor("#B39DDB")
                     }
                     floatingTexts.add(FloatingText(x, y, label, color, 1.2f))
-                    // Only the two area effects get an expanding ring - SPEED/INVISIBILITY
-                    // are self-buffs with nothing to telegraph in the world.
+                    // Only the area effects get an expanding ring - SPEED/INVISIBILITY are
+                    // self-buffs with nothing to telegraph in the world.
                     val rippleRadius = when (type) {
                         PowerUpType.REPEL -> GameConfig.BASE_RADIUS * GameConfig.REPEL_RANGE_MULTIPLIER
                         PowerUpType.FREEZE -> GameConfig.BASE_RADIUS * GameConfig.FREEZE_RANGE_MULTIPLIER
+                        PowerUpType.HOOK -> GameConfig.BASE_RADIUS * GameConfig.HOOK_RANGE_MULTIPLIER
                         else -> null
                     }
                     if (rippleRadius != null) {
@@ -883,6 +887,7 @@ class GameView @JvmOverloads constructor(
             PowerUpType.SHIELD -> Color.parseColor("#4FC3F7")
             PowerUpType.REPEL -> Color.parseColor("#FFB74D")
             PowerUpType.FREEZE -> Color.parseColor("#80DEEA")
+            PowerUpType.HOOK -> Color.parseColor("#A1887F")
             PowerUpType.SPEED_UP -> Color.parseColor("#FF7043")
             PowerUpType.AGILITY_UP -> Color.parseColor("#CE93D8")
         }
@@ -951,6 +956,17 @@ class GameView @JvmOverloads constructor(
                 canvas.drawLine(cx - 8f, cy, cx + 8f, cy, iconPaint)
                 canvas.drawLine(cx - 6f, cy - 6f, cx + 6f, cy + 6f, iconPaint)
                 canvas.drawLine(cx - 6f, cy + 6f, cx + 6f, cy - 6f, iconPaint)
+            }
+            PowerUpType.HOOK -> {
+                // A curved hook (like a shepherd's crook), echoing the balloon's own string.
+                iconPaint.style = Paint.Style.STROKE
+                val path = Path().apply {
+                    moveTo(cx - 3f, cy - 8f)
+                    lineTo(cx - 3f, cy + 2f)
+                    quadTo(cx - 3f, cy + 8f, cx + 4f, cy + 6f)
+                }
+                canvas.drawPath(path, iconPaint)
+                iconPaint.style = Paint.Style.FILL
             }
             PowerUpType.SPEED_UP -> {
                 // A bold, stacked double chevron - a permanent boost rather than the

@@ -114,6 +114,7 @@ class GameActivity : AppCompatActivity(), GameView.Callback {
             PowerUpType.INVISIBILITY -> R.drawable.ic_item_invisibility
             PowerUpType.REPEL -> R.drawable.ic_item_repel
             PowerUpType.FREEZE -> R.drawable.ic_item_freeze
+            PowerUpType.HOOK -> R.drawable.ic_item_hook
             else -> R.drawable.ic_active_item
         }
         binding.activeItemButton.setImageResource(iconRes)
@@ -122,6 +123,7 @@ class GameActivity : AppCompatActivity(), GameView.Callback {
             PowerUpType.INVISIBILITY -> getString(R.string.active_item_invisibility)
             PowerUpType.REPEL -> getString(R.string.active_item_repel)
             PowerUpType.FREEZE -> getString(R.string.active_item_freeze)
+            PowerUpType.HOOK -> getString(R.string.active_item_hook)
             else -> getString(R.string.active_item_button)
         }
     }

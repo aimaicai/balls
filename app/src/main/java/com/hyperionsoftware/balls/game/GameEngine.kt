@@ -37,7 +37,7 @@ class GameEngine(
     private val powerUpFrequency = powerUpFrequencyLevel.toFloat()
 
     // GROWTH is weighted heavier than the other types (see GameConfig) since size
-    // constantly drains away on its own now. SPEED/INVISIBILITY/REPEL/FREEZE are all
+    // constantly drains away on its own now. SPEED/INVISIBILITY/REPEL/FREEZE/HOOK are all
     // carried items rather than instant effects, but spawn from this same pool; SPEED_UP
     // and AGILITY_UP are instant, permanent stat increases.
     private val weightedPowerUpTypes: List<PowerUpType> = buildList {
@@ -46,6 +46,7 @@ class GameEngine(
         repeat(GameConfig.POWERUP_INVISIBILITY_WEIGHT) { add(PowerUpType.INVISIBILITY) }
         repeat(GameConfig.POWERUP_REPEL_WEIGHT) { add(PowerUpType.REPEL) }
         repeat(GameConfig.POWERUP_FREEZE_WEIGHT) { add(PowerUpType.FREEZE) }
+        repeat(GameConfig.POWERUP_HOOK_WEIGHT) { add(PowerUpType.HOOK) }
         repeat(GameConfig.POWERUP_SPEED_UP_WEIGHT) { add(PowerUpType.SPEED_UP) }
         repeat(GameConfig.POWERUP_AGILITY_UP_WEIGHT) { add(PowerUpType.AGILITY_UP) }
     }
@@ -286,14 +287,15 @@ class GameEngine(
         powerUps.add(PowerUp(weightedPowerUpTypes.random(), Vector2(safeZoneCenterX, safeZoneCenterY)))
     }
 
-    // Spends whatever the blob is carrying (REPEL or FREEZE), if anything, and applies its
-    // effect centered on the blob's current position. A no-op if the slot is empty.
+    // Spends whatever the blob is carrying, if anything, and applies its effect centered on
+    // the blob's current position. A no-op if the slot is empty.
     fun activateCarriedItem(blob: Blob) {
         if (!blob.alive) return
         val item = blob.consumeCarriedItem() ?: return
         when (item) {
             PowerUpType.REPEL -> applyRepelBlast(blob)
             PowerUpType.FREEZE -> applyFreezeBlast(blob)
+            PowerUpType.HOOK -> applyHookPull(blob)
             PowerUpType.SPEED -> blob.activateSpeedBoost()
             PowerUpType.INVISIBILITY -> blob.activateInvisibility()
             else -> Unit
@@ -333,6 +335,21 @@ class GameEngine(
             if (target.position.distanceTo(source.position) > range + target.radius) continue
             target.applyFreeze(GameConfig.FREEZE_DURATION_SECONDS)
         }
+    }
+
+    // REPEL's opposite: yanks only the single nearest blob toward the source instead of
+    // pushing everyone away - a targeted grapple rather than an area push.
+    private fun applyHookPull(source: Blob) {
+        val range = source.baseRadius * GameConfig.HOOK_RANGE_MULTIPLIER
+        val target = blobs
+            .filter { it !== source && it.alive }
+            .minByOrNull { it.position.distanceTo(source.position) }
+            ?: return
+        val offset = source.position - target.position
+        val distance = offset.length()
+        if (distance > range + target.radius || distance < 0.01f) return
+        target.position += offset * (1f / distance) * GameConfig.HOOK_FORCE
+        target.clampToWorld()
     }
 
     fun aliveCount(): Int = blobs.count { it.alive }

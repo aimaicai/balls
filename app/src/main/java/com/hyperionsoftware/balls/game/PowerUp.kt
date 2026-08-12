@@ -4,7 +4,9 @@ enum class PowerUpType {
     // SPEED and INVISIBILITY are carried now too (see Blob.applyPowerUp): stored in the
     // single item slot and spent on demand via the same button as REPEL/FREEZE, instead of
     // applying - and potentially wasting their duration - the instant they're picked up.
-    SPEED, GROWTH, INVISIBILITY, SHIELD, REPEL, FREEZE,
+    // HOOK is REPEL's opposite: it yanks the single nearest blob toward the user instead of
+    // pushing everyone in range away.
+    SPEED, GROWTH, INVISIBILITY, SHIELD, REPEL, FREEZE, HOOK,
 
     // Permanent, instant-on-pickup stat increases (not carried). Each one closes part of
     // the remaining gap to its own cap, so early pickups matter more than later ones and
