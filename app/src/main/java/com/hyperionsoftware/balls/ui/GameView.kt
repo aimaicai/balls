@@ -30,6 +30,7 @@ import com.hyperionsoftware.balls.game.GameListener
 import com.hyperionsoftware.balls.game.PowerUp
 import com.hyperionsoftware.balls.game.PowerUpType
 import com.hyperionsoftware.balls.game.Vector2
+import com.hyperionsoftware.balls.score.HighScores
 import kotlin.math.abs
 import kotlin.math.atan2
 import kotlin.math.ceil
@@ -1184,6 +1185,16 @@ class GameView @JvmOverloads constructor(
     private fun drawHud(canvas: Canvas) {
         val player = engine.player
         canvas.drawText("Dimensione: ${player.radius.toInt()}", 24f, 56f, hudTextPaint)
+
+        // playerWon is always false here since the match is still running - this omits
+        // the win bonus that HighScores.computeScore would add once it actually ends, so
+        // the number only ever jumps up when the final tally lands, never down.
+        val liveScore = HighScores.computeScore(
+            playerWon = false,
+            finalRadius = player.radius.toInt(),
+            opponentsAbsorbed = engine.playerOpponentsAbsorbed
+        )
+        canvas.drawText("Punteggio: $liveScore", 24f, 90f, statsHudPaint)
 
         val playersText = "Giocatori: ${engine.aliveCount()}"
         val textWidth = hudTextPaint.measureText(playersText)

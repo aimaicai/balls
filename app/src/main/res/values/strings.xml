@@ -41,7 +41,7 @@
     <string name="achievements_back">Indietro</string>
     <string name="achievements_progress">Sbloccati: %1$d/%2$d</string>
     <string name="achievement_unlocked_format">OBIETTIVO SBLOCCATO: %1$s</string>
-    <string name="achievement_locked_desc">???</string>
+    <string name="achievement_locked_desc">\?\?\?</string>
 
     <string name="achievement_first_absorb_title">Primo Assorbimento</string>
     <string name="achievement_first_absorb_desc">Assorbi il tuo primo avversario.</string>

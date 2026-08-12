@@ -139,6 +139,10 @@ class GameEngine(
     // for reaching the final round) without needing its own copy of the trigger logic.
     val isFinalRoundActive: Boolean get() = finalRoundTriggered
 
+    // Exposed so the HUD can show a live running score during the match, not just the
+    // final tally at game over.
+    val playerOpponentsAbsorbed: Int get() = playerAbsorbCount
+
     init {
         val colors = intArrayOf(
             0xFFEF5350.toInt(), 0xFF66BB6A.toInt(), 0xFFAB47BC.toInt(), 0xFFFFA726.toInt(),
