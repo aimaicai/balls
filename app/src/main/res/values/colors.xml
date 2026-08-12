@@ -8,4 +8,9 @@
     <color name="hud_text">#FFFFFF</color>
     <color name="accent">#FFC107</color>
     <color name="button_bg">#1E2A38</color>
+
+    <!-- Old-school arcade high-score screen: black CRT background, phosphor green text. -->
+    <color name="arcade_bg">#000000</color>
+    <color name="arcade_green">#33FF33</color>
+    <color name="arcade_green_dim">#1F8A1F</color>
 </resources>

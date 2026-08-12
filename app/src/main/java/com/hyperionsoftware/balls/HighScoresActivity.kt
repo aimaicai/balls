@@ -1,14 +1,15 @@
 package com.hyperionsoftware.balls
 
+import android.graphics.Typeface
 import android.os.Bundle
 import android.view.Gravity
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import com.hyperionsoftware.balls.databinding.ActivityHighScoresBinding
 import com.hyperionsoftware.balls.score.HighScores
-import java.text.SimpleDateFormat
-import java.util.Locale
 
+// Old-school arcade cabinet style on purpose: just rank, three-letter initials and score,
+// monospace and phosphor-green on black - no dates, no match stats, nothing else.
 class HighScoresActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityHighScoresBinding
@@ -22,47 +23,25 @@ class HighScoresActivity : AppCompatActivity() {
 
         val entries = HighScores.loadAll(this)
         if (entries.isEmpty()) {
-            binding.scoresContainer.addView(
-                TextView(this).apply {
-                    text = getString(R.string.high_scores_empty)
-                    setTextColor(getColor(R.color.hud_text))
-                    textSize = 16f
-                    gravity = Gravity.CENTER
-                }
-            )
+            binding.scoresContainer.addView(arcadeText(getString(R.string.high_scores_empty)))
             return
         }
 
-        val dateFormat = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
         entries.forEachIndexed { index, entry ->
-            val resultLabel = if (entry.playerWon) {
-                getString(R.string.high_scores_won)
-            } else {
-                getString(R.string.high_scores_lost)
-            }
-            val timeText = String.format(
-                Locale.getDefault(),
-                "%02d:%02d",
-                entry.elapsedSeconds / 60,
-                entry.elapsedSeconds % 60
-            )
-            val text = getString(
-                R.string.high_scores_entry,
-                index + 1,
-                entry.score,
-                "$resultLabel · ${dateFormat.format(entry.timestampMillis)}",
-                entry.finalRadius,
-                entry.opponentsAbsorbed,
-                timeText
-            )
-            binding.scoresContainer.addView(
-                TextView(this).apply {
-                    this.text = text
-                    setTextColor(getColor(R.color.hud_text))
-                    textSize = 16f
-                    setPadding(0, 16, 0, 16)
-                }
-            )
+            val rank = (index + 1).toString().padStart(2, '0')
+            val initials = entry.initials.padEnd(3, ' ')
+            val score = entry.score.toString().padStart(6, '0')
+            binding.scoresContainer.addView(arcadeText("$rank  $initials  $score"))
         }
+    }
+
+    private fun arcadeText(line: String) = TextView(this).apply {
+        text = line
+        setTextColor(getColor(R.color.arcade_green))
+        typeface = Typeface.MONOSPACE
+        textSize = 22f
+        letterSpacing = 0.1f
+        gravity = Gravity.CENTER
+        setPadding(0, 10, 0, 10)
     }
 }

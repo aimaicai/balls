@@ -1,8 +1,12 @@
 package com.hyperionsoftware.balls
 
 import android.content.Intent
+import android.graphics.Typeface
 import android.os.Bundle
+import android.text.InputFilter
+import android.text.InputType
 import android.view.MotionEvent
+import android.widget.EditText
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import com.hyperionsoftware.balls.audio.BackgroundMusicPlayer
@@ -97,23 +101,55 @@ class GameActivity : AppCompatActivity(), GameView.Callback {
         val timeText = String.format("%02d:%02d", elapsedSeconds / 60, elapsedSeconds % 60)
         val previousBest = HighScores.loadAll(this).maxOfOrNull { it.score }
         val score = HighScores.computeScore(playerWon, finalRadius, opponentsAbsorbed)
-        HighScores.recordMatch(this, playerWon, finalRadius, opponentsAbsorbed, elapsedSeconds)
         val isNewBest = previousBest == null || score > previousBest
         val scoreLine = if (isNewBest) {
             getString(R.string.game_over_score_new_best, score)
         } else {
             getString(R.string.game_over_score, score)
         }
+
+        fun showResultDialog() {
+            AlertDialog.Builder(this)
+                .setTitle(title)
+                .setMessage(
+                    scoreLine + "\n" +
+                        getString(R.string.game_over_stats, timeText, finalRadius, playersRemaining, opponentsAbsorbed)
+                )
+                .setCancelable(false)
+                .setPositiveButton(getString(R.string.game_over_restart)) { _, _ -> binding.gameView.restart(botCount, powerUpFrequencyLevel, arenaSize, skipToFinalRound) }
+                .setNegativeButton(getString(R.string.game_over_menu)) { _, _ -> goToMenu() }
+                .setNeutralButton(getString(R.string.game_over_high_scores)) { _, _ -> goToHighScores() }
+                .show()
+        }
+
+        // Classic arcades only ever ask for initials when the score actually earns a spot
+        // on the board, not after every single match.
+        if (HighScores.wouldRank(this, score)) {
+            promptForInitials { initials ->
+                HighScores.recordMatch(this, initials, playerWon, finalRadius, opponentsAbsorbed, elapsedSeconds)
+                showResultDialog()
+            }
+        } else {
+            showResultDialog()
+        }
+    }
+
+    private fun promptForInitials(onDone: (String) -> Unit) {
+        val input = EditText(this).apply {
+            filters = arrayOf(InputFilter.LengthFilter(3), InputFilter.AllCaps())
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_CAP_CHARACTERS
+            typeface = Typeface.MONOSPACE
+            setText("AAA")
+            setSelection(text.length)
+        }
         AlertDialog.Builder(this)
-            .setTitle(title)
-            .setMessage(
-                scoreLine + "\n" +
-                    getString(R.string.game_over_stats, timeText, finalRadius, playersRemaining, opponentsAbsorbed)
-            )
+            .setTitle(getString(R.string.high_scores_enter_initials))
+            .setView(input)
             .setCancelable(false)
-            .setPositiveButton(getString(R.string.game_over_restart)) { _, _ -> binding.gameView.restart(botCount, powerUpFrequencyLevel, arenaSize, skipToFinalRound) }
-            .setNegativeButton(getString(R.string.game_over_menu)) { _, _ -> goToMenu() }
-            .setNeutralButton(getString(R.string.game_over_high_scores)) { _, _ -> goToHighScores() }
+            .setPositiveButton(getString(R.string.high_scores_confirm)) { _, _ ->
+                val initials = input.text.toString().trim().uppercase().ifBlank { "AAA" }.padEnd(3, 'A').take(3)
+                onDone(initials)
+            }
             .show()
     }
 
