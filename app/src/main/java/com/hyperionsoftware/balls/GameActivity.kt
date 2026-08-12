@@ -93,44 +93,31 @@ class GameActivity : AppCompatActivity(), GameView.Callback {
         opponentsAbsorbed: Int,
         elapsedSeconds: Int
     ) {
-        val title = if (playerWon) {
-            getString(R.string.game_over_win_title)
-        } else {
-            getString(R.string.game_over_lose_title)
-        }
-        val timeText = String.format("%02d:%02d", elapsedSeconds / 60, elapsedSeconds % 60)
-        val previousBest = HighScores.loadAll(this).maxOfOrNull { it.score }
         val score = HighScores.computeScore(playerWon, finalRadius, opponentsAbsorbed)
-        val isNewBest = previousBest == null || score > previousBest
-        val scoreLine = if (isNewBest) {
-            getString(R.string.game_over_score_new_best, score)
-        } else {
-            getString(R.string.game_over_score, score)
-        }
 
-        fun showResultDialog() {
-            AlertDialog.Builder(this)
-                .setTitle(title)
-                .setMessage(
-                    scoreLine + "\n" +
-                        getString(R.string.game_over_stats, timeText, finalRadius, playersRemaining, opponentsAbsorbed)
-                )
-                .setCancelable(false)
-                .setPositiveButton(getString(R.string.game_over_restart)) { _, _ -> binding.gameView.restart(botCount, powerUpFrequencyLevel, arenaSize, skipToFinalRound) }
-                .setNegativeButton(getString(R.string.game_over_menu)) { _, _ -> goToMenu() }
-                .setNeutralButton(getString(R.string.game_over_high_scores)) { _, _ -> goToHighScores() }
-                .show()
+        fun goToScores() {
+            startActivity(
+                Intent(this, HighScoresActivity::class.java)
+                    .putExtra(HighScoresActivity.EXTRA_MATCH_WON, playerWon)
+                    .putExtra(HighScoresActivity.EXTRA_MATCH_SCORE, score)
+                    .putExtra(EXTRA_BOT_COUNT, botCount)
+                    .putExtra(EXTRA_POWERUP_FREQUENCY, powerUpFrequencyLevel)
+                    .putExtra(EXTRA_ARENA_SIZE, arenaSize.name)
+                    .putExtra(EXTRA_SKIP_TO_FINAL_ROUND, skipToFinalRound)
+            )
+            finish()
         }
 
         // Classic arcades only ever ask for initials when the score actually earns a spot
-        // on the board, not after every single match.
+        // on the board, not after every single match - and the leaderboard itself is the
+        // very next thing shown either way, no separate stats screen first.
         if (HighScores.wouldRank(this, score)) {
             promptForInitials { initials ->
                 HighScores.recordMatch(this, initials, playerWon, finalRadius, opponentsAbsorbed, elapsedSeconds)
-                showResultDialog()
+                goToScores()
             }
         } else {
-            showResultDialog()
+            goToScores()
         }
     }
 
@@ -139,8 +126,8 @@ class GameActivity : AppCompatActivity(), GameView.Callback {
             filters = arrayOf(InputFilter.LengthFilter(3), InputFilter.AllCaps())
             inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_CAP_CHARACTERS
             typeface = Typeface.MONOSPACE
-            setText("AAA")
-            setSelection(text.length)
+            setText(HighScores.getLastInitials(this@GameActivity))
+            selectAll()
         }
         AlertDialog.Builder(this)
             .setTitle(getString(R.string.high_scores_enter_initials))
@@ -180,11 +167,6 @@ class GameActivity : AppCompatActivity(), GameView.Callback {
 
     private fun goToMenu() {
         startActivity(Intent(this, MainMenuActivity::class.java))
-        finish()
-    }
-
-    private fun goToHighScores() {
-        startActivity(Intent(this, HighScoresActivity::class.java))
         finish()
     }
 

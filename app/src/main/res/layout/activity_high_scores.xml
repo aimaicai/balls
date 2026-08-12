@@ -6,18 +6,35 @@
     android:background="@color/arcade_bg"
     android:padding="32dp">
 
+    <!-- Only shown when arriving straight from a just-finished match (see
+         HighScoresActivity.EXTRA_MATCH_WON) - hidden when opened from the main menu. -->
+    <TextView
+        android:id="@+id/matchResultBanner"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="56dp"
+        android:fontFamily="monospace"
+        android:textColor="@color/arcade_green"
+        android:textSize="18sp"
+        android:textStyle="bold"
+        android:letterSpacing="0.08"
+        android:visibility="gone"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
     <TextView
         android:id="@+id/highScoresTitle"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="72dp"
+        android:layout_marginTop="16dp"
         android:fontFamily="monospace"
         android:text="@string/high_scores_title"
         android:textColor="@color/arcade_green"
         android:textSize="26sp"
         android:textStyle="bold"
         android:letterSpacing="0.15"
-        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/matchResultBanner"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />
 
@@ -25,9 +42,9 @@
         android:id="@+id/scoresScroll"
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_marginTop="40dp"
+        android:layout_marginTop="32dp"
         app:layout_constraintTop_toBottomOf="@id/highScoresTitle"
-        app:layout_constraintBottom_toTopOf="@id/backButton"
+        app:layout_constraintBottom_toTopOf="@id/buttonRow"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
 
@@ -40,21 +57,47 @@
 
     </ScrollView>
 
-    <Button
-        android:id="@+id/backButton"
-        style="?attr/materialButtonOutlinedStyle"
-        android:layout_width="200dp"
+    <LinearLayout
+        android:id="@+id/buttonRow"
+        android:layout_width="match_parent"
         android:layout_height="56dp"
         android:layout_marginBottom="24dp"
-        android:fontFamily="monospace"
-        android:letterSpacing="0.1"
-        android:text="@string/high_scores_back"
-        android:textColor="@color/arcade_green"
-        android:textStyle="bold"
-        app:strokeColor="@color/arcade_green"
-        app:rippleColor="@color/arcade_green"
+        android:orientation="horizontal"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent" />
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <!-- Hidden unless arriving from a just-finished match; see HighScoresActivity. -->
+        <Button
+            android:id="@+id/playAgainButton"
+            style="?attr/materialButtonOutlinedStyle"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:layout_marginEnd="8dp"
+            android:fontFamily="monospace"
+            android:letterSpacing="0.1"
+            android:text="@string/high_scores_play_again"
+            android:textColor="@color/arcade_green"
+            android:textStyle="bold"
+            android:visibility="gone"
+            app:strokeColor="@color/arcade_green"
+            app:rippleColor="@color/arcade_green" />
+
+        <Button
+            android:id="@+id/backButton"
+            style="?attr/materialButtonOutlinedStyle"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:fontFamily="monospace"
+            android:letterSpacing="0.1"
+            android:text="@string/high_scores_back"
+            android:textColor="@color/arcade_green"
+            android:textStyle="bold"
+            app:strokeColor="@color/arcade_green"
+            app:rippleColor="@color/arcade_green" />
+
+    </LinearLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

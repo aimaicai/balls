@@ -21,9 +21,17 @@ data class ScoreEntry(
 object HighScores {
     private const val PREFS_NAME = "high_scores"
     private const val KEY_ENTRIES = "entries"
+    private const val KEY_LAST_INITIALS = "last_initials"
+    private const val DEFAULT_INITIALS = "AAA"
     const val MAX_ENTRIES = 10
     private const val ENTRY_SEPARATOR = ";"
     private const val FIELD_SEPARATOR = ","
+
+    // Whatever initials were entered last time, pre-filled next time so a repeat player can
+    // just confirm instead of retyping the same three letters every match.
+    fun getLastInitials(context: Context): String =
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getString(KEY_LAST_INITIALS, DEFAULT_INITIALS) ?: DEFAULT_INITIALS
 
     // Absorbing opponents is the core skill the game is about, so it dominates the score;
     // final size and a flat win bonus round it out so a long, cautious survival still counts
@@ -61,6 +69,10 @@ object HighScores {
         )
         val updated = (loadAll(context) + entry).sortedByDescending { it.score }.take(MAX_ENTRIES)
         save(context, updated)
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putString(KEY_LAST_INITIALS, entry.initials)
+            .apply()
         return updated
     }
 

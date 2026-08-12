@@ -26,19 +26,13 @@
     <string name="pause_restart">Ricomincia</string>
     <string name="pause_menu">Menu principale</string>
 
-    <string name="game_over_win_title">Hai vinto!</string>
-    <string name="game_over_lose_title">Sei stato inglobato</string>
-    <string name="game_over_score">Punteggio: %1$d</string>
-    <string name="game_over_score_new_best">Nuovo record! Punteggio: %1$d</string>
-    <string name="game_over_stats">Tempo di gioco: %1$s\nDimensione finale: %2$d\nGiocatori rimasti: %3$d\nAvversari inglobati: %4$d</string>
-    <string name="game_over_restart">Rigioca</string>
-    <string name="game_over_menu">Menu principale</string>
-    <string name="game_over_high_scores">Classifica</string>
-
     <string name="menu_high_scores">Classifica</string>
     <string name="high_scores_title">HIGH SCORES</string>
     <string name="high_scores_empty">NO SCORES YET</string>
     <string name="high_scores_back">MENU</string>
+    <string name="high_scores_play_again">RIGIOCA</string>
+    <string name="high_scores_match_won">HAI VINTO! PUNTEGGIO %1$d</string>
+    <string name="high_scores_match_lost">SCONFITTA - PUNTEGGIO %1$d</string>
     <string name="high_scores_enter_initials">Nuovo record! Inserisci le tue iniziali</string>
     <string name="high_scores_confirm">OK</string>
 </resources>
