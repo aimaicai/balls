@@ -302,7 +302,10 @@ class GameEngine(
     }
 
     private fun applyRepelBlast(source: Blob) {
-        val range = source.radius * GameConfig.REPEL_RANGE_MULTIPLIER
+        // Range comes from baseRadius, not the current (post-GROWTH) radius, so a tiny
+        // balloon repels exactly as far as a huge one - it shouldn't be a weaker tool just
+        // because its holder happens to be small right now.
+        val range = source.baseRadius * GameConfig.REPEL_RANGE_MULTIPLIER
         for (target in blobs) {
             if (target === source || !target.alive) continue
             val offset = target.position - source.position
@@ -317,7 +320,8 @@ class GameEngine(
     }
 
     private fun applyFreezeBlast(source: Blob) {
-        val range = source.radius * GameConfig.FREEZE_RANGE_MULTIPLIER
+        // Same reasoning as applyRepelBlast: range off baseRadius, not current size.
+        val range = source.baseRadius * GameConfig.FREEZE_RANGE_MULTIPLIER
         for (target in blobs) {
             if (target === source || !target.alive) continue
             if (target.position.distanceTo(source.position) > range) continue
@@ -365,7 +369,10 @@ class GameEngine(
         val smaller = if (a.radius >= b.radius) b else a
         val ratio = bigger.radius / smaller.radius
 
-        if (ratio >= GameConfig.ABSORB_RATIO) {
+        // A frozen balloon can't act at all, including absorbing - it's still fair game to
+        // be absorbed itself (freeze offers no protection there), so only the bigger side
+        // being frozen turns this into a harmless bounce instead of an absorption.
+        if (ratio >= GameConfig.ABSORB_RATIO && !bigger.isFrozen) {
             val radiusBefore = bigger.radius
             val x = smaller.position.x
             val y = smaller.position.y
