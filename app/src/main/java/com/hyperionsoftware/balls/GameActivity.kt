@@ -10,6 +10,7 @@ import com.hyperionsoftware.balls.audio.MusicSettings
 import com.hyperionsoftware.balls.databinding.ActivityGameBinding
 import com.hyperionsoftware.balls.game.GameConfig
 import com.hyperionsoftware.balls.game.PowerUpType
+import com.hyperionsoftware.balls.score.HighScores
 import com.hyperionsoftware.balls.ui.GameView
 
 class GameActivity : AppCompatActivity(), GameView.Callback {
@@ -94,12 +95,25 @@ class GameActivity : AppCompatActivity(), GameView.Callback {
             getString(R.string.game_over_lose_title)
         }
         val timeText = String.format("%02d:%02d", elapsedSeconds / 60, elapsedSeconds % 60)
+        val previousBest = HighScores.loadAll(this).maxOfOrNull { it.score }
+        val score = HighScores.computeScore(playerWon, finalRadius, opponentsAbsorbed)
+        HighScores.recordMatch(this, playerWon, finalRadius, opponentsAbsorbed, elapsedSeconds)
+        val isNewBest = previousBest == null || score > previousBest
+        val scoreLine = if (isNewBest) {
+            getString(R.string.game_over_score_new_best, score)
+        } else {
+            getString(R.string.game_over_score, score)
+        }
         AlertDialog.Builder(this)
             .setTitle(title)
-            .setMessage(getString(R.string.game_over_stats, timeText, finalRadius, playersRemaining, opponentsAbsorbed))
+            .setMessage(
+                scoreLine + "\n" +
+                    getString(R.string.game_over_stats, timeText, finalRadius, playersRemaining, opponentsAbsorbed)
+            )
             .setCancelable(false)
             .setPositiveButton(getString(R.string.game_over_restart)) { _, _ -> binding.gameView.restart(botCount, powerUpFrequencyLevel, arenaSize, skipToFinalRound) }
             .setNegativeButton(getString(R.string.game_over_menu)) { _, _ -> goToMenu() }
+            .setNeutralButton(getString(R.string.game_over_high_scores)) { _, _ -> goToHighScores() }
             .show()
     }
 
@@ -130,6 +144,11 @@ class GameActivity : AppCompatActivity(), GameView.Callback {
 
     private fun goToMenu() {
         startActivity(Intent(this, MainMenuActivity::class.java))
+        finish()
+    }
+
+    private fun goToHighScores() {
+        startActivity(Intent(this, HighScoresActivity::class.java))
         finish()
     }
 

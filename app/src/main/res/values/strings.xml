@@ -28,7 +28,18 @@
 
     <string name="game_over_win_title">Hai vinto!</string>
     <string name="game_over_lose_title">Sei stato inglobato</string>
+    <string name="game_over_score">Punteggio: %1$d</string>
+    <string name="game_over_score_new_best">Nuovo record! Punteggio: %1$d</string>
     <string name="game_over_stats">Tempo di gioco: %1$s\nDimensione finale: %2$d\nGiocatori rimasti: %3$d\nAvversari inglobati: %4$d</string>
     <string name="game_over_restart">Rigioca</string>
     <string name="game_over_menu">Menu principale</string>
+    <string name="game_over_high_scores">Classifica</string>
+
+    <string name="menu_high_scores">Classifica</string>
+    <string name="high_scores_title">Punteggi migliori</string>
+    <string name="high_scores_empty">Nessuna partita giocata ancora.</string>
+    <string name="high_scores_entry">%1$d. Punteggio %2$d — %3$s\nDimensione %4$d · Inglobati %5$d · Tempo %6$s</string>
+    <string name="high_scores_won">Vittoria</string>
+    <string name="high_scores_lost">Sconfitta</string>
+    <string name="high_scores_back">Torna al menu</string>
 </resources>

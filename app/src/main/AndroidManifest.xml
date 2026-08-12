@@ -28,6 +28,12 @@
             android:screenOrientation="portrait"
             android:theme="@style/Theme.Balls" />
 
+        <activity
+            android:name=".HighScoresActivity"
+            android:exported="false"
+            android:screenOrientation="portrait"
+            android:theme="@style/Theme.Balls" />
+
     </application>
 
 </manifest>

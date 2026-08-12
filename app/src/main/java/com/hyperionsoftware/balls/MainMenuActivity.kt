@@ -84,6 +84,9 @@ class MainMenuActivity : AppCompatActivity() {
                     .putExtra(GameActivity.EXTRA_SKIP_TO_FINAL_ROUND, true)
             )
         }
+        binding.highScoresButton.setOnClickListener {
+            startActivity(Intent(this, HighScoresActivity::class.java))
+        }
         binding.exitButton.setOnClickListener { finish() }
     }
 
