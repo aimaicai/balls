@@ -44,6 +44,11 @@ abstract class Blob(
     val isShielded: Boolean get() = shieldTimer > 0f
     val isFrozen: Boolean get() = frozenTimer > 0f
 
+    // True once a continuously-held sprint has ramped all the way up to its speed cap
+    // (see effectiveSpeed) - exposed so the UI layer can detect the moment for an
+    // achievement without duplicating the ramp math.
+    val isBoostAtMaxPower: Boolean get() = isBoosting && boostHoldSeconds >= GameConfig.BOOST_RAMP_UP_SECONDS
+
     // A single carried/active item slot - picked up like a regular power-up but stored
     // instead of applied immediately, spent later via a dedicated button. Picking up a new
     // one while already holding one replaces it, whatever the two types are.

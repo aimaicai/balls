@@ -35,4 +35,40 @@
     <string name="high_scores_match_lost">SCONFITTA - PUNTEGGIO %1$d</string>
     <string name="high_scores_enter_initials">Nuovo record! Inserisci le tue iniziali</string>
     <string name="high_scores_confirm">OK</string>
+
+    <string name="menu_achievements">Obiettivi</string>
+    <string name="achievements_title">Obiettivi</string>
+    <string name="achievements_back">Indietro</string>
+    <string name="achievements_progress">Sbloccati: %1$d/%2$d</string>
+    <string name="achievement_unlocked_format">OBIETTIVO SBLOCCATO: %1$s</string>
+    <string name="achievement_locked_desc">???</string>
+
+    <string name="achievement_first_absorb_title">Primo Assorbimento</string>
+    <string name="achievement_first_absorb_desc">Assorbi il tuo primo avversario.</string>
+    <string name="achievement_absorb_streak_title">Serie Vincente</string>
+    <string name="achievement_absorb_streak_desc">Assorbi 5 avversari in una singola partita.</string>
+    <string name="achievement_first_win_title">Campione dell\'Arena</string>
+    <string name="achievement_first_win_desc">Vinci la tua prima partita.</string>
+    <string name="achievement_final_round_title">Nel Vivo della Sfida</string>
+    <string name="achievement_final_round_desc">Raggiungi la fase finale di una partita.</string>
+    <string name="achievement_use_speed_title">Scatto Fulmineo</string>
+    <string name="achievement_use_speed_desc">Usa un oggetto Velocità.</string>
+    <string name="achievement_use_invisibility_title">Fantasma dell\'Arena</string>
+    <string name="achievement_use_invisibility_desc">Usa un oggetto Invisibilità.</string>
+    <string name="achievement_use_repel_title">Onda d\'Urto</string>
+    <string name="achievement_use_repel_desc">Usa un oggetto Respingi.</string>
+    <string name="achievement_use_freeze_title">Gelo Assoluto</string>
+    <string name="achievement_use_freeze_desc">Usa un oggetto Congela.</string>
+    <string name="achievement_use_hook_title">Aggancio Perfetto</string>
+    <string name="achievement_use_hook_desc">Usa un oggetto Aggancio.</string>
+    <string name="achievement_supply_drop_title">Bottino di Guerra</string>
+    <string name="achievement_supply_drop_desc">Raccogli un rifornimento speciale (Scudo).</string>
+    <string name="achievement_max_speed_stat_title">Velocista Nato</string>
+    <string name="achievement_max_speed_stat_desc">Porta il bonus velocità permanente al massimo.</string>
+    <string name="achievement_max_agility_stat_title">Agilità Suprema</string>
+    <string name="achievement_max_agility_stat_desc">Porta il bonus di agilità permanente al massimo.</string>
+    <string name="achievement_max_boost_title">Spinta Massima</string>
+    <string name="achievement_max_boost_desc">Tieni premuto lo scatto fino alla potenza massima.</string>
+    <string name="achievement_max_size_title">Gigante dell\'Arena</string>
+    <string name="achievement_max_size_desc">Raggiungi la dimensione massima del palloncino.</string>
 </resources>

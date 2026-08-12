@@ -87,6 +87,9 @@ class MainMenuActivity : AppCompatActivity() {
         binding.highScoresButton.setOnClickListener {
             startActivity(Intent(this, HighScoresActivity::class.java))
         }
+        binding.achievementsButton.setOnClickListener {
+            startActivity(Intent(this, AchievementsActivity::class.java))
+        }
         binding.exitButton.setOnClickListener { finish() }
     }
 

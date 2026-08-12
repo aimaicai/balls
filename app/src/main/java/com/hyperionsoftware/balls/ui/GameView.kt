@@ -20,6 +20,9 @@ import android.os.VibratorManager
 import android.util.AttributeSet
 import android.view.SurfaceHolder
 import android.view.SurfaceView
+import com.hyperionsoftware.balls.R
+import com.hyperionsoftware.balls.achievements.Achievement
+import com.hyperionsoftware.balls.achievements.Achievements
 import com.hyperionsoftware.balls.game.Blob
 import com.hyperionsoftware.balls.game.GameConfig
 import com.hyperionsoftware.balls.game.GameEngine
@@ -53,6 +56,9 @@ class GameView @JvmOverloads constructor(
     private var started = false
     private var lastBoostAvailable = false
     private var lastCarriedItemType: PowerUpType? = null
+    private var botNames: List<String> = emptyList()
+
+    private val achievementAbsorbStreakTarget = 5
 
     private var countdownActive = false
     private var countdownRemaining = 0f
@@ -95,6 +101,19 @@ class GameView @JvmOverloads constructor(
     )
 
     private val absorbAnims = mutableListOf<AbsorbAnim>()
+
+    // Shown as a stacked banner near the top of the screen, in screen space (not world
+    // space like FloatingText) so it reads clearly regardless of where the player is.
+    private class AchievementPopup(val text: String, var ttl: Float, val maxTtl: Float = ttl)
+
+    private val achievementPopups = mutableListOf<AchievementPopup>()
+
+    // Per-match latches for achievements that would otherwise need checking every frame -
+    // once true, checkLiveAchievements stops re-testing that condition for the rest of
+    // the match, on top of Achievements.unlock's own one-time-ever guard.
+    private var finalRoundAchievementChecked = false
+    private var maxSizeAchievementChecked = false
+    private var maxBoostAchievementChecked = false
 
     private val vibrator: Vibrator by lazy {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -219,6 +238,12 @@ class GameView @JvmOverloads constructor(
         isFakeBoldText = true
         textAlign = Paint.Align.CENTER
     }
+    private val achievementPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.parseColor("#FFD700")
+        textSize = 32f
+        isFakeBoldText = true
+        textAlign = Paint.Align.CENTER
+    }
 
     private var lastDirection = Vector2(0f, 0f)
     private var beaconPhase = 0f
@@ -237,10 +262,15 @@ class GameView @JvmOverloads constructor(
         started = true
         floatingTexts.clear()
         absorbAnims.clear()
+        achievementPopups.clear()
+        finalRoundAchievementChecked = false
+        maxSizeAchievementChecked = false
+        maxBoostAchievementChecked = false
         countdownActive = true
         countdownRemaining = GameConfig.COUNTDOWN_SECONDS
         lastBoostAvailable = false
         lastCarriedItemType = null
+        botNames = BotNames.generate(botCount)
         engine = GameEngine(
             botCount = botCount,
             powerUpFrequencyLevel = powerUpFrequencyLevel,
@@ -264,6 +294,7 @@ class GameView @JvmOverloads constructor(
                     if (byPlayer) {
                         vibrateAbsorb()
                         toneGenerator.startTone(ToneGenerator.TONE_PROP_ACK, 150)
+                        unlockAchievement(Achievement.FIRST_ABSORB)
                     }
                     addFeedEntry("${blobLabel(absorberId)} ha inglobato ${blobLabel(victimId)}")
 
@@ -290,6 +321,22 @@ class GameView @JvmOverloads constructor(
                     if (byPlayer) {
                         vibratePowerUp()
                         toneGenerator.startTone(ToneGenerator.TONE_PROP_BEEP, 120)
+                        when (type) {
+                            // SHIELD is never a regular spawn, only ever a supply drop (see
+                            // PowerUp.radius) - so collecting one always means this.
+                            PowerUpType.SHIELD -> unlockAchievement(Achievement.SUPPLY_DROP)
+                            PowerUpType.SPEED_UP -> if (engine.player.permanentSpeedMultiplier >=
+                                GameConfig.PERMANENT_SPEED_MAX_MULTIPLIER
+                            ) {
+                                unlockAchievement(Achievement.MAX_SPEED_STAT)
+                            }
+                            PowerUpType.AGILITY_UP -> if (engine.player.permanentTurnRateMultiplier >=
+                                GameConfig.PERMANENT_TURN_RATE_MAX_MULTIPLIER
+                            ) {
+                                unlockAchievement(Achievement.MAX_AGILITY_STAT)
+                            }
+                            else -> {}
+                        }
                     }
                 }
 
@@ -324,6 +371,14 @@ class GameView @JvmOverloads constructor(
                     if (byPlayer) {
                         vibratePowerUp()
                         toneGenerator.startTone(ToneGenerator.TONE_PROP_BEEP2, 150)
+                        when (type) {
+                            PowerUpType.SPEED -> unlockAchievement(Achievement.USE_SPEED)
+                            PowerUpType.INVISIBILITY -> unlockAchievement(Achievement.USE_INVISIBILITY)
+                            PowerUpType.REPEL -> unlockAchievement(Achievement.USE_REPEL)
+                            PowerUpType.FREEZE -> unlockAchievement(Achievement.USE_FREEZE)
+                            PowerUpType.HOOK -> unlockAchievement(Achievement.USE_HOOK)
+                            else -> {}
+                        }
                     }
                 }
 
@@ -347,6 +402,10 @@ class GameView @JvmOverloads constructor(
                         if (playerWon) ToneGenerator.TONE_PROP_ACK else ToneGenerator.TONE_PROP_NACK,
                         400
                     )
+                    if (playerWon) unlockAchievement(Achievement.FIRST_WIN)
+                    if (opponentsAbsorbed >= achievementAbsorbStreakTarget) {
+                        unlockAchievement(Achievement.ABSORB_STREAK)
+                    }
                     post {
                         callback?.onGameOver(
                             playerWon, finalRadius.toInt(), playersRemaining, opponentsAbsorbed, elapsedSeconds.toInt()
@@ -445,11 +504,42 @@ class GameView @JvmOverloads constructor(
         return track
     }
 
-    private fun blobLabel(id: Int): String = if (id == 0) "Tu" else "Bot $id"
+    private fun blobLabel(id: Int): String = if (id == 0) "Tu" else botNames.getOrElse(id - 1) { "Bot $id" }
 
     private fun addFeedEntry(text: String) {
         feedEntries.add(FeedEntry(text, 3.5f))
         if (feedEntries.size > 5) feedEntries.removeAt(0)
+    }
+
+    // Unlocks are idempotent (Achievements.unlock only returns true the first time ever),
+    // so every call site can fire unconditionally without checking isUnlocked itself.
+    private fun unlockAchievement(achievement: Achievement) {
+        if (Achievements.unlock(context, achievement)) {
+            achievementPopups.add(
+                AchievementPopup(
+                    context.getString(R.string.achievement_unlocked_format, context.getString(achievement.titleResId)),
+                    3f
+                )
+            )
+        }
+    }
+
+    // Conditions that can't be caught from a single discrete event (onAbsorb/onPowerUpCollected/
+    // etc.) - checked once per frame but latched off as soon as each one fires so the
+    // per-frame cost drops to nothing for the rest of the match.
+    private fun checkLiveAchievements(player: Blob) {
+        if (!finalRoundAchievementChecked && engine.isFinalRoundActive) {
+            finalRoundAchievementChecked = true
+            unlockAchievement(Achievement.FINAL_ROUND)
+        }
+        if (!maxSizeAchievementChecked && player.radius >= GameConfig.MAX_RADIUS) {
+            maxSizeAchievementChecked = true
+            unlockAchievement(Achievement.MAX_SIZE)
+        }
+        if (!maxBoostAchievementChecked && player.isBoostAtMaxPower) {
+            maxBoostAchievementChecked = true
+            unlockAchievement(Achievement.MAX_BOOST)
+        }
     }
 
     private fun checkBoostAvailability() {
@@ -602,6 +692,8 @@ class GameView @JvmOverloads constructor(
         drawHud(canvas)
         drawFeed(canvas, dt)
         drawCountdown(canvas)
+        if (!countdownActive) checkLiveAchievements(player)
+        drawAchievementPopups(canvas, dt)
     }
 
     private fun cameraCoord(playerCoord: Float, viewportSize: Int, worldSize: Float): Float {
@@ -1069,6 +1161,22 @@ class GameView @JvmOverloads constructor(
             }
             feedTextPaint.alpha = (255 * (entry.ttl / entry.maxTtl)).toInt().coerceIn(0, 255)
             canvas.drawText(entry.text, 24f, 100f + row * 34f, feedTextPaint)
+            row++
+        }
+    }
+
+    private fun drawAchievementPopups(canvas: Canvas, dt: Float) {
+        val iterator = achievementPopups.iterator()
+        var row = 0
+        while (iterator.hasNext()) {
+            val popup = iterator.next()
+            popup.ttl -= dt
+            if (popup.ttl <= 0f) {
+                iterator.remove()
+                continue
+            }
+            achievementPaint.alpha = (255 * (popup.ttl / popup.maxTtl).coerceAtMost(1f)).toInt().coerceIn(0, 255)
+            canvas.drawText(popup.text, width / 2f, 160f + row * 44f, achievementPaint)
             row++
         }
     }

@@ -135,6 +135,10 @@ class GameEngine(
     private var finalRoundTriggered = false
     private var finalRoundTriggeredAt = 0f
 
+    // Exposed read-only so the UI layer can react to the transition (e.g. an achievement
+    // for reaching the final round) without needing its own copy of the trigger logic.
+    val isFinalRoundActive: Boolean get() = finalRoundTriggered
+
     init {
         val colors = intArrayOf(
             0xFFEF5350.toInt(), 0xFF66BB6A.toInt(), 0xFFAB47BC.toInt(), 0xFFFFA726.toInt(),
