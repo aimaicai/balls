@@ -55,14 +55,21 @@ abstract class Blob(
     var carriedItem: PowerUpType? = null
         private set
 
-    // Permanent stat multipliers from SPEED_UP/AGILITY_UP pickups. Each pickup advances one
-    // discrete tier toward its cap (see increasePermanentSpeed/Agility), so a single pickup
-    // always moves the HUD by exactly one pip and stacking stays bounded.
+    // Permanent stat multipliers from SPEED_UP/AGILITY_UP/POTENCY_UP pickups. Each pickup
+    // advances one discrete tier toward its cap (see increasePermanentSpeed/Agility/Potency),
+    // so a single pickup always moves the HUD by exactly one pip and stacking stays bounded.
     private var permanentSpeedTier = 0
     private var permanentTurnRateTier = 0
+    private var permanentPotencyTier = 0
     var permanentSpeedMultiplier: Float = 1f
         private set
     var permanentTurnRateMultiplier: Float = 1f
+        private set
+
+    // Scales REPEL/FREEZE/HOOK's range, and each one's own "intensity" (REPEL's push,
+    // FREEZE's duration, HOOK's pull) - see GameEngine's applyRepelBlast/applyFreezeBlast/
+    // applyHookPull.
+    var permanentPotencyMultiplier: Float = 1f
         private set
 
     abstract fun decideDirection(engine: GameEngine, dt: Float): Vector2
@@ -168,6 +175,7 @@ abstract class Blob(
             }
             PowerUpType.SPEED_UP -> increasePermanentSpeed()
             PowerUpType.AGILITY_UP -> increasePermanentAgility()
+            PowerUpType.POTENCY_UP -> increasePermanentPotency()
             PowerUpType.SPEED, PowerUpType.INVISIBILITY, PowerUpType.REPEL,
             PowerUpType.FREEZE, PowerUpType.HOOK -> pickUpCarriedItem(type)
         }
@@ -215,6 +223,13 @@ abstract class Blob(
         permanentTurnRateTier++
         permanentTurnRateMultiplier = 1f +
             (GameConfig.PERMANENT_TURN_RATE_MAX_MULTIPLIER - 1f) * permanentTurnRateTier / GameConfig.PERMANENT_STAT_TIER_COUNT
+    }
+
+    private fun increasePermanentPotency() {
+        if (permanentPotencyTier >= GameConfig.PERMANENT_STAT_TIER_COUNT) return
+        permanentPotencyTier++
+        permanentPotencyMultiplier = 1f +
+            (GameConfig.PERMANENT_POTENCY_MAX_MULTIPLIER - 1f) * permanentPotencyTier / GameConfig.PERMANENT_STAT_TIER_COUNT
     }
 
     private fun effectiveSpeed(baseSpeed: Float): Float {

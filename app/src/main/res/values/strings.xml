@@ -75,6 +75,8 @@
     <string name="achievement_max_speed_stat_desc">Porta il bonus velocità permanente al massimo.</string>
     <string name="achievement_max_agility_stat_title">Agilità Suprema</string>
     <string name="achievement_max_agility_stat_desc">Porta il bonus di agilità permanente al massimo.</string>
+    <string name="achievement_max_potency_stat_title">Forza Bruta</string>
+    <string name="achievement_max_potency_stat_desc">Porta il bonus di potenza permanente al massimo.</string>
     <string name="achievement_max_boost_title">Spinta Massima</string>
     <string name="achievement_max_boost_desc">Tieni premuto lo scatto fino alla potenza massima.</string>
     <string name="achievement_max_size_title">Gigante dell\'Arena</string>

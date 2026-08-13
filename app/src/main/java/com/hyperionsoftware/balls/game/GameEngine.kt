@@ -10,10 +10,19 @@ interface GameListener {
     fun onVibrate()
     fun onAbsorb(x: Float, y: Float, sizeGain: Int, byPlayer: Boolean, absorberId: Int, victimId: Int)
     fun onPowerUpCollected(x: Float, y: Float, type: PowerUpType, byPlayer: Boolean)
-    // sourceRadius is the user's current radius at the moment of use - the UI needs it to
-    // draw REPEL/FREEZE/HOOK's ripple at the same reach the effect actually has (see
-    // GameEngine.reachRangeFromCenter), which now depends on current size, not just baseRadius.
-    fun onActiveItemUsed(x: Float, y: Float, type: PowerUpType, byPlayer: Boolean, sourceRadius: Float)
+    // sourceRadius and sourcePotencyMultiplier are the user's current radius and POTENCY_UP
+    // multiplier at the moment of use - the UI needs both to draw REPEL/FREEZE/HOOK's ripple
+    // at the same reach the effect actually has (see GameEngine.reachRangeFromCenter and
+    // applyRepelBlast/applyFreezeBlast/applyHookPull), since range now depends on current
+    // size and potency, not just baseRadius.
+    fun onActiveItemUsed(
+        x: Float,
+        y: Float,
+        type: PowerUpType,
+        byPlayer: Boolean,
+        sourceRadius: Float,
+        sourcePotencyMultiplier: Float
+    )
     fun onZoneDeath(x: Float, y: Float, wasPlayer: Boolean)
     fun onDeflateDeath(x: Float, y: Float, wasPlayer: Boolean)
     // Fired once, the instant the final round is set up (see triggerFinalRound) - the UI
@@ -51,8 +60,8 @@ class GameEngine(
 
     // GROWTH is weighted heavier than the other types (see GameConfig) since size
     // constantly drains away on its own now. SPEED/INVISIBILITY/REPEL/FREEZE/HOOK are all
-    // carried items rather than instant effects, but spawn from this same pool; SPEED_UP
-    // and AGILITY_UP are instant, permanent stat increases.
+    // carried items rather than instant effects, but spawn from this same pool; SPEED_UP,
+    // AGILITY_UP and POTENCY_UP are instant, permanent stat increases.
     private val weightedPowerUpTypes: List<PowerUpType> = buildList {
         repeat(GameConfig.POWERUP_GROWTH_WEIGHT) { add(PowerUpType.GROWTH) }
         repeat(GameConfig.POWERUP_SPEED_WEIGHT) { add(PowerUpType.SPEED) }
@@ -62,6 +71,7 @@ class GameEngine(
         repeat(GameConfig.POWERUP_HOOK_WEIGHT) { add(PowerUpType.HOOK) }
         repeat(GameConfig.POWERUP_SPEED_UP_WEIGHT) { add(PowerUpType.SPEED_UP) }
         repeat(GameConfig.POWERUP_AGILITY_UP_WEIGHT) { add(PowerUpType.AGILITY_UP) }
+        repeat(GameConfig.POWERUP_POTENCY_UP_WEIGHT) { add(PowerUpType.POTENCY_UP) }
     }
 
     // More power-ups when the safe zone is large, fewer (but never none) as it shrinks,
@@ -332,7 +342,9 @@ class GameEngine(
             PowerUpType.INVISIBILITY -> blob.activateInvisibility()
             else -> Unit
         }
-        listener.onActiveItemUsed(blob.position.x, blob.position.y, item, blob === player, blob.radius)
+        listener.onActiveItemUsed(
+            blob.position.x, blob.position.y, item, blob === player, blob.radius, blob.permanentPotencyMultiplier
+        )
     }
 
     // How far a REPEL/FREEZE/HOOK reaches from the source's CENTER: always its current
@@ -340,12 +352,15 @@ class GameEngine(
     // Using baseRadius alone for the whole range - as this used to - meant a grown balloon's
     // own body could be bigger than the range itself, leaving the effect unable to reach past
     // its own edge at all once radius grew past roughly baseRadius * multiplier. Anchoring to
-    // the current edge instead keeps the same reach-beyond-the-body at any size.
+    // the current edge instead keeps the same reach-beyond-the-body at any size. The caller
+    // folds permanentPotencyMultiplier into the multiplier it passes in, so POTENCY_UP
+    // extends reach the same way it strengthens each item's own effect below.
     private fun reachRangeFromCenter(source: Blob, multiplier: Float): Float =
         source.radius + source.baseRadius * multiplier
 
     private fun applyRepelBlast(source: Blob) {
-        val range = reachRangeFromCenter(source, GameConfig.REPEL_RANGE_MULTIPLIER)
+        val potency = source.permanentPotencyMultiplier
+        val range = reachRangeFromCenter(source, GameConfig.REPEL_RANGE_MULTIPLIER * potency)
         for (target in blobs) {
             if (target === source || !target.alive) continue
             val offset = target.position - source.position
@@ -358,7 +373,7 @@ class GameEngine(
             if (distance > effectiveRange || distance < 0.01f) continue
             val direction = offset * (1f / distance)
             val falloff = 1f - distance / effectiveRange
-            val strength = GameConfig.REPEL_FORCE * (0.4f + 0.6f * falloff)
+            val strength = GameConfig.REPEL_FORCE * potency * (0.4f + 0.6f * falloff)
             target.position += direction * strength
             target.clampToWorld()
         }
@@ -368,18 +383,20 @@ class GameEngine(
         // Same reasoning as applyRepelBlast: range measured from the source's current edge,
         // and checked as a circle-circle overlap against the target's own body, not just its
         // center point.
-        val range = reachRangeFromCenter(source, GameConfig.FREEZE_RANGE_MULTIPLIER)
+        val potency = source.permanentPotencyMultiplier
+        val range = reachRangeFromCenter(source, GameConfig.FREEZE_RANGE_MULTIPLIER * potency)
         for (target in blobs) {
             if (target === source || !target.alive) continue
             if (target.position.distanceTo(source.position) > range + target.radius) continue
-            target.applyFreeze(GameConfig.FREEZE_DURATION_SECONDS)
+            target.applyFreeze(GameConfig.FREEZE_DURATION_SECONDS * potency)
         }
     }
 
     // REPEL's opposite: yanks only the single nearest blob toward the source instead of
     // pushing everyone away - a targeted grapple rather than an area push.
     private fun applyHookPull(source: Blob) {
-        val range = reachRangeFromCenter(source, GameConfig.HOOK_RANGE_MULTIPLIER)
+        val potency = source.permanentPotencyMultiplier
+        val range = reachRangeFromCenter(source, GameConfig.HOOK_RANGE_MULTIPLIER * potency)
         val target = blobs
             .filter { it !== source && it.alive }
             .minByOrNull { it.position.distanceTo(source.position) }
@@ -387,7 +404,7 @@ class GameEngine(
         val offset = source.position - target.position
         val distance = offset.length()
         if (distance > range + target.radius || distance < 0.01f) return
-        target.position += offset * (1f / distance) * GameConfig.HOOK_FORCE
+        target.position += offset * (1f / distance) * (GameConfig.HOOK_FORCE * potency)
         target.clampToWorld()
     }
 

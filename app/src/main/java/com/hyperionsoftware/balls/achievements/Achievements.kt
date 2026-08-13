@@ -19,6 +19,7 @@ enum class Achievement(val titleResId: Int, val descriptionResId: Int) {
     SUPPLY_DROP(R.string.achievement_supply_drop_title, R.string.achievement_supply_drop_desc),
     MAX_SPEED_STAT(R.string.achievement_max_speed_stat_title, R.string.achievement_max_speed_stat_desc),
     MAX_AGILITY_STAT(R.string.achievement_max_agility_stat_title, R.string.achievement_max_agility_stat_desc),
+    MAX_POTENCY_STAT(R.string.achievement_max_potency_stat_title, R.string.achievement_max_potency_stat_desc),
     MAX_BOOST(R.string.achievement_max_boost_title, R.string.achievement_max_boost_desc),
     MAX_SIZE(R.string.achievement_max_size_title, R.string.achievement_max_size_desc)
 }

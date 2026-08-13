@@ -373,6 +373,7 @@ class GameView @JvmOverloads constructor(
                         PowerUpType.HOOK -> "Aggancio pronto!"
                         PowerUpType.SPEED_UP -> "Velocità permanente!"
                         PowerUpType.AGILITY_UP -> "Agilità permanente!"
+                        PowerUpType.POTENCY_UP -> "Potenza permanente!"
                     }
                     floatingTexts.add(FloatingText(x, y, label, Color.parseColor("#FFD54F"), 1.4f))
                     if (byPlayer) {
@@ -392,6 +393,11 @@ class GameView @JvmOverloads constructor(
                             ) {
                                 unlockAchievement(Achievement.MAX_AGILITY_STAT)
                             }
+                            PowerUpType.POTENCY_UP -> if (engine.player.permanentPotencyMultiplier >=
+                                GameConfig.PERMANENT_POTENCY_MAX_MULTIPLIER
+                            ) {
+                                unlockAchievement(Achievement.MAX_POTENCY_STAT)
+                            }
                             else -> {}
                         }
                     }
@@ -402,7 +408,8 @@ class GameView @JvmOverloads constructor(
                     y: Float,
                     type: PowerUpType,
                     byPlayer: Boolean,
-                    sourceRadius: Float
+                    sourceRadius: Float,
+                    sourcePotencyMultiplier: Float
                 ) {
                     val label = when (type) {
                         PowerUpType.REPEL -> "Respinto!"
@@ -416,12 +423,15 @@ class GameView @JvmOverloads constructor(
                     floatingTexts.add(FloatingText(x, y, label, color, 1.2f))
                     // Only the area effects get an expanding ring - SPEED/INVISIBILITY are
                     // self-buffs with nothing to telegraph in the world. Matches
-                    // GameEngine.reachRangeFromCenter exactly, so the ripple always shows the
-                    // effect's real reach instead of just the old baseRadius-only guess.
+                    // GameEngine.reachRangeFromCenter exactly (including POTENCY_UP's
+                    // multiplier), so the ripple always shows the effect's real reach.
                     val rippleRadius = when (type) {
-                        PowerUpType.REPEL -> sourceRadius + GameConfig.BASE_RADIUS * GameConfig.REPEL_RANGE_MULTIPLIER
-                        PowerUpType.FREEZE -> sourceRadius + GameConfig.BASE_RADIUS * GameConfig.FREEZE_RANGE_MULTIPLIER
-                        PowerUpType.HOOK -> sourceRadius + GameConfig.BASE_RADIUS * GameConfig.HOOK_RANGE_MULTIPLIER
+                        PowerUpType.REPEL ->
+                            sourceRadius + GameConfig.BASE_RADIUS * GameConfig.REPEL_RANGE_MULTIPLIER * sourcePotencyMultiplier
+                        PowerUpType.FREEZE ->
+                            sourceRadius + GameConfig.BASE_RADIUS * GameConfig.FREEZE_RANGE_MULTIPLIER * sourcePotencyMultiplier
+                        PowerUpType.HOOK ->
+                            sourceRadius + GameConfig.BASE_RADIUS * GameConfig.HOOK_RANGE_MULTIPLIER * sourcePotencyMultiplier
                         else -> null
                     }
                     if (rippleRadius != null) {
@@ -1067,6 +1077,7 @@ class GameView @JvmOverloads constructor(
         PowerUpType.HOOK -> Color.parseColor("#A1887F")
         PowerUpType.SPEED_UP -> Color.parseColor("#FF7043")
         PowerUpType.AGILITY_UP -> Color.parseColor("#00897B")
+        PowerUpType.POTENCY_UP -> Color.parseColor("#D32F2F")
     }
 
     private fun drawPowerUp(canvas: Canvas, powerUp: PowerUp, offsetX: Float, offsetY: Float) {
@@ -1164,6 +1175,19 @@ class GameView @JvmOverloads constructor(
                 iconPaint.style = Paint.Style.FILL
                 canvas.drawLine(cx + 6f, cy - 4f, cx + 9f, cy - 1f, iconPaint)
                 canvas.drawLine(cx + 6f, cy - 4f, cx + 3f, cy - 6f, iconPaint)
+            }
+            PowerUpType.POTENCY_UP -> {
+                // A lightning bolt - the universal "power" shorthand.
+                val boltPath = Path().apply {
+                    moveTo(cx + 2f, cy - 9f)
+                    lineTo(cx - 4f, cy + 1f)
+                    lineTo(cx, cy + 1f)
+                    lineTo(cx - 2f, cy + 9f)
+                    lineTo(cx + 5f, cy - 1f)
+                    lineTo(cx + 1f, cy - 1f)
+                    close()
+                }
+                canvas.drawPath(boltPath, iconPaint)
             }
         }
     }
@@ -1308,13 +1332,20 @@ class GameView @JvmOverloads constructor(
     private fun drawPermanentStatsHud(canvas: Canvas, player: Blob) {
         val density = resources.displayMetrics.density
         var y = (16f + 52f + 14f) * density
+        // Pip colors come from the same powerUpColor() used for the pickup itself and its
+        // ripple, instead of their own separately hardcoded hex values - two of these had
+        // already drifted from the actual pickup color after an earlier recolor.
         y = drawStatPips(
             canvas, "Velocità", player.permanentSpeedMultiplier,
-            GameConfig.PERMANENT_SPEED_MAX_MULTIPLIER, Color.parseColor("#FF7043"), y
+            GameConfig.PERMANENT_SPEED_MAX_MULTIPLIER, powerUpColor(PowerUpType.SPEED_UP), y
+        )
+        y = drawStatPips(
+            canvas, "Agilità", player.permanentTurnRateMultiplier,
+            GameConfig.PERMANENT_TURN_RATE_MAX_MULTIPLIER, powerUpColor(PowerUpType.AGILITY_UP), y
         )
         drawStatPips(
-            canvas, "Agilità", player.permanentTurnRateMultiplier,
-            GameConfig.PERMANENT_TURN_RATE_MAX_MULTIPLIER, Color.parseColor("#CE93D8"), y
+            canvas, "Potenza", player.permanentPotencyMultiplier,
+            GameConfig.PERMANENT_POTENCY_MAX_MULTIPLIER, powerUpColor(PowerUpType.POTENCY_UP), y
         )
     }
 

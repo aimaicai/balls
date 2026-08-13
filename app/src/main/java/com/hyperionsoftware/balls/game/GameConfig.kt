@@ -72,6 +72,7 @@ object GameConfig {
     const val POWERUP_HOOK_WEIGHT = 1
     const val POWERUP_SPEED_UP_WEIGHT = 1
     const val POWERUP_AGILITY_UP_WEIGHT = 1
+    const val POWERUP_POTENCY_UP_WEIGHT = 1
     const val POWERUP_SHIELD_DURATION = 12f
 
     // REPEL: an instant burst that shoves everyone within range away from whoever used it.
@@ -89,13 +90,16 @@ object GameConfig {
     const val HOOK_RANGE_MULTIPLIER = 6f
     const val HOOK_FORCE = 320f
 
-    // Permanent stat pickups (SPEED_UP/AGILITY_UP): each pickup advances one discrete tier
-    // out of PERMANENT_STAT_TIER_COUNT, capped there, so a single pickup always fills
-    // exactly one HUD pip and stacking stays bounded. Agility's cap is more generous than
-    // speed's since a nimbler turn is a different kind of edge than raw power.
+    // Permanent stat pickups (SPEED_UP/AGILITY_UP/POTENCY_UP): each pickup advances one
+    // discrete tier out of PERMANENT_STAT_TIER_COUNT, capped there, so a single pickup always
+    // fills exactly one HUD pip and stacking stays bounded. Agility's cap is more generous
+    // than speed's since a nimbler turn is a different kind of edge than raw power. Potency's
+    // cap is kept modest since it compounds across three effects at once (REPEL/FREEZE/HOOK's
+    // range plus each one's own intensity) rather than a single stat.
     const val PERMANENT_STAT_TIER_COUNT = 10
     const val PERMANENT_SPEED_MAX_MULTIPLIER = 1.5f
     const val PERMANENT_TURN_RATE_MAX_MULTIPLIER = 3f
+    const val PERMANENT_POTENCY_MAX_MULTIPLIER = 1.8f
 
     // A rare, more valuable pickup that always grants SHIELD, spawned on its own separate
     // timer (independent of the regular power-up cap/timer) and telegraphed with a pulsing

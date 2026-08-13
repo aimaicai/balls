@@ -10,8 +10,9 @@ enum class PowerUpType {
 
     // Permanent, instant-on-pickup stat increases (not carried). Each one closes part of
     // the remaining gap to its own cap, so early pickups matter more than later ones and
-    // no one stacks these into an unbounded advantage.
-    SPEED_UP, AGILITY_UP
+    // no one stacks these into an unbounded advantage. POTENCY_UP strengthens REPEL/FREEZE/
+    // HOOK (range plus each one's own intensity) rather than movement.
+    SPEED_UP, AGILITY_UP, POTENCY_UP
 }
 
 class PowerUp(
