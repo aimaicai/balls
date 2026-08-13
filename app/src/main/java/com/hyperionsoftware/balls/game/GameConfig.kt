@@ -145,20 +145,29 @@ object GameConfig {
     // continuous shrink (COUNT * (HOLD + SHRINK) = 75s) so existing pacing/tuning still holds.
     var SAFE_ZONE_INITIAL_RADIUS = BASE_SAFE_ZONE_INITIAL_RADIUS
         private set
-    const val SAFE_ZONE_MIN_RADIUS = 1000f
+    // Halved from 1000f: only governs the normal staged shrink's floor (and so, the
+    // trigger point for entering the final round) now - the final round's own shrink
+    // starts from SAFE_ZONE_FINAL_START_RADIUS instead, decoupled on purpose (see below),
+    // so squeezing the normal phase tighter doesn't also compress the finale.
+    const val SAFE_ZONE_MIN_RADIUS = 500f
     const val SAFE_ZONE_STAGE_COUNT = 3
     const val SAFE_ZONE_STAGE_HOLD_SECONDS = 7f
     var SAFE_ZONE_STAGE_SHRINK_SECONDS = BASE_SAFE_ZONE_STAGE_SHRINK_SECONDS
         private set
 
-    // The zone used to freeze at SAFE_ZONE_MIN_RADIUS once the final round started, which
-    // turned the finale into a static standoff decided almost entirely by whoever reached
-    // the first power-up. Instead it keeps shrinking indefinitely from SAFE_ZONE_MIN_RADIUS
-    // at a constant rate - the one that would reach SAFE_ZONE_FINAL_MIN_RADIUS after
+    // The zone used to freeze once the final round started, which turned the finale into
+    // a static standoff decided almost entirely by whoever reached the first power-up.
+    // Instead it keeps shrinking indefinitely from SAFE_ZONE_FINAL_START_RADIUS at a
+    // constant rate - the one that would reach SAFE_ZONE_FINAL_MIN_RADIUS after
     // SAFE_ZONE_FINAL_SHRINK_SECONDS - all the way down to SAFE_ZONE_ABSOLUTE_MIN_RADIUS,
     // rather than holding anywhere, so there's sustained pressure to keep moving and
     // fighting instead of camping a fixed circle, and a stalling match is eventually forced
-    // to a decisive end.
+    // to a decisive end. SAFE_ZONE_FINAL_START_RADIUS is fixed at what SAFE_ZONE_MIN_RADIUS
+    // used to be (1000f), independent of it now, so the final round's pacing stays exactly
+    // as it was regardless of how small the normal phase gets squeezed - the zone visibly
+    // resizes to this the instant the final round triggers, hidden behind that cut's own
+    // flash/freeze (see GameListener.onFinalRoundStarted).
+    const val SAFE_ZONE_FINAL_START_RADIUS = 1000f
     const val SAFE_ZONE_FINAL_MIN_RADIUS = 600f
     const val SAFE_ZONE_FINAL_SHRINK_SECONDS = 30f
     const val SAFE_ZONE_ABSOLUTE_MIN_RADIUS = 10f
