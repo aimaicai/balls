@@ -123,6 +123,11 @@ object GameConfig {
 
     const val COUNTDOWN_SECONDS = 3f
 
+    // Dramatic cut into the final round: a brief title-card flash, then a 3-2-1 countdown
+    // (gameplay frozen throughout, same as the match-start countdown) before play resumes.
+    const val FINAL_ROUND_BANNER_SECONDS = 1.2f
+    const val FINAL_ROUND_COUNTDOWN_SECONDS = 3f
+
     // Shrinking safe zone: starts covering the whole map (so nobody takes damage at the
     // start) and closes in on the arena center over the match, forcing survivors together
     // instead of letting them wander a huge, empty-feeling map in the late game. It shrinks

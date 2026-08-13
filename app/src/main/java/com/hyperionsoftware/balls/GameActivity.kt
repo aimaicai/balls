@@ -91,9 +91,10 @@ class GameActivity : AppCompatActivity(), GameView.Callback {
         finalRadius: Int,
         playersRemaining: Int,
         opponentsAbsorbed: Int,
-        elapsedSeconds: Int
+        elapsedSeconds: Int,
+        reachedFinalRound: Boolean
     ) {
-        val score = HighScores.computeScore(playerWon, finalRadius, opponentsAbsorbed)
+        val score = HighScores.computeScore(playerWon, elapsedSeconds, opponentsAbsorbed, reachedFinalRound)
 
         fun goToScores() {
             startActivity(
@@ -113,7 +114,9 @@ class GameActivity : AppCompatActivity(), GameView.Callback {
         // very next thing shown either way, no separate stats screen first.
         if (HighScores.wouldRank(this, score)) {
             promptForInitials { initials ->
-                HighScores.recordMatch(this, initials, playerWon, finalRadius, opponentsAbsorbed, elapsedSeconds)
+                HighScores.recordMatch(
+                    this, initials, playerWon, finalRadius, opponentsAbsorbed, elapsedSeconds, reachedFinalRound
+                )
                 goToScores()
             }
         } else {

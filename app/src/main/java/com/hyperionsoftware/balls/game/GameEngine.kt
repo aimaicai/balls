@@ -13,7 +13,17 @@ interface GameListener {
     fun onActiveItemUsed(x: Float, y: Float, type: PowerUpType, byPlayer: Boolean)
     fun onZoneDeath(x: Float, y: Float, wasPlayer: Boolean)
     fun onDeflateDeath(x: Float, y: Float, wasPlayer: Boolean)
-    fun onGameOver(playerWon: Boolean, finalRadius: Float, playersRemaining: Int, opponentsAbsorbed: Int, elapsedSeconds: Float)
+    // Fired once, the instant the final round is set up (see triggerFinalRound) - the UI
+    // layer uses this to cut to a dramatic transition before play resumes.
+    fun onFinalRoundStarted()
+    fun onGameOver(
+        playerWon: Boolean,
+        finalRadius: Float,
+        playersRemaining: Int,
+        opponentsAbsorbed: Int,
+        elapsedSeconds: Float,
+        reachedFinalRound: Boolean
+    )
 }
 
 class GameEngine(
@@ -275,6 +285,7 @@ class GameEngine(
     private fun triggerFinalRound() {
         finalRoundTriggered = true
         finalRoundTriggeredAt = matchElapsed
+        listener.onFinalRoundStarted()
         val survivors = blobs.filter { it.alive }
         if (survivors.isNotEmpty()) {
             val placementRadius = safeZoneRadius * 0.9f
@@ -497,12 +508,12 @@ class GameEngine(
     private fun checkGameOver() {
         if (!player.alive) {
             gameOver = true
-            listener.onGameOver(false, player.radius, aliveCount(), playerAbsorbCount, matchElapsed)
+            listener.onGameOver(false, player.radius, aliveCount(), playerAbsorbCount, matchElapsed, finalRoundTriggered)
             return
         }
         if (aliveCount() <= 1) {
             gameOver = true
-            listener.onGameOver(true, player.radius, 1, playerAbsorbCount, matchElapsed)
+            listener.onGameOver(true, player.radius, 1, playerAbsorbCount, matchElapsed, finalRoundTriggered)
         }
     }
 }

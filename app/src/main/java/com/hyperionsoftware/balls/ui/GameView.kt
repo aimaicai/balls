@@ -44,7 +44,14 @@ class GameView @JvmOverloads constructor(
 ) : SurfaceView(context, attrs), SurfaceHolder.Callback, JoystickView.Listener {
 
     interface Callback {
-        fun onGameOver(playerWon: Boolean, finalRadius: Int, playersRemaining: Int, opponentsAbsorbed: Int, elapsedSeconds: Int)
+        fun onGameOver(
+            playerWon: Boolean,
+            finalRadius: Int,
+            playersRemaining: Int,
+            opponentsAbsorbed: Int,
+            elapsedSeconds: Int,
+            reachedFinalRound: Boolean
+        )
         fun onBoostAvailabilityChanged(available: Boolean)
         fun onCarriedItemChanged(type: PowerUpType?)
     }
@@ -63,6 +70,12 @@ class GameView @JvmOverloads constructor(
 
     private var countdownActive = false
     private var countdownRemaining = 0f
+
+    // Cinematic cut into the final round (see GameListener.onFinalRoundStarted): gameplay
+    // freezes, same as the match-start countdown, while drawFinalRoundTransition plays a
+    // title-card flash followed by its own 3-2-1.
+    private var finalRoundTransitionActive = false
+    private var finalRoundTransitionElapsed = 0f
 
     private class FloatingText(
         var x: Float,
@@ -111,8 +124,8 @@ class GameView @JvmOverloads constructor(
 
     // Per-match latches for achievements that would otherwise need checking every frame -
     // once true, checkLiveAchievements stops re-testing that condition for the rest of
-    // the match, on top of Achievements.unlock's own one-time-ever guard.
-    private var finalRoundAchievementChecked = false
+    // the match, on top of Achievements.unlock's own one-time-ever guard. FINAL_ROUND
+    // doesn't need one of these: it's unlocked straight from onFinalRoundStarted instead.
     private var maxSizeAchievementChecked = false
     private var maxBoostAchievementChecked = false
 
@@ -254,6 +267,20 @@ class GameView @JvmOverloads constructor(
         isFakeBoldText = true
         textAlign = Paint.Align.CENTER
     }
+    // The final-round entrance card: red like the safe zone it's warning about, distinct
+    // from the plain white match-start countdown so the two don't read as the same beat.
+    private val finalRoundTitlePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.parseColor("#EF5350")
+        textSize = 58f
+        isFakeBoldText = true
+        textAlign = Paint.Align.CENTER
+    }
+    private val finalRoundCountdownPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.parseColor("#FFC107")
+        textSize = 180f
+        isFakeBoldText = true
+        textAlign = Paint.Align.CENTER
+    }
 
     private var lastDirection = Vector2(0f, 0f)
     private var beaconPhase = 0f
@@ -273,10 +300,14 @@ class GameView @JvmOverloads constructor(
         floatingTexts.clear()
         absorbAnims.clear()
         achievementPopups.clear()
-        finalRoundAchievementChecked = false
         maxSizeAchievementChecked = false
         maxBoostAchievementChecked = false
-        countdownActive = true
+        finalRoundTransitionActive = false
+        finalRoundTransitionElapsed = 0f
+        // Skip-to-final-round testing gets its own dramatic entrance the instant the
+        // engine sets it up (see onFinalRoundStarted) instead of the plain match-start
+        // countdown - showing both back to back would be redundant.
+        countdownActive = !skipToFinalRound
         countdownRemaining = GameConfig.COUNTDOWN_SECONDS
         lastBoostAvailable = false
         lastCarriedItemType = null
@@ -405,7 +436,8 @@ class GameView @JvmOverloads constructor(
                     finalRadius: Float,
                     playersRemaining: Int,
                     opponentsAbsorbed: Int,
-                    elapsedSeconds: Float
+                    elapsedSeconds: Float,
+                    reachedFinalRound: Boolean
                 ) {
                     loopThread?.running = false
                     toneGenerator.startTone(
@@ -418,9 +450,18 @@ class GameView @JvmOverloads constructor(
                     }
                     post {
                         callback?.onGameOver(
-                            playerWon, finalRadius.toInt(), playersRemaining, opponentsAbsorbed, elapsedSeconds.toInt()
+                            playerWon, finalRadius.toInt(), playersRemaining, opponentsAbsorbed,
+                            elapsedSeconds.toInt(), reachedFinalRound
                         )
                     }
+                }
+
+                override fun onFinalRoundStarted() {
+                    finalRoundTransitionActive = true
+                    finalRoundTransitionElapsed = 0f
+                    vibrateFinalRoundAlert()
+                    toneGenerator.startTone(ToneGenerator.TONE_PROP_BEEP2, 300)
+                    unlockAchievement(Achievement.FINAL_ROUND)
                 }
             }
         )
@@ -538,10 +579,6 @@ class GameView @JvmOverloads constructor(
     // etc.) - checked once per frame but latched off as soon as each one fires so the
     // per-frame cost drops to nothing for the rest of the match.
     private fun checkLiveAchievements(player: Blob) {
-        if (!finalRoundAchievementChecked && engine.isFinalRoundActive) {
-            finalRoundAchievementChecked = true
-            unlockAchievement(Achievement.FINAL_ROUND)
-        }
         if (!maxSizeAchievementChecked && player.radius >= GameConfig.MAX_RADIUS) {
             maxSizeAchievementChecked = true
             unlockAchievement(Achievement.MAX_SIZE)
@@ -622,6 +659,12 @@ class GameView @JvmOverloads constructor(
         }
     }
 
+    private fun vibrateFinalRoundAlert() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            vibrator.vibrate(VibrationEffect.createWaveform(longArrayOf(0, 120, 80, 120, 80, 200), -1))
+        }
+    }
+
     private inner class GameThread : Thread("GameLoop") {
         @Volatile var running = true
 
@@ -636,6 +679,10 @@ class GameView @JvmOverloads constructor(
                 if (countdownActive) {
                     countdownRemaining -= dt
                     if (countdownRemaining <= 0f) countdownActive = false
+                } else if (finalRoundTransitionActive) {
+                    finalRoundTransitionElapsed += dt
+                    val totalDuration = GameConfig.FINAL_ROUND_BANNER_SECONDS + GameConfig.FINAL_ROUND_COUNTDOWN_SECONDS
+                    if (finalRoundTransitionElapsed >= totalDuration) finalRoundTransitionActive = false
                 } else {
                     engine.update(dt)
                     checkBoostAvailability()
@@ -702,7 +749,8 @@ class GameView @JvmOverloads constructor(
         drawHud(canvas)
         drawFeed(canvas, dt)
         drawCountdown(canvas)
-        if (!countdownActive) checkLiveAchievements(player)
+        drawFinalRoundTransition(canvas)
+        if (!countdownActive && !finalRoundTransitionActive) checkLiveAchievements(player)
         drawAchievementPopups(canvas, dt)
     }
 
@@ -1207,14 +1255,16 @@ class GameView @JvmOverloads constructor(
         canvas.drawText(timeText, width / 2f, 90f, timerHudPaint)
 
         // playerWon is always false here since the match is still running - this omits
-        // the win bonus that HighScores.computeScore would add once it actually ends, so
-        // the number only ever jumps up when the final tally lands, never down. Centered
-        // below the timer instead of the left column, where it used to blend into the
-        // elimination feed right underneath it.
+        // the win bonus that HighScores.computeScore would add once it actually ends. Every
+        // other term (elapsed time, absorbs, reaching the final round) only ever increases
+        // over a match, so unlike the old radius-based term, this can never tick down frame
+        // to frame. Centered below the timer instead of the left column, where it used to
+        // blend into the elimination feed right underneath it.
         val liveScore = HighScores.computeScore(
             playerWon = false,
-            finalRadius = player.radius.toInt(),
-            opponentsAbsorbed = engine.playerOpponentsAbsorbed
+            elapsedSeconds = elapsedSeconds,
+            opponentsAbsorbed = engine.playerOpponentsAbsorbed,
+            reachedFinalRound = engine.isFinalRoundActive
         )
         canvas.drawText("Punteggio: $liveScore", width / 2f, 134f, liveScoreHudPaint)
 
@@ -1271,5 +1321,37 @@ class GameView @JvmOverloads constructor(
         canvas.drawColor(Color.argb(120, 0, 0, 0))
         val secondsLeft = ceil(countdownRemaining).toInt().coerceAtLeast(1)
         canvas.drawText(secondsLeft.toString(), width / 2f, height / 2f + 60f, countdownPaint)
+    }
+
+    // Two-beat cinematic cut into the final round: a quick white flash with the title card
+    // scaling in, then a themed 3-2-1. Gameplay is frozen throughout (see GameThread),
+    // the same treatment the match-start countdown already gets.
+    private fun drawFinalRoundTransition(canvas: Canvas) {
+        if (!finalRoundTransitionActive) return
+        canvas.drawColor(Color.argb(170, 40, 0, 0))
+
+        val bannerSeconds = GameConfig.FINAL_ROUND_BANNER_SECONDS
+        if (finalRoundTransitionElapsed < bannerSeconds) {
+            val flashAlpha = (255 * (1f - finalRoundTransitionElapsed / 0.2f)).toInt().coerceIn(0, 255)
+            if (flashAlpha > 0) canvas.drawColor(Color.argb(flashAlpha, 255, 255, 255))
+
+            val scale = 0.6f + 0.4f * (finalRoundTransitionElapsed / 0.4f).coerceIn(0f, 1f)
+            canvas.save()
+            canvas.scale(scale, scale, width / 2f, height / 2f)
+            canvas.drawText("SFIDA FINALE", width / 2f, height / 2f, finalRoundTitlePaint)
+            canvas.restore()
+        } else {
+            canvas.drawText("SFIDA FINALE", width / 2f, height / 2f - 100f, finalRoundTitlePaint)
+
+            val countdownElapsed = finalRoundTransitionElapsed - bannerSeconds
+            val secondsLeft = ceil(GameConfig.FINAL_ROUND_COUNTDOWN_SECONDS - countdownElapsed).toInt().coerceAtLeast(1)
+            // A small punch-in at the start of each second, easing back to full size.
+            val fractionIntoSecond = countdownElapsed - countdownElapsed.toInt()
+            val punch = 1.4f - 0.4f * fractionIntoSecond.coerceIn(0f, 1f)
+            canvas.save()
+            canvas.scale(punch, punch, width / 2f, height / 2f + 60f)
+            canvas.drawText(secondsLeft.toString(), width / 2f, height / 2f + 60f, finalRoundCountdownPaint)
+            canvas.restore()
+        }
     }
 }

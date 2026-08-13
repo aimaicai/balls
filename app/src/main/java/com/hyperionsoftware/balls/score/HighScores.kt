@@ -33,11 +33,25 @@ object HighScores {
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             .getString(KEY_LAST_INITIALS, DEFAULT_INITIALS) ?: DEFAULT_INITIALS
 
-    // Absorbing opponents is the core skill the game is about, so it dominates the score;
-    // final size and a flat win bonus round it out so a long, cautious survival still counts
-    // for something even with few absorbs.
-    fun computeScore(playerWon: Boolean, finalRadius: Int, opponentsAbsorbed: Int): Int {
-        return opponentsAbsorbed * 100 + finalRadius * 3 + if (playerWon) 1000 else 0
+    private const val POINTS_PER_SECOND = 2
+    private const val POINTS_PER_ABSORB = 100
+    private const val FINAL_ROUND_BONUS = 500
+    private const val WIN_BONUS = 1000
+
+    // Every term here only ever increases over the course of a match - elapsed time,
+    // absorbs, and once-triggered flags for reaching the final round or winning - so a
+    // score shown live during play can only climb, never dip, unlike the old formula's
+    // final-size term (radius drains constantly, so it could go down frame to frame).
+    fun computeScore(
+        playerWon: Boolean,
+        elapsedSeconds: Int,
+        opponentsAbsorbed: Int,
+        reachedFinalRound: Boolean
+    ): Int {
+        return elapsedSeconds * POINTS_PER_SECOND +
+            opponentsAbsorbed * POINTS_PER_ABSORB +
+            (if (reachedFinalRound) FINAL_ROUND_BONUS else 0) +
+            (if (playerWon) WIN_BONUS else 0)
     }
 
     // Whether this score would actually make the saved top MAX_ENTRIES - classic arcades
@@ -56,11 +70,12 @@ object HighScores {
         playerWon: Boolean,
         finalRadius: Int,
         opponentsAbsorbed: Int,
-        elapsedSeconds: Int
+        elapsedSeconds: Int,
+        reachedFinalRound: Boolean
     ): List<ScoreEntry> {
         val entry = ScoreEntry(
             initials = initials.take(3).uppercase(),
-            score = computeScore(playerWon, finalRadius, opponentsAbsorbed),
+            score = computeScore(playerWon, elapsedSeconds, opponentsAbsorbed, reachedFinalRound),
             playerWon = playerWon,
             finalRadius = finalRadius,
             opponentsAbsorbed = opponentsAbsorbed,
