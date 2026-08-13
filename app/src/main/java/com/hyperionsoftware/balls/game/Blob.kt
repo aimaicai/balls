@@ -74,12 +74,13 @@ abstract class Blob(
             frozenTimer = max(0f, frozenTimer - dt)
             isThrusting = false
         } else {
-            // The raw vector's length doubles as desired-speed fraction: bots always return
-            // unit-length vectors (full speed), while the player's joystick vector length
-            // reflects how far the stick is pushed, giving proportional analog control.
+            // The balloon always drifts forward on its own - decideDirection's result only
+            // steers facingDirection toward wherever it's aimed (see steerTowards), it no
+            // longer gates whether movement happens or scales how fast it is. A zero vector
+            // (the player's joystick centered/released) just means "no new steering input
+            // this frame", not "stop": facingDirection simply keeps whatever heading it had.
             val rawDirection = decideDirection(engine, dt)
-            val magnitude = rawDirection.length().coerceAtMost(1f)
-            val hasHeading = magnitude > 0.05f
+            val hasHeading = rawDirection.length() > 0.05f
 
             if (hasHeading) {
                 val desiredHeading = rawDirection.normalized()
@@ -87,12 +88,11 @@ abstract class Blob(
                 facingDirection = steerTowards(facingDirection, desiredHeading, turnRate * dt)
             }
 
-            isThrusting = hasHeading
+            isThrusting = true
             boostHoldSeconds = if (isBoosting) boostHoldSeconds + dt else 0f
 
             val speed = effectiveSpeed(baseSpeed)
-            val movement = facingDirection * (speed * magnitude * dt)
-            position += movement
+            position += facingDirection * (speed * dt)
             clampToWorld()
         }
 
