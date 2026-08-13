@@ -64,7 +64,7 @@ class GameActivity : AppCompatActivity(), GameView.Callback {
     override fun onResume() {
         super.onResume()
         binding.gameView.resumeGame()
-        if (MusicSettings.isEnabled(this)) musicPlayer.start()
+        if (MusicSettings.isEnabled(this)) musicPlayer.start(MusicSettings.getSelectedTrack(this))
     }
 
     override fun onPause() {

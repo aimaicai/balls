@@ -2,10 +2,14 @@ package com.hyperionsoftware.balls
 
 import android.content.Intent
 import android.os.Bundle
+import android.view.View
+import android.widget.AdapterView
+import android.widget.ArrayAdapter
 import android.widget.SeekBar
 import androidx.appcompat.app.AppCompatActivity
 import com.hyperionsoftware.balls.audio.BackgroundMusicPlayer
 import com.hyperionsoftware.balls.audio.MusicSettings
+import com.hyperionsoftware.balls.audio.MusicTrack
 import com.hyperionsoftware.balls.databinding.ActivityMainMenuBinding
 import com.hyperionsoftware.balls.game.GameConfig
 
@@ -34,7 +38,26 @@ class MainMenuActivity : AppCompatActivity() {
         binding.musicSwitch.isChecked = MusicSettings.isEnabled(this)
         binding.musicSwitch.setOnCheckedChangeListener { _, isEnabled ->
             MusicSettings.setEnabled(this, isEnabled)
-            if (isEnabled) musicPlayer.start() else musicPlayer.stop()
+            if (isEnabled) musicPlayer.start(MusicSettings.getSelectedTrack(this)) else musicPlayer.stop()
+        }
+
+        val tracks = MusicTrack.entries.toList()
+        binding.musicTrackSpinner.adapter = ArrayAdapter(
+            this,
+            android.R.layout.simple_spinner_dropdown_item,
+            tracks.map { getString(it.labelResId) }
+        )
+        binding.musicTrackSpinner.setSelection(tracks.indexOf(MusicSettings.getSelectedTrack(this)))
+        binding.musicTrackSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>, view: View?, position: Int, id: Long) {
+                val track = tracks[position]
+                MusicSettings.setSelectedTrack(this@MainMenuActivity, track)
+                // Switch what's playing immediately if music is already on, instead of only
+                // taking effect the next time it starts.
+                if (MusicSettings.isEnabled(this@MainMenuActivity)) musicPlayer.start(track)
+            }
+
+            override fun onNothingSelected(parent: AdapterView<*>) = Unit
         }
 
         binding.botsSeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
@@ -95,7 +118,7 @@ class MainMenuActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-        if (MusicSettings.isEnabled(this)) musicPlayer.start()
+        if (MusicSettings.isEnabled(this)) musicPlayer.start(MusicSettings.getSelectedTrack(this))
     }
 
     override fun onPause() {
