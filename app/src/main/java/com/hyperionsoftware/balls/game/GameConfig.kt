@@ -123,14 +123,13 @@ object GameConfig {
 
     const val COUNTDOWN_SECONDS = 3f
 
-    // Dramatic cut into the final round: a brief title-card flash, then a 3-2-1 countdown
-    // (gameplay frozen throughout, same as the match-start countdown) before play resumes.
+    // Dramatic cut into the final round: a brief title-card flash (gameplay frozen for
+    // this short beat) before play resumes. The actual 3-2-1 happens earlier, live, during
+    // normal play - see FINAL_ROUND_WARNING_SECONDS - so this cut doesn't repeat it.
     const val FINAL_ROUND_BANNER_SECONDS = 1.2f
-    const val FINAL_ROUND_COUNTDOWN_SECONDS = 3f
 
     // A heads-up while normal play is still running, counting down the last few seconds
-    // before the final round actually triggers - separate from, and before, the frozen
-    // transition above.
+    // before the final round actually triggers - see the transition above.
     const val FINAL_ROUND_WARNING_SECONDS = 3f
 
     // Shrinking safe zone: starts covering the whole map (so nobody takes damage at the

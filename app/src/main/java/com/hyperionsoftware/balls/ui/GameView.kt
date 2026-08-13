@@ -72,8 +72,8 @@ class GameView @JvmOverloads constructor(
     private var countdownRemaining = 0f
 
     // Cinematic cut into the final round (see GameListener.onFinalRoundStarted): gameplay
-    // freezes, same as the match-start countdown, while drawFinalRoundTransition plays a
-    // title-card flash followed by its own 3-2-1.
+    // freezes briefly, same as the match-start countdown, while drawFinalRoundTransition
+    // plays just a title-card flash - the 3-2-1 already happened live beforehand.
     private var finalRoundTransitionActive = false
     private var finalRoundTransitionElapsed = 0f
 
@@ -272,12 +272,6 @@ class GameView @JvmOverloads constructor(
     private val finalRoundTitlePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = Color.parseColor("#EF5350")
         textSize = 58f
-        isFakeBoldText = true
-        textAlign = Paint.Align.CENTER
-    }
-    private val finalRoundCountdownPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.parseColor("#FFC107")
-        textSize = 180f
         isFakeBoldText = true
         textAlign = Paint.Align.CENTER
     }
@@ -695,8 +689,9 @@ class GameView @JvmOverloads constructor(
                     if (countdownRemaining <= 0f) countdownActive = false
                 } else if (finalRoundTransitionActive) {
                     finalRoundTransitionElapsed += dt
-                    val totalDuration = GameConfig.FINAL_ROUND_BANNER_SECONDS + GameConfig.FINAL_ROUND_COUNTDOWN_SECONDS
-                    if (finalRoundTransitionElapsed >= totalDuration) finalRoundTransitionActive = false
+                    if (finalRoundTransitionElapsed >= GameConfig.FINAL_ROUND_BANNER_SECONDS) {
+                        finalRoundTransitionActive = false
+                    }
                 } else {
                     engine.update(dt)
                     checkBoostAvailability()
@@ -1338,36 +1333,22 @@ class GameView @JvmOverloads constructor(
         canvas.drawText(secondsLeft.toString(), width / 2f, height / 2f + 60f, countdownPaint)
     }
 
-    // Two-beat cinematic cut into the final round: a quick white flash with the title card
-    // scaling in, then a themed 3-2-1. Gameplay is frozen throughout (see GameThread),
-    // the same treatment the match-start countdown already gets.
+    // Cinematic cut into the final round: a quick white flash with the title card scaling
+    // in. No countdown here - that already happened live, before the freeze (see
+    // drawFinalRoundWarning); this is just the payoff beat, gameplay frozen briefly the
+    // same way the match-start countdown freezes it.
     private fun drawFinalRoundTransition(canvas: Canvas) {
         if (!finalRoundTransitionActive) return
         canvas.drawColor(Color.argb(170, 40, 0, 0))
 
-        val bannerSeconds = GameConfig.FINAL_ROUND_BANNER_SECONDS
-        if (finalRoundTransitionElapsed < bannerSeconds) {
-            val flashAlpha = (255 * (1f - finalRoundTransitionElapsed / 0.2f)).toInt().coerceIn(0, 255)
-            if (flashAlpha > 0) canvas.drawColor(Color.argb(flashAlpha, 255, 255, 255))
+        val flashAlpha = (255 * (1f - finalRoundTransitionElapsed / 0.2f)).toInt().coerceIn(0, 255)
+        if (flashAlpha > 0) canvas.drawColor(Color.argb(flashAlpha, 255, 255, 255))
 
-            val scale = 0.6f + 0.4f * (finalRoundTransitionElapsed / 0.4f).coerceIn(0f, 1f)
-            canvas.save()
-            canvas.scale(scale, scale, width / 2f, height / 2f)
-            canvas.drawText("SFIDA FINALE", width / 2f, height / 2f, finalRoundTitlePaint)
-            canvas.restore()
-        } else {
-            canvas.drawText("SFIDA FINALE", width / 2f, height / 2f - 100f, finalRoundTitlePaint)
-
-            val countdownElapsed = finalRoundTransitionElapsed - bannerSeconds
-            val secondsLeft = ceil(GameConfig.FINAL_ROUND_COUNTDOWN_SECONDS - countdownElapsed).toInt().coerceAtLeast(1)
-            // A small punch-in at the start of each second, easing back to full size.
-            val fractionIntoSecond = countdownElapsed - countdownElapsed.toInt()
-            val punch = 1.4f - 0.4f * fractionIntoSecond.coerceIn(0f, 1f)
-            canvas.save()
-            canvas.scale(punch, punch, width / 2f, height / 2f + 60f)
-            canvas.drawText(secondsLeft.toString(), width / 2f, height / 2f + 60f, finalRoundCountdownPaint)
-            canvas.restore()
-        }
+        val scale = 0.6f + 0.4f * (finalRoundTransitionElapsed / 0.4f).coerceIn(0f, 1f)
+        canvas.save()
+        canvas.scale(scale, scale, width / 2f, height / 2f)
+        canvas.drawText("SFIDA FINALE", width / 2f, height / 2f, finalRoundTitlePaint)
+        canvas.restore()
     }
 
     // The advance warning: still normal, playable gameplay underneath (no freeze, no
