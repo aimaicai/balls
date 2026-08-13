@@ -96,7 +96,7 @@ class GameActivity : AppCompatActivity(), GameView.Callback {
     ) {
         val score = HighScores.computeScore(playerWon, elapsedSeconds, opponentsAbsorbed, reachedFinalRound)
 
-        fun goToScores() {
+        fun goToScores(highlightTimestamp: Long? = null) {
             startActivity(
                 Intent(this, HighScoresActivity::class.java)
                     .putExtra(HighScoresActivity.EXTRA_MATCH_WON, playerWon)
@@ -105,6 +105,11 @@ class GameActivity : AppCompatActivity(), GameView.Callback {
                     .putExtra(EXTRA_POWERUP_FREQUENCY, powerUpFrequencyLevel)
                     .putExtra(EXTRA_ARENA_SIZE, arenaSize.name)
                     .putExtra(EXTRA_SKIP_TO_FINAL_ROUND, skipToFinalRound)
+                    .apply {
+                        if (highlightTimestamp != null) {
+                            putExtra(HighScoresActivity.EXTRA_HIGHLIGHT_TIMESTAMP, highlightTimestamp)
+                        }
+                    }
             )
             finish()
         }
@@ -114,10 +119,12 @@ class GameActivity : AppCompatActivity(), GameView.Callback {
         // very next thing shown either way, no separate stats screen first.
         if (HighScores.wouldRank(this, score)) {
             promptForInitials { initials ->
+                val timestamp = System.currentTimeMillis()
                 HighScores.recordMatch(
-                    this, initials, playerWon, finalRadius, opponentsAbsorbed, elapsedSeconds, reachedFinalRound
+                    this, initials, playerWon, finalRadius, opponentsAbsorbed, elapsedSeconds, reachedFinalRound,
+                    timestamp
                 )
-                goToScores()
+                goToScores(highlightTimestamp = timestamp)
             }
         } else {
             goToScores()

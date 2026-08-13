@@ -281,6 +281,20 @@ class GameView @JvmOverloads constructor(
         isFakeBoldText = true
         textAlign = Paint.Align.CENTER
     }
+    // The heads-up shown DURING normal play, before the freeze - smaller and drawn over
+    // live gameplay rather than a full-screen cut, so it warns without blocking the view.
+    private val finalRoundWarningTitlePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.parseColor("#EF5350")
+        textSize = 34f
+        isFakeBoldText = true
+        textAlign = Paint.Align.CENTER
+    }
+    private val finalRoundWarningCountdownPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.parseColor("#FFC107")
+        textSize = 70f
+        isFakeBoldText = true
+        textAlign = Paint.Align.CENTER
+    }
 
     private var lastDirection = Vector2(0f, 0f)
     private var beaconPhase = 0f
@@ -748,6 +762,7 @@ class GameView @JvmOverloads constructor(
         drawFloatingTexts(canvas, offsetX, offsetY, dt)
         drawHud(canvas)
         drawFeed(canvas, dt)
+        drawFinalRoundWarning(canvas)
         drawCountdown(canvas)
         drawFinalRoundTransition(canvas)
         if (!countdownActive && !finalRoundTransitionActive) checkLiveAchievements(player)
@@ -1353,5 +1368,27 @@ class GameView @JvmOverloads constructor(
             canvas.drawText(secondsLeft.toString(), width / 2f, height / 2f + 60f, finalRoundCountdownPaint)
             canvas.restore()
         }
+    }
+
+    // The advance warning: still normal, playable gameplay underneath (no freeze, no
+    // full-screen overlay) with a small pulsing "il finale sta arrivando" + countdown
+    // drawn over it for the last few seconds before the engine actually triggers the
+    // final round - which is when drawFinalRoundTransition takes over.
+    private fun drawFinalRoundWarning(canvas: Canvas) {
+        if (countdownActive || finalRoundTransitionActive) return
+        val secondsRemaining = engine.secondsUntilFinalRound
+        if (secondsRemaining <= 0f || secondsRemaining > GameConfig.FINAL_ROUND_WARNING_SECONDS) return
+
+        val secondsLeft = ceil(secondsRemaining).toInt().coerceAtLeast(1)
+        // How far into the current displayed second we are (0 = just ticked, 1 = about to
+        // tick again), driving the same punch-in used by the frozen countdown.
+        val fractionIntoSecond = ceil(secondsRemaining) - secondsRemaining
+        val punch = 1.3f - 0.3f * fractionIntoSecond.coerceIn(0f, 1f)
+
+        canvas.drawText("IL FINALE STA ARRIVANDO", width / 2f, height / 2f - 130f, finalRoundWarningTitlePaint)
+        canvas.save()
+        canvas.scale(punch, punch, width / 2f, height / 2f - 70f)
+        canvas.drawText(secondsLeft.toString(), width / 2f, height / 2f - 70f, finalRoundWarningCountdownPaint)
+        canvas.restore()
     }
 }

@@ -8,4 +8,8 @@
     <color name="hud_text">#FFFFFF</color>
     <color name="accent">#FFC107</color>
     <color name="button_bg">#1E2A38</color>
+
+    <!-- Same gold used for the in-game achievement-unlock popup - reused here for the
+         leaderboard's new-high-score celebration so the two "special moment" callouts match. -->
+    <color name="celebration_gold">#FFD700</color>
 </resources>

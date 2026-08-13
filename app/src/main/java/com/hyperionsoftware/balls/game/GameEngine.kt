@@ -130,6 +130,16 @@ class GameEngine(
         get() = ((GameConfig.SAFE_ZONE_INITIAL_RADIUS - safeZoneRadius) /
             (GameConfig.SAFE_ZONE_INITIAL_RADIUS - GameConfig.SAFE_ZONE_MIN_RADIUS)).coerceIn(0f, 1f)
 
+    // How much real match time is left before the staged shrink finishes and the final
+    // round triggers - lets the UI warn the player a few seconds ahead, while normal play
+    // is still running, instead of the cut to the final round being a total surprise.
+    val secondsUntilFinalRound: Float
+        get() {
+            if (finalRoundTriggered) return 0f
+            val totalStagedDuration = GameConfig.SAFE_ZONE_STAGE_COUNT * safeZoneStageDuration
+            return (totalStagedDuration - matchElapsed).coerceAtLeast(0f)
+        }
+
     private fun stageRadius(stage: Int): Float {
         val fraction = stage.coerceIn(0, GameConfig.SAFE_ZONE_STAGE_COUNT).toFloat() / GameConfig.SAFE_ZONE_STAGE_COUNT
         return GameConfig.SAFE_ZONE_INITIAL_RADIUS -

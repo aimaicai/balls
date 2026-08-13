@@ -36,12 +36,38 @@ class HighScoresActivity : AppCompatActivity() {
             return
         }
 
+        val highlightTimestamp = if (intent.hasExtra(EXTRA_HIGHLIGHT_TIMESTAMP)) {
+            intent.getLongExtra(EXTRA_HIGHLIGHT_TIMESTAMP, -1L)
+        } else {
+            null
+        }
+
         entries.forEachIndexed { index, entry ->
             val rank = (index + 1).toString().padStart(2, '0')
             val initials = entry.initials.padEnd(3, ' ')
             val score = entry.score.toString().padStart(6, '0')
-            binding.scoresContainer.addView(arcadeText("$rank  $initials  $score"))
+            val isHighlighted = highlightTimestamp != null && entry.timestampMillis == highlightTimestamp
+            binding.scoresContainer.addView(arcadeText("$rank  $initials  $score", isHighlighted))
+
+            // Rank #1 landing on the entry this match just recorded is a brand-new high
+            // score - worth more than just the usual row highlight.
+            if (isHighlighted && index == 0) {
+                celebrateNewRecord()
+            }
         }
+    }
+
+    // Only ever called once per screen (index == 0 can match at most one row): a gold
+    // banner plus a burst of fireworks/confetti to make a new #1 feel like an event.
+    private fun celebrateNewRecord() {
+        binding.newRecordBanner.visibility = View.VISIBLE
+        binding.fireworksView.visibility = View.VISIBLE
+        binding.fireworksView.start()
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        binding.fireworksView.stop()
     }
 
     private fun showMatchResult() {
@@ -72,19 +98,23 @@ class HighScoresActivity : AppCompatActivity() {
         }
     }
 
-    private fun arcadeText(line: String) = TextView(this).apply {
+    // highlighted marks the entry this match just recorded - a different color and weight
+    // so the player can find where they landed at a glance instead of scanning ranks.
+    private fun arcadeText(line: String, highlighted: Boolean = false) = TextView(this).apply {
         text = line
-        setTextColor(getColor(R.color.accent))
+        setTextColor(getColor(if (highlighted) R.color.player_color else R.color.accent))
         typeface = Typeface.MONOSPACE
         textSize = 22f
         letterSpacing = 0.1f
         gravity = Gravity.CENTER
         setPadding(0, 10, 0, 10)
+        if (highlighted) setTypeface(typeface, Typeface.BOLD)
     }
 
     companion object {
         const val EXTRA_MATCH_WON = "extra_match_won"
         const val EXTRA_MATCH_SCORE = "extra_match_score"
+        const val EXTRA_HIGHLIGHT_TIMESTAMP = "extra_highlight_timestamp"
         private const val DEFAULT_BOTS = 100
     }
 }

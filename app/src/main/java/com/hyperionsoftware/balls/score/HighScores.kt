@@ -64,6 +64,9 @@ object HighScores {
 
     // Scores this match, appends it to the saved history, trims to the top MAX_ENTRIES, and
     // returns the updated list so the caller can show it without a separate read.
+    // timestampMillis defaults to now, but the caller can supply it explicitly to get back
+    // a value it can later match against loadAll()'s results - e.g. to find and highlight
+    // the just-recorded entry on the leaderboard screen.
     fun recordMatch(
         context: Context,
         initials: String,
@@ -71,7 +74,8 @@ object HighScores {
         finalRadius: Int,
         opponentsAbsorbed: Int,
         elapsedSeconds: Int,
-        reachedFinalRound: Boolean
+        reachedFinalRound: Boolean,
+        timestampMillis: Long = System.currentTimeMillis()
     ): List<ScoreEntry> {
         val entry = ScoreEntry(
             initials = initials.take(3).uppercase(),
@@ -80,7 +84,7 @@ object HighScores {
             finalRadius = finalRadius,
             opponentsAbsorbed = opponentsAbsorbed,
             elapsedSeconds = elapsedSeconds,
-            timestampMillis = System.currentTimeMillis()
+            timestampMillis = timestampMillis
         )
         val updated = (loadAll(context) + entry).sortedByDescending { it.score }.take(MAX_ENTRIES)
         save(context, updated)

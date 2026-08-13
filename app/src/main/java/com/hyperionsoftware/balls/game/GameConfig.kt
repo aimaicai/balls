@@ -128,6 +128,11 @@ object GameConfig {
     const val FINAL_ROUND_BANNER_SECONDS = 1.2f
     const val FINAL_ROUND_COUNTDOWN_SECONDS = 3f
 
+    // A heads-up while normal play is still running, counting down the last few seconds
+    // before the final round actually triggers - separate from, and before, the frozen
+    // transition above.
+    const val FINAL_ROUND_WARNING_SECONDS = 3f
+
     // Shrinking safe zone: starts covering the whole map (so nobody takes damage at the
     // start) and closes in on the arena center over the match, forcing survivors together
     // instead of letting them wander a huge, empty-feeling map in the late game. It shrinks

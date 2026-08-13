@@ -35,6 +35,7 @@
     <string name="high_scores_match_lost">SCONFITTA - PUNTEGGIO %1$d</string>
     <string name="high_scores_enter_initials">Nuovo record! Inserisci le tue iniziali</string>
     <string name="high_scores_confirm">OK</string>
+    <string name="high_scores_new_record">★ NUOVO RECORD! ★</string>
 
     <string name="menu_achievements">Obiettivi</string>
     <string name="achievements_title">Obiettivi</string>

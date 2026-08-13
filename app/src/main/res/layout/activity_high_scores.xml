@@ -38,12 +38,30 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />
 
+    <!-- Only shown when this match's score landed at rank #1 - see HighScoresActivity;
+         animated in over the fireworks. -->
+    <TextView
+        android:id="@+id/newRecordBanner"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:fontFamily="monospace"
+        android:text="@string/high_scores_new_record"
+        android:textColor="@color/celebration_gold"
+        android:textSize="22sp"
+        android:textStyle="bold"
+        android:letterSpacing="0.1"
+        android:visibility="gone"
+        app:layout_constraintTop_toBottomOf="@id/highScoresTitle"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
     <ScrollView
         android:id="@+id/scoresScroll"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_marginTop="32dp"
-        app:layout_constraintTop_toBottomOf="@id/highScoresTitle"
+        app:layout_constraintTop_toBottomOf="@id/newRecordBanner"
         app:layout_constraintBottom_toTopOf="@id/buttonRow"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
@@ -95,5 +113,18 @@
             android:textStyle="bold" />
 
     </LinearLayout>
+
+    <!-- Drawn last so it overlays everything else; only started for a brand-new #1 score
+         (see HighScoresActivity), and stops itself a few seconds later. -->
+    <com.hyperionsoftware.balls.ui.FireworksView
+        android:id="@+id/fireworksView"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:clickable="false"
+        android:visibility="gone"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>
