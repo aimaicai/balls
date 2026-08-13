@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">Balls Arena</string>
+    <string name="app_name">Bloons Arena</string>
 
     <string name="menu_play">Gioca</string>
     <string name="menu_test_finale">Testa il finale</string>

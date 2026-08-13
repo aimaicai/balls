@@ -1,6 +1,7 @@
 package com.hyperionsoftware.balls.ui
 
 import android.content.Context
+import android.graphics.BlurMaskFilter
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.DashPathEffect
@@ -67,6 +68,7 @@ class GameView @JvmOverloads constructor(
     private var botNames: List<String> = emptyList()
 
     private val achievementAbsorbStreakTarget = 5
+    private val exhaustPuffCount = 4
 
     private var countdownActive = false
     private var countdownRemaining = 0f
@@ -155,7 +157,13 @@ class GameView @JvmOverloads constructor(
     private val shadePaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val highlightPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.WHITE }
     private val knotPaint = Paint(Paint.ANTI_ALIAS_FLAG)
-    private val exhaustPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.parseColor("#B3E5FC") }
+    // Soft-edged via BlurMaskFilter instead of a hard shape - safe here because
+    // SurfaceView's canvas is a plain software bitmap canvas (see drawSafeZone), and
+    // BlurMaskFilter only renders on software canvases anyway.
+    private val exhaustPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.parseColor("#B3E5FC")
+        maskFilter = BlurMaskFilter(10f, BlurMaskFilter.Blur.NORMAL)
+    }
     private val speedBadgePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.parseColor("#FFEB3B") }
     private val stringPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
@@ -1002,6 +1010,11 @@ class GameView @JvmOverloads constructor(
         canvas.drawPath(path, stringPaint)
     }
 
+    // A trail of soft, shrinking puffs instead of one hard-edged triangle - each puff
+    // wobbles side to side on its own phase (a multiple of exhaustPhase, offset per puff)
+    // so the trail curls like real smoke instead of holding a rigid wedge shape. Fixed
+    // count and pure math, no per-frame allocation, since this runs for every blob, every
+    // frame, in matches with 100+ bots.
     private fun drawExhaust(canvas: Canvas, blob: Blob, cx: Float, cy: Float, alpha: Int) {
         if (!blob.isThrusting && !blob.isBoosting) return
 
@@ -1010,28 +1023,25 @@ class GameView @JvmOverloads constructor(
         // size for speed versus just cruising.
         val boosting = blob.isBoosting
         val back = blob.facingDirection * -1f
+        val perpX = -back.y
+        val perpY = back.x
         val pulse = 0.7f + 0.3f * sin(blob.exhaustPhase * (if (boosting) 22f else 14f))
         val intensity = if (boosting) 1.7f else 1f
         val edgeRadius = blob.radius * balloonStretch
-        val length = blob.radius * (1.4f + 0.5f * pulse) * intensity
-        val width = blob.radius * 0.5f * pulse * intensity
-
-        val baseX = cx + back.x * edgeRadius
-        val baseY = cy + back.y * edgeRadius
-        val tipX = cx + back.x * (edgeRadius + length)
-        val tipY = cy + back.y * (edgeRadius + length)
-        val perpX = -back.y * width
-        val perpY = back.x * width
+        val trailLength = blob.radius * (1.4f + 0.5f * pulse) * intensity
+        val baseAlphaFraction = if (boosting) 0.75f else 0.5f
 
         exhaustPaint.color = if (boosting) Color.parseColor("#FF7043") else Color.parseColor("#B3E5FC")
-        exhaustPaint.alpha = (alpha * (if (boosting) 0.75f else 0.5f) * pulse).toInt().coerceIn(0, 255)
-        val path = Path().apply {
-            moveTo(baseX + perpX, baseY + perpY)
-            lineTo(tipX, tipY)
-            lineTo(baseX - perpX, baseY - perpY)
-            close()
+        for (i in 0 until exhaustPuffCount) {
+            val fraction = i / (exhaustPuffCount - 1).toFloat()
+            val distance = edgeRadius + trailLength * fraction
+            val wobble = sin(blob.exhaustPhase * (5f + i * 2.1f) + i * 1.9f) * blob.radius * 0.22f * fraction
+            val puffX = cx + back.x * distance + perpX * wobble
+            val puffY = cy + back.y * distance + perpY * wobble
+            val puffRadius = (blob.radius * (0.45f - fraction * 0.24f) * intensity).coerceAtLeast(1f)
+            exhaustPaint.alpha = (alpha * baseAlphaFraction * pulse * (1f - fraction * 0.7f)).toInt().coerceIn(0, 255)
+            canvas.drawCircle(puffX, puffY, puffRadius, exhaustPaint)
         }
-        canvas.drawPath(path, exhaustPaint)
     }
 
     private fun darken(color: Int, factor: Float): Int {
