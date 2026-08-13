@@ -12,9 +12,9 @@ import com.hyperionsoftware.balls.game.GameConfig
 import com.hyperionsoftware.balls.score.HighScores
 
 // Old-school arcade cabinet style on purpose: just rank, three-letter initials and score,
-// monospace and phosphor-green on black - no dates, no match stats, nothing else. Shown
-// directly at the end of a match (see GameActivity.onGameOver) instead of behind a button,
-// with that match's result and a "play again" shortcut when arriving that way.
+// monospace on the app's own dark/amber palette - no dates, no match stats, nothing else.
+// Shown directly at the end of a match (see GameActivity.onGameOver) instead of behind a
+// button, with that match's result and a "play again" shortcut when arriving that way.
 class HighScoresActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityHighScoresBinding
@@ -74,7 +74,7 @@ class HighScoresActivity : AppCompatActivity() {
 
     private fun arcadeText(line: String) = TextView(this).apply {
         text = line
-        setTextColor(getColor(R.color.arcade_green))
+        setTextColor(getColor(R.color.accent))
         typeface = Typeface.MONOSPACE
         textSize = 22f
         letterSpacing = 0.1f

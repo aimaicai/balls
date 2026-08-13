@@ -3,7 +3,7 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/arcade_bg"
+    android:background="@color/background_dark"
     android:padding="32dp">
 
     <!-- Only shown when arriving straight from a just-finished match (see
@@ -14,7 +14,7 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="56dp"
         android:fontFamily="monospace"
-        android:textColor="@color/arcade_green"
+        android:textColor="@color/accent"
         android:textSize="18sp"
         android:textStyle="bold"
         android:letterSpacing="0.08"
@@ -30,7 +30,7 @@
         android:layout_marginTop="16dp"
         android:fontFamily="monospace"
         android:text="@string/high_scores_title"
-        android:textColor="@color/arcade_green"
+        android:textColor="@color/accent"
         android:textSize="26sp"
         android:textStyle="bold"
         android:letterSpacing="0.15"
@@ -78,11 +78,9 @@
             android:fontFamily="monospace"
             android:letterSpacing="0.1"
             android:text="@string/high_scores_play_again"
-            android:textColor="@color/arcade_green"
+            android:textColor="@color/accent"
             android:textStyle="bold"
-            android:visibility="gone"
-            app:strokeColor="@color/arcade_green"
-            app:rippleColor="@color/arcade_green" />
+            android:visibility="gone" />
 
         <Button
             android:id="@+id/backButton"
@@ -93,10 +91,8 @@
             android:fontFamily="monospace"
             android:letterSpacing="0.1"
             android:text="@string/high_scores_back"
-            android:textColor="@color/arcade_green"
-            android:textStyle="bold"
-            app:strokeColor="@color/arcade_green"
-            app:rippleColor="@color/arcade_green" />
+            android:textColor="@color/accent"
+            android:textStyle="bold" />
 
     </LinearLayout>
 

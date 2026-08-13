@@ -227,6 +227,15 @@ class GameView @JvmOverloads constructor(
         isFakeBoldText = true
         textAlign = Paint.Align.CENTER
     }
+    // The headline stat, not just another line among Dimensione/Giocatori - centered,
+    // larger than the timer above it, and in the app's own accent color (the same amber
+    // used for buttons and the world border) rather than a plain HUD white.
+    private val liveScoreHudPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.parseColor("#FFC107")
+        textSize = 40f
+        isFakeBoldText = true
+        textAlign = Paint.Align.CENTER
+    }
     private val statsHudPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = Color.parseColor("#B0BEC5")
         textSize = 26f
@@ -1186,16 +1195,6 @@ class GameView @JvmOverloads constructor(
         val player = engine.player
         canvas.drawText("Dimensione: ${player.radius.toInt()}", 24f, 56f, hudTextPaint)
 
-        // playerWon is always false here since the match is still running - this omits
-        // the win bonus that HighScores.computeScore would add once it actually ends, so
-        // the number only ever jumps up when the final tally lands, never down.
-        val liveScore = HighScores.computeScore(
-            playerWon = false,
-            finalRadius = player.radius.toInt(),
-            opponentsAbsorbed = engine.playerOpponentsAbsorbed
-        )
-        canvas.drawText("Punteggio: $liveScore", 24f, 90f, statsHudPaint)
-
         val playersText = "Giocatori: ${engine.aliveCount()}"
         val textWidth = hudTextPaint.measureText(playersText)
         canvas.drawText(playersText, width - textWidth - 24f, 56f, hudTextPaint)
@@ -1206,6 +1205,18 @@ class GameView @JvmOverloads constructor(
         val elapsedSeconds = engine.matchElapsed.toInt()
         val timeText = "%02d:%02d".format(elapsedSeconds / 60, elapsedSeconds % 60)
         canvas.drawText(timeText, width / 2f, 90f, timerHudPaint)
+
+        // playerWon is always false here since the match is still running - this omits
+        // the win bonus that HighScores.computeScore would add once it actually ends, so
+        // the number only ever jumps up when the final tally lands, never down. Centered
+        // below the timer instead of the left column, where it used to blend into the
+        // elimination feed right underneath it.
+        val liveScore = HighScores.computeScore(
+            playerWon = false,
+            finalRadius = player.radius.toInt(),
+            opponentsAbsorbed = engine.playerOpponentsAbsorbed
+        )
+        canvas.drawText("Punteggio: $liveScore", width / 2f, 134f, liveScoreHudPaint)
 
         drawPermanentStatsHud(canvas, player)
     }
