@@ -44,11 +44,16 @@ class SplashFightView @JvmOverloads constructor(
         strokeWidth = 5f
         color = Color.parseColor("#FFC107")
     }
+    // Mural-sized on purpose - fitTitleTextSize below solves for whatever size actually
+    // fills the screen width, so this starting value only matters before the first layout
+    // pass. A dark shadow layer gives the giant letters some poster-like depth instead of
+    // reading as flat color.
     private val titlePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = Color.parseColor("#FFC107")
         textSize = 68f
         isFakeBoldText = true
         textAlign = Paint.Align.CENTER
+        setShadowLayer(14f, 0f, 6f, Color.argb(180, 0, 0, 0))
     }
 
     // Reads from the app_name resource rather than a hardcoded literal, so a future rename
@@ -75,6 +80,22 @@ class SplashFightView @JvmOverloads constructor(
     override fun onDetachedFromWindow() {
         super.onDetachedFromWindow()
         animator?.cancel()
+    }
+
+    override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
+        super.onSizeChanged(w, h, oldw, oldh)
+        if (w > 0) fitTitleTextSize(w * 0.85f)
+    }
+
+    // Solves for whatever text size actually fills targetWidth, instead of a fixed guess -
+    // "mural-sized" needs to mean the same thing on a phone and a tablet.
+    private fun fitTitleTextSize(targetWidth: Float) {
+        var size = targetWidth
+        titlePaint.textSize = size
+        while (titlePaint.measureText(title) > targetWidth && size > 10f) {
+            size -= 4f
+            titlePaint.textSize = size
+        }
     }
 
     private fun clamp01(x: Float) = x.coerceIn(0f, 1f)

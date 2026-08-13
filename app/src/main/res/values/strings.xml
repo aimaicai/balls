@@ -6,6 +6,8 @@
     <string name="menu_bots_label">Avversari: %1$d</string>
     <string name="menu_powerup_label">Frequenza power-up: %1$d</string>
     <string name="menu_exit">Esci</string>
+    <string name="menu_options">Opzioni</string>
+    <string name="options_back">Indietro</string>
     <string name="menu_music_label">Musica di sottofondo</string>
     <string name="menu_music_track_label">Traccia musicale</string>
     <string name="music_track_arcade">Arcade</string>

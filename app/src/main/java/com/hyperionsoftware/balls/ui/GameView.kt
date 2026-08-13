@@ -1248,7 +1248,7 @@ class GameView @JvmOverloads constructor(
                 continue
             }
             feedTextPaint.alpha = (255 * (entry.ttl / entry.maxTtl)).toInt().coerceIn(0, 255)
-            canvas.drawText(entry.text, 24f, 100f + row * 34f, feedTextPaint)
+            canvas.drawText(entry.text, 24f, 132f + row * 34f, feedTextPaint)
             row++
         }
     }
@@ -1272,6 +1272,7 @@ class GameView @JvmOverloads constructor(
     private fun drawHud(canvas: Canvas) {
         val player = engine.player
         canvas.drawText("Dimensione: ${player.radius.toInt()}", 24f, 56f, hudTextPaint)
+        canvas.drawText("Uccisioni: ${engine.playerOpponentsAbsorbed}", 24f, 90f, hudTextPaint)
 
         val playersText = "Giocatori: ${engine.aliveCount()}"
         val textWidth = hudTextPaint.measureText(playersText)
