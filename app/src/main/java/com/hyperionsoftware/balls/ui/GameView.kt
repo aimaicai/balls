@@ -389,7 +389,13 @@ class GameView @JvmOverloads constructor(
                     }
                 }
 
-                override fun onActiveItemUsed(x: Float, y: Float, type: PowerUpType, byPlayer: Boolean) {
+                override fun onActiveItemUsed(
+                    x: Float,
+                    y: Float,
+                    type: PowerUpType,
+                    byPlayer: Boolean,
+                    sourceRadius: Float
+                ) {
                     val label = when (type) {
                         PowerUpType.REPEL -> "Respinto!"
                         PowerUpType.FREEZE -> "Congelato!"
@@ -398,20 +404,16 @@ class GameView @JvmOverloads constructor(
                         PowerUpType.INVISIBILITY -> "Invisibilità!"
                         else -> return
                     }
-                    val color = when (type) {
-                        PowerUpType.REPEL -> Color.parseColor("#FFB74D")
-                        PowerUpType.FREEZE -> Color.parseColor("#4FC3F7")
-                        PowerUpType.HOOK -> Color.parseColor("#A1887F")
-                        PowerUpType.SPEED -> Color.parseColor("#FFD54F")
-                        else -> Color.parseColor("#B39DDB")
-                    }
+                    val color = powerUpColor(type)
                     floatingTexts.add(FloatingText(x, y, label, color, 1.2f))
                     // Only the area effects get an expanding ring - SPEED/INVISIBILITY are
-                    // self-buffs with nothing to telegraph in the world.
+                    // self-buffs with nothing to telegraph in the world. Matches
+                    // GameEngine.reachRangeFromCenter exactly, so the ripple always shows the
+                    // effect's real reach instead of just the old baseRadius-only guess.
                     val rippleRadius = when (type) {
-                        PowerUpType.REPEL -> GameConfig.BASE_RADIUS * GameConfig.REPEL_RANGE_MULTIPLIER
-                        PowerUpType.FREEZE -> GameConfig.BASE_RADIUS * GameConfig.FREEZE_RANGE_MULTIPLIER
-                        PowerUpType.HOOK -> GameConfig.BASE_RADIUS * GameConfig.HOOK_RANGE_MULTIPLIER
+                        PowerUpType.REPEL -> sourceRadius + GameConfig.BASE_RADIUS * GameConfig.REPEL_RANGE_MULTIPLIER
+                        PowerUpType.FREEZE -> sourceRadius + GameConfig.BASE_RADIUS * GameConfig.FREEZE_RANGE_MULTIPLIER
+                        PowerUpType.HOOK -> sourceRadius + GameConfig.BASE_RADIUS * GameConfig.HOOK_RANGE_MULTIPLIER
                         else -> null
                     }
                     if (rippleRadius != null) {
@@ -1039,18 +1041,26 @@ class GameView @JvmOverloads constructor(
         return Color.rgb(r, g, b)
     }
 
+    // Single source of truth for each power-up's color, used for the pickup itself and its
+    // use-ripple/flash alike - a mismatch between those (FREEZE's world icon and its old
+    // activation flash used to be two different colors) is exactly the kind of drift this
+    // avoids. Hues are spread deliberately since SPEED/REPEL (yellow vs orange) and
+    // INVISIBILITY/AGILITY_UP (both pale purples) used to sit too close to tell apart at a
+    // glance; SHIELD/HOOK/GROWTH/SPEED_UP were already distinct enough and are unchanged.
+    private fun powerUpColor(type: PowerUpType): Int = when (type) {
+        PowerUpType.SPEED -> Color.parseColor("#FFC107")
+        PowerUpType.GROWTH -> Color.parseColor("#81C784")
+        PowerUpType.INVISIBILITY -> Color.parseColor("#7E57C2")
+        PowerUpType.SHIELD -> Color.parseColor("#4FC3F7")
+        PowerUpType.REPEL -> Color.parseColor("#EC407A")
+        PowerUpType.FREEZE -> Color.parseColor("#26C6DA")
+        PowerUpType.HOOK -> Color.parseColor("#A1887F")
+        PowerUpType.SPEED_UP -> Color.parseColor("#FF7043")
+        PowerUpType.AGILITY_UP -> Color.parseColor("#00897B")
+    }
+
     private fun drawPowerUp(canvas: Canvas, powerUp: PowerUp, offsetX: Float, offsetY: Float) {
-        powerUpPaint.color = when (powerUp.type) {
-            PowerUpType.SPEED -> Color.parseColor("#FFD54F")
-            PowerUpType.GROWTH -> Color.parseColor("#81C784")
-            PowerUpType.INVISIBILITY -> Color.parseColor("#B39DDB")
-            PowerUpType.SHIELD -> Color.parseColor("#4FC3F7")
-            PowerUpType.REPEL -> Color.parseColor("#FFB74D")
-            PowerUpType.FREEZE -> Color.parseColor("#80DEEA")
-            PowerUpType.HOOK -> Color.parseColor("#A1887F")
-            PowerUpType.SPEED_UP -> Color.parseColor("#FF7043")
-            PowerUpType.AGILITY_UP -> Color.parseColor("#CE93D8")
-        }
+        powerUpPaint.color = powerUpColor(powerUp.type)
         val cx = powerUp.position.x + offsetX
         val cy = powerUp.position.y + offsetY
         if (powerUp.type == PowerUpType.SHIELD) {

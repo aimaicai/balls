@@ -10,7 +10,10 @@ interface GameListener {
     fun onVibrate()
     fun onAbsorb(x: Float, y: Float, sizeGain: Int, byPlayer: Boolean, absorberId: Int, victimId: Int)
     fun onPowerUpCollected(x: Float, y: Float, type: PowerUpType, byPlayer: Boolean)
-    fun onActiveItemUsed(x: Float, y: Float, type: PowerUpType, byPlayer: Boolean)
+    // sourceRadius is the user's current radius at the moment of use - the UI needs it to
+    // draw REPEL/FREEZE/HOOK's ripple at the same reach the effect actually has (see
+    // GameEngine.reachRangeFromCenter), which now depends on current size, not just baseRadius.
+    fun onActiveItemUsed(x: Float, y: Float, type: PowerUpType, byPlayer: Boolean, sourceRadius: Float)
     fun onZoneDeath(x: Float, y: Float, wasPlayer: Boolean)
     fun onDeflateDeath(x: Float, y: Float, wasPlayer: Boolean)
     // Fired once, the instant the final round is set up (see triggerFinalRound) - the UI
@@ -329,14 +332,20 @@ class GameEngine(
             PowerUpType.INVISIBILITY -> blob.activateInvisibility()
             else -> Unit
         }
-        listener.onActiveItemUsed(blob.position.x, blob.position.y, item, blob === player)
+        listener.onActiveItemUsed(blob.position.x, blob.position.y, item, blob === player, blob.radius)
     }
 
+    // How far a REPEL/FREEZE/HOOK reaches from the source's CENTER: always its current
+    // edge (source.radius) plus a fixed "reach" beyond that edge (baseRadius * multiplier).
+    // Using baseRadius alone for the whole range - as this used to - meant a grown balloon's
+    // own body could be bigger than the range itself, leaving the effect unable to reach past
+    // its own edge at all once radius grew past roughly baseRadius * multiplier. Anchoring to
+    // the current edge instead keeps the same reach-beyond-the-body at any size.
+    private fun reachRangeFromCenter(source: Blob, multiplier: Float): Float =
+        source.radius + source.baseRadius * multiplier
+
     private fun applyRepelBlast(source: Blob) {
-        // Range comes from baseRadius, not the current (post-GROWTH) radius, so a tiny
-        // balloon repels exactly as far as a huge one - it shouldn't be a weaker tool just
-        // because its holder happens to be small right now.
-        val range = source.baseRadius * GameConfig.REPEL_RANGE_MULTIPLIER
+        val range = reachRangeFromCenter(source, GameConfig.REPEL_RANGE_MULTIPLIER)
         for (target in blobs) {
             if (target === source || !target.alive) continue
             val offset = target.position - source.position
@@ -356,9 +365,10 @@ class GameEngine(
     }
 
     private fun applyFreezeBlast(source: Blob) {
-        // Same reasoning as applyRepelBlast: range off baseRadius, and checked as a
-        // circle-circle overlap against the target's own body, not just its center point.
-        val range = source.baseRadius * GameConfig.FREEZE_RANGE_MULTIPLIER
+        // Same reasoning as applyRepelBlast: range measured from the source's current edge,
+        // and checked as a circle-circle overlap against the target's own body, not just its
+        // center point.
+        val range = reachRangeFromCenter(source, GameConfig.FREEZE_RANGE_MULTIPLIER)
         for (target in blobs) {
             if (target === source || !target.alive) continue
             if (target.position.distanceTo(source.position) > range + target.radius) continue
@@ -369,7 +379,7 @@ class GameEngine(
     // REPEL's opposite: yanks only the single nearest blob toward the source instead of
     // pushing everyone away - a targeted grapple rather than an area push.
     private fun applyHookPull(source: Blob) {
-        val range = source.baseRadius * GameConfig.HOOK_RANGE_MULTIPLIER
+        val range = reachRangeFromCenter(source, GameConfig.HOOK_RANGE_MULTIPLIER)
         val target = blobs
             .filter { it !== source && it.alive }
             .minByOrNull { it.position.distanceTo(source.position) }

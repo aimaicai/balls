@@ -48,8 +48,8 @@ object GameConfig {
     const val POWERUP_RADIUS = 16f
 
     const val POWERUP_SPEED_MULTIPLIER = 2f
-    const val POWERUP_SPEED_DURATION = 6f
-    const val POWERUP_INVISIBILITY_DURATION = 4f
+    const val POWERUP_SPEED_DURATION = 4f
+    const val POWERUP_INVISIBILITY_DURATION = 2f
     const val POWERUP_GROWTH_MULTIPLIER = 2f
 
     // In the final round, a single GROWTH at the normal multiplier instantly cleared
