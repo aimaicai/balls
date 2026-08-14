@@ -1,0 +1,67 @@
+name: Release AAB
+
+# Builds a signed Android App Bundle (.aab) ready for upload to Play Console. Separate from
+# dev-apk.yml on purpose: that one builds an unsigned debug APK on every push to main, this
+# one only runs when explicitly asked to (manual dispatch, or pushing a version tag) since
+# cutting a release is a deliberate act, not something that should happen on every commit.
+#
+# Requires four repository secrets before this can run (Settings > Secrets and variables >
+# Actions on GitHub):
+#   RELEASE_KEYSTORE_BASE64    - the release keystore file, base64-encoded
+#   RELEASE_KEYSTORE_PASSWORD  - its store password
+#   RELEASE_KEY_ALIAS          - the key alias inside it
+#   RELEASE_KEY_PASSWORD       - that key's password
+# Without them, app/build.gradle.kts falls back to an unsigned release build, and this
+# workflow's build step will succeed but produce an .aab Play Console will reject as unsigned.
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+
+jobs:
+  build-release-bundle:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Make gradlew executable
+        run: chmod +x gradlew
+
+      - name: Decode release keystore
+        run: echo "${{ secrets.RELEASE_KEYSTORE_BASE64 }}" | base64 --decode > "${{ runner.temp }}/release.keystore"
+
+      - name: Build signed release bundle
+        env:
+          RELEASE_KEYSTORE_PATH: ${{ runner.temp }}/release.keystore
+          RELEASE_KEYSTORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
+          RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+          RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
+        run: ./gradlew bundleRelease --no-daemon
+
+      - name: Remove decoded keystore
+        if: always()
+        run: rm -f "${{ runner.temp }}/release.keystore"
+
+      - name: Upload AAB artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-aab
+          path: app/build/outputs/bundle/release/*.aab
