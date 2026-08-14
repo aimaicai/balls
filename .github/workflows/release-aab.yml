@@ -45,6 +45,9 @@ jobs:
       - name: Make gradlew executable
         run: chmod +x gradlew
 
+      - name: Run unit tests
+        run: ./gradlew testReleaseUnitTest --no-daemon
+
       - name: Decode release keystore
         run: echo "${{ secrets.RELEASE_KEYSTORE_BASE64 }}" | base64 --decode > "${{ runner.temp }}/release.keystore"
 
