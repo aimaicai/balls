@@ -1,0 +1,121 @@
+<resources>
+    <string name="app_name">Bloons Arena</string>
+
+    <string name="menu_play">Gioca</string>
+    <string name="menu_test_finale">Testa il finale</string>
+    <string name="menu_bots_label">Avversari: %1$d</string>
+    <string name="menu_powerup_label">Frequenza power-up: %1$d</string>
+    <string name="menu_exit">Esci</string>
+    <string name="menu_options">Opzioni</string>
+    <string name="options_back">Indietro</string>
+    <string name="menu_music_label">Musica di sottofondo</string>
+    <string name="menu_music_track_label">Traccia musicale</string>
+    <string name="music_track_arcade">Arcade</string>
+    <string name="music_track_chill">Rilassata</string>
+    <string name="music_track_chiptune">Retro 8-bit</string>
+    <string name="music_track_rock">Rock</string>
+    <string name="menu_arena_label">Dimensione arena: %1$s</string>
+    <string name="arena_size_small">Piccola</string>
+    <string name="arena_size_normal">Normale</string>
+    <string name="arena_size_large">Grande</string>
+    <string name="arena_size_huge">Molto grande</string>
+
+    <string name="boost_button">Spinta velocità</string>
+    <string name="active_item_button">Usa oggetto</string>
+    <string name="active_item_speed">Usa Velocità</string>
+    <string name="active_item_invisibility">Usa Invisibilità</string>
+    <string name="active_item_repel">Usa Respingi</string>
+    <string name="active_item_freeze">Usa Congela</string>
+    <string name="active_item_hook">Usa Aggancio</string>
+
+    <string name="pause_title">Pausa</string>
+    <string name="pause_resume">Riprendi</string>
+    <string name="pause_restart">Ricomincia</string>
+    <string name="pause_menu">Menu principale</string>
+
+    <string name="menu_high_scores">Classifica</string>
+    <string name="high_scores_title">HIGH SCORES</string>
+    <string name="high_scores_empty">NO SCORES YET</string>
+    <string name="high_scores_back">MENU</string>
+    <string name="high_scores_play_again">RIGIOCA</string>
+    <string name="high_scores_match_won">HAI VINTO! PUNTEGGIO %1$d</string>
+    <string name="high_scores_match_lost">SCONFITTA - PUNTEGGIO %1$d</string>
+    <string name="high_scores_enter_initials">Nuovo record! Inserisci le tue iniziali</string>
+    <string name="high_scores_confirm">OK</string>
+    <string name="high_scores_new_record">★ NUOVO RECORD! ★</string>
+
+    <string name="menu_achievements">Obiettivi</string>
+    <string name="achievements_title">Obiettivi</string>
+    <string name="achievements_back">Indietro</string>
+    <string name="achievements_progress">Sbloccati: %1$d/%2$d</string>
+    <string name="achievement_unlocked_format">OBIETTIVO SBLOCCATO: %1$s</string>
+    <string name="achievement_locked_desc">\?\?\?</string>
+
+    <string name="achievement_first_absorb_title">Primo Assorbimento</string>
+    <string name="achievement_first_absorb_desc">Assorbi il tuo primo avversario.</string>
+    <string name="achievement_absorb_streak_title">Serie Vincente</string>
+    <string name="achievement_absorb_streak_desc">Assorbi 5 avversari in una singola partita.</string>
+    <string name="achievement_first_win_title">Campione dell\'Arena</string>
+    <string name="achievement_first_win_desc">Vinci la tua prima partita.</string>
+    <string name="achievement_final_round_title">Nel Vivo della Sfida</string>
+    <string name="achievement_final_round_desc">Raggiungi la fase finale di una partita.</string>
+    <string name="achievement_use_speed_title">Scatto Fulmineo</string>
+    <string name="achievement_use_speed_desc">Usa un oggetto Velocità.</string>
+    <string name="achievement_use_invisibility_title">Fantasma dell\'Arena</string>
+    <string name="achievement_use_invisibility_desc">Usa un oggetto Invisibilità.</string>
+    <string name="achievement_use_repel_title">Onda d\'Urto</string>
+    <string name="achievement_use_repel_desc">Usa un oggetto Respingi.</string>
+    <string name="achievement_use_freeze_title">Gelo Assoluto</string>
+    <string name="achievement_use_freeze_desc">Usa un oggetto Congela.</string>
+    <string name="achievement_use_hook_title">Aggancio Perfetto</string>
+    <string name="achievement_use_hook_desc">Usa un oggetto Aggancio.</string>
+    <string name="achievement_supply_drop_title">Bottino di Guerra</string>
+    <string name="achievement_supply_drop_desc">Raccogli un rifornimento speciale (Scudo).</string>
+    <string name="achievement_max_speed_stat_title">Velocista Nato</string>
+    <string name="achievement_max_speed_stat_desc">Porta il bonus velocità permanente al massimo.</string>
+    <string name="achievement_max_agility_stat_title">Agilità Suprema</string>
+    <string name="achievement_max_agility_stat_desc">Porta il bonus di agilità permanente al massimo.</string>
+    <string name="achievement_max_potency_stat_title">Forza Bruta</string>
+    <string name="achievement_max_potency_stat_desc">Porta il bonus di potenza permanente al massimo.</string>
+    <string name="achievement_max_boost_title">Spinta Massima</string>
+    <string name="achievement_max_boost_desc">Tieni premuto lo scatto fino alla potenza massima.</string>
+    <string name="achievement_max_size_title">Gigante dell\'Arena</string>
+    <string name="achievement_max_size_desc">Raggiungi la dimensione massima del palloncino.</string>
+
+    <string name="game_feed_absorbed">%1$s ha inglobato %2$s</string>
+    <string name="game_you_label">Tu</string>
+    <string name="game_bot_label_format">Bot %1$d</string>
+
+    <string name="game_powerup_speed_ready">Velocità pronta!</string>
+    <string name="game_powerup_growth">Ingrandimento!</string>
+    <string name="game_powerup_invisibility_ready">Invisibilità pronta!</string>
+    <string name="game_powerup_shield">Scudo!</string>
+    <string name="game_powerup_repel_ready">Respingi pronto!</string>
+    <string name="game_powerup_freeze_ready">Congela pronto!</string>
+    <string name="game_powerup_hook_ready">Aggancio pronto!</string>
+    <string name="game_powerup_speed_permanent">Velocità permanente!</string>
+    <string name="game_powerup_agility_permanent">Agilità permanente!</string>
+    <string name="game_powerup_potency_permanent">Potenza permanente!</string>
+
+    <string name="game_active_repelled">Respinto!</string>
+    <string name="game_active_frozen">Congelato!</string>
+    <string name="game_active_hooked">Agganciato!</string>
+    <string name="game_active_speed">Velocità!</string>
+    <string name="game_active_invisibility">Invisibilità!</string>
+
+    <string name="game_zone_death">Eliminato!</string>
+    <string name="game_deflate_death">Sgonfiato!</string>
+
+    <string name="game_hud_size_format">Dimensione: %1$d</string>
+    <string name="game_hud_kills_format">Uccisioni: %1$d</string>
+    <string name="game_hud_players_format">Giocatori: %1$d</string>
+    <string name="game_hud_zone_format">Zona: %1$d%%</string>
+    <string name="game_hud_score_format">Punteggio: %1$d</string>
+
+    <string name="stat_speed_label">Velocità</string>
+    <string name="stat_agility_label">Agilità</string>
+    <string name="stat_potency_label">Potenza</string>
+
+    <string name="game_final_round_title">SFIDA FINALE</string>
+    <string name="game_final_round_warning">IL FINALE STA ARRIVANDO</string>
+</resources>

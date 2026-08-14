@@ -353,7 +353,9 @@ class GameView @JvmOverloads constructor(
                         toneGenerator.startTone(ToneGenerator.TONE_PROP_ACK, 150)
                         unlockAchievement(Achievement.FIRST_ABSORB)
                     }
-                    addFeedEntry("${blobLabel(absorberId)} ha inglobato ${blobLabel(victimId)}")
+                    addFeedEntry(
+                        context.getString(R.string.game_feed_absorbed, blobLabel(absorberId), blobLabel(victimId))
+                    )
 
                     val victim = engine.blobs.find { it.id == victimId }
                     val absorber = engine.blobs.find { it.id == absorberId }
@@ -364,16 +366,16 @@ class GameView @JvmOverloads constructor(
 
                 override fun onPowerUpCollected(x: Float, y: Float, type: PowerUpType, byPlayer: Boolean) {
                     val label = when (type) {
-                        PowerUpType.SPEED -> "Velocità pronta!"
-                        PowerUpType.GROWTH -> "Ingrandimento!"
-                        PowerUpType.INVISIBILITY -> "Invisibilità pronta!"
-                        PowerUpType.SHIELD -> "Scudo!"
-                        PowerUpType.REPEL -> "Respingi pronto!"
-                        PowerUpType.FREEZE -> "Congela pronto!"
-                        PowerUpType.HOOK -> "Aggancio pronto!"
-                        PowerUpType.SPEED_UP -> "Velocità permanente!"
-                        PowerUpType.AGILITY_UP -> "Agilità permanente!"
-                        PowerUpType.POTENCY_UP -> "Potenza permanente!"
+                        PowerUpType.SPEED -> context.getString(R.string.game_powerup_speed_ready)
+                        PowerUpType.GROWTH -> context.getString(R.string.game_powerup_growth)
+                        PowerUpType.INVISIBILITY -> context.getString(R.string.game_powerup_invisibility_ready)
+                        PowerUpType.SHIELD -> context.getString(R.string.game_powerup_shield)
+                        PowerUpType.REPEL -> context.getString(R.string.game_powerup_repel_ready)
+                        PowerUpType.FREEZE -> context.getString(R.string.game_powerup_freeze_ready)
+                        PowerUpType.HOOK -> context.getString(R.string.game_powerup_hook_ready)
+                        PowerUpType.SPEED_UP -> context.getString(R.string.game_powerup_speed_permanent)
+                        PowerUpType.AGILITY_UP -> context.getString(R.string.game_powerup_agility_permanent)
+                        PowerUpType.POTENCY_UP -> context.getString(R.string.game_powerup_potency_permanent)
                     }
                     floatingTexts.add(FloatingText(x, y, label, Color.parseColor("#FFD54F"), 1.4f))
                     if (byPlayer) {
@@ -412,11 +414,11 @@ class GameView @JvmOverloads constructor(
                     sourcePotencyMultiplier: Float
                 ) {
                     val label = when (type) {
-                        PowerUpType.REPEL -> "Respinto!"
-                        PowerUpType.FREEZE -> "Congelato!"
-                        PowerUpType.HOOK -> "Agganciato!"
-                        PowerUpType.SPEED -> "Velocità!"
-                        PowerUpType.INVISIBILITY -> "Invisibilità!"
+                        PowerUpType.REPEL -> context.getString(R.string.game_active_repelled)
+                        PowerUpType.FREEZE -> context.getString(R.string.game_active_frozen)
+                        PowerUpType.HOOK -> context.getString(R.string.game_active_hooked)
+                        PowerUpType.SPEED -> context.getString(R.string.game_active_speed)
+                        PowerUpType.INVISIBILITY -> context.getString(R.string.game_active_invisibility)
                         else -> return
                     }
                     val color = powerUpColor(type)
@@ -452,11 +454,15 @@ class GameView @JvmOverloads constructor(
                 }
 
                 override fun onZoneDeath(x: Float, y: Float, wasPlayer: Boolean) {
-                    floatingTexts.add(FloatingText(x, y, "Eliminato!", Color.parseColor("#B71C1C"), 1.3f))
+                    floatingTexts.add(
+                        FloatingText(x, y, context.getString(R.string.game_zone_death), Color.parseColor("#B71C1C"), 1.3f)
+                    )
                 }
 
                 override fun onDeflateDeath(x: Float, y: Float, wasPlayer: Boolean) {
-                    floatingTexts.add(FloatingText(x, y, "Sgonfiato!", Color.parseColor("#FF6F00"), 1.3f))
+                    floatingTexts.add(
+                        FloatingText(x, y, context.getString(R.string.game_deflate_death), Color.parseColor("#FF6F00"), 1.3f)
+                    )
                 }
 
                 override fun onGameOver(
@@ -583,7 +589,11 @@ class GameView @JvmOverloads constructor(
         return track
     }
 
-    private fun blobLabel(id: Int): String = if (id == 0) "Tu" else botNames.getOrElse(id - 1) { "Bot $id" }
+    private fun blobLabel(id: Int): String = if (id == 0) {
+        context.getString(R.string.game_you_label)
+    } else {
+        botNames.getOrElse(id - 1) { context.getString(R.string.game_bot_label_format, id) }
+    }
 
     private fun addFeedEntry(text: String) {
         feedEntries.add(FeedEntry(text, 3.5f))
@@ -1295,15 +1305,21 @@ class GameView @JvmOverloads constructor(
 
     private fun drawHud(canvas: Canvas) {
         val player = engine.player
-        canvas.drawText("Dimensione: ${player.radius.toInt()}", 24f, 56f, hudTextPaint)
-        canvas.drawText("Uccisioni: ${engine.playerOpponentsAbsorbed}", 24f, 90f, hudTextPaint)
+        canvas.drawText(
+            context.getString(R.string.game_hud_size_format, player.radius.toInt()), 24f, 56f, hudTextPaint
+        )
+        canvas.drawText(
+            context.getString(R.string.game_hud_kills_format, engine.playerOpponentsAbsorbed), 24f, 90f, hudTextPaint
+        )
 
-        val playersText = "Giocatori: ${engine.aliveCount()}"
+        val playersText = context.getString(R.string.game_hud_players_format, engine.aliveCount())
         val textWidth = hudTextPaint.measureText(playersText)
         canvas.drawText(playersText, width - textWidth - 24f, 56f, hudTextPaint)
 
         val zonePercent = (engine.safeZoneProgress * 100f).toInt()
-        canvas.drawText("Zona: $zonePercent%", width / 2f, 56f, zoneHudPaint)
+        canvas.drawText(
+            context.getString(R.string.game_hud_zone_format, zonePercent), width / 2f, 56f, zoneHudPaint
+        )
 
         val elapsedSeconds = engine.matchElapsed.toInt()
         val timeText = "%02d:%02d".format(elapsedSeconds / 60, elapsedSeconds % 60)
@@ -1321,7 +1337,9 @@ class GameView @JvmOverloads constructor(
             opponentsAbsorbed = engine.playerOpponentsAbsorbed,
             reachedFinalRound = engine.isFinalRoundActive
         )
-        canvas.drawText("Punteggio: $liveScore", width / 2f, 134f, liveScoreHudPaint)
+        canvas.drawText(
+            context.getString(R.string.game_hud_score_format, liveScore), width / 2f, 134f, liveScoreHudPaint
+        )
 
         drawPermanentStatsHud(canvas, player)
     }
@@ -1336,15 +1354,15 @@ class GameView @JvmOverloads constructor(
         // ripple, instead of their own separately hardcoded hex values - two of these had
         // already drifted from the actual pickup color after an earlier recolor.
         y = drawStatPips(
-            canvas, "Velocità", player.permanentSpeedMultiplier,
+            canvas, context.getString(R.string.stat_speed_label), player.permanentSpeedMultiplier,
             GameConfig.PERMANENT_SPEED_MAX_MULTIPLIER, powerUpColor(PowerUpType.SPEED_UP), y
         )
         y = drawStatPips(
-            canvas, "Agilità", player.permanentTurnRateMultiplier,
+            canvas, context.getString(R.string.stat_agility_label), player.permanentTurnRateMultiplier,
             GameConfig.PERMANENT_TURN_RATE_MAX_MULTIPLIER, powerUpColor(PowerUpType.AGILITY_UP), y
         )
         drawStatPips(
-            canvas, "Potenza", player.permanentPotencyMultiplier,
+            canvas, context.getString(R.string.stat_potency_label), player.permanentPotencyMultiplier,
             GameConfig.PERMANENT_POTENCY_MAX_MULTIPLIER, powerUpColor(PowerUpType.POTENCY_UP), y
         )
     }
@@ -1399,7 +1417,9 @@ class GameView @JvmOverloads constructor(
         val scale = 0.6f + 0.4f * (finalRoundTransitionElapsed / 0.4f).coerceIn(0f, 1f)
         canvas.save()
         canvas.scale(scale, scale, width / 2f, height / 2f)
-        canvas.drawText("SFIDA FINALE", width / 2f, height / 2f, finalRoundTitlePaint)
+        canvas.drawText(
+            context.getString(R.string.game_final_round_title), width / 2f, height / 2f, finalRoundTitlePaint
+        )
         canvas.restore()
     }
 
@@ -1418,7 +1438,9 @@ class GameView @JvmOverloads constructor(
         val fractionIntoSecond = ceil(secondsRemaining) - secondsRemaining
         val punch = 1.3f - 0.3f * fractionIntoSecond.coerceIn(0f, 1f)
 
-        canvas.drawText("IL FINALE STA ARRIVANDO", width / 2f, height / 2f - 130f, finalRoundWarningTitlePaint)
+        canvas.drawText(
+            context.getString(R.string.game_final_round_warning), width / 2f, height / 2f - 130f, finalRoundWarningTitlePaint
+        )
         canvas.save()
         canvas.scale(punch, punch, width / 2f, height / 2f - 70f)
         canvas.drawText(secondsLeft.toString(), width / 2f, height / 2f - 70f, finalRoundWarningCountdownPaint)
