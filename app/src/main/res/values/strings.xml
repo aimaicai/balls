@@ -8,6 +8,7 @@
     <string name="menu_exit">Exit</string>
     <string name="menu_options">Options</string>
     <string name="options_back">Back</string>
+    <string name="menu_tutorial">Tutorial</string>
     <string name="menu_music_label">Background music</string>
     <string name="menu_music_track_label">Music track</string>
     <string name="music_track_arcade">Arcade</string>
@@ -118,4 +119,25 @@
 
     <string name="game_final_round_title">FINAL SHOWDOWN</string>
     <string name="game_final_round_warning">FINAL ROUND INCOMING</string>
+
+    <string name="tutorial_title">How to Play</string>
+    <string name="tutorial_back">Back</string>
+    <string name="tutorial_start_playing">Start playing</string>
+
+    <string name="tutorial_movement_title">Movement</string>
+    <string name="tutorial_movement_body">Your balloon always moves forward on its own - the joystick only steers it, it never stops you.</string>
+    <string name="tutorial_absorb_title">Absorbing</string>
+    <string name="tutorial_absorb_body">Touch a balloon smaller than you to absorb it and grow. Watch out for bigger ones - they can absorb you the same way.</string>
+    <string name="tutorial_boost_title">Boost</string>
+    <string name="tutorial_boost_body">Hold the boost button to sprint, but it burns your size the whole time - save it for real emergencies.</string>
+    <string name="tutorial_powerups_title">Power-ups</string>
+    <string name="tutorial_powerups_body">Some power-ups apply the instant you touch them (Growth). Others go into your pocket until you use them with the dedicated button (Speed, Invisibility, Repel, Freeze, Hook). Rare supply drops grant a Shield that pauses your deflation for a while.</string>
+    <string name="tutorial_permanent_title">Permanent upgrades</string>
+    <string name="tutorial_permanent_body">Speed, Agility and Power pickups boost that stat forever - grab them whenever you see them, they never wear off.</string>
+    <string name="tutorial_safezone_title">Safe zone</string>
+    <string name="tutorial_safezone_body">The arena keeps shrinking. Stay inside the circle - straying outside deflates you much faster than staying in ever does.</string>
+    <string name="tutorial_finalround_title">Final round</string>
+    <string name="tutorial_finalround_body">Once the normal shrink finishes, the final round begins: the zone keeps closing in without ever stopping. Growing bigger or grabbing Agility is your best way to keep up with it.</string>
+    <string name="tutorial_score_title">Score</string>
+    <string name="tutorial_score_body">Your score, kills and final placement all show up live on the HUD during a match, and feed straight into the leaderboard when it ends.</string>
 </resources>

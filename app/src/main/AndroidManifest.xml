@@ -52,6 +52,12 @@
             android:screenOrientation="portrait"
             android:theme="@style/Theme.Balls" />
 
+        <activity
+            android:name=".TutorialActivity"
+            android:exported="false"
+            android:screenOrientation="portrait"
+            android:theme="@style/Theme.Balls" />
+
     </application>
 
 </manifest>

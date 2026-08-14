@@ -1,5 +1,6 @@
 package com.hyperionsoftware.balls
 
+import android.content.Intent
 import android.os.Bundle
 import android.view.View
 import android.widget.AdapterView
@@ -98,6 +99,9 @@ class OptionsActivity : AppCompatActivity() {
             override fun onNothingSelected(parent: AdapterView<*>) = Unit
         }
 
+        binding.tutorialButton.setOnClickListener {
+            startActivity(Intent(this, TutorialActivity::class.java))
+        }
         binding.backButton.setOnClickListener { finish() }
     }
 

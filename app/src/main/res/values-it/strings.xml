@@ -8,6 +8,7 @@
     <string name="menu_exit">Esci</string>
     <string name="menu_options">Opzioni</string>
     <string name="options_back">Indietro</string>
+    <string name="menu_tutorial">Tutorial</string>
     <string name="menu_music_label">Musica di sottofondo</string>
     <string name="menu_music_track_label">Traccia musicale</string>
     <string name="music_track_arcade">Arcade</string>
@@ -118,4 +119,25 @@
 
     <string name="game_final_round_title">SFIDA FINALE</string>
     <string name="game_final_round_warning">IL FINALE STA ARRIVANDO</string>
+
+    <string name="tutorial_title">Come si gioca</string>
+    <string name="tutorial_back">Indietro</string>
+    <string name="tutorial_start_playing">Inizia a giocare</string>
+
+    <string name="tutorial_movement_title">Movimento</string>
+    <string name="tutorial_movement_body">Il tuo palloncino avanza sempre da solo: il joystick serve solo a cambiare direzione, non lo ferma mai.</string>
+    <string name="tutorial_absorb_title">Assorbimento</string>
+    <string name="tutorial_absorb_body">Tocca un palloncino più piccolo di te per assorbirlo e crescere. Attento a quelli più grandi: possono assorbire te nello stesso modo.</string>
+    <string name="tutorial_boost_title">Spinta</string>
+    <string name="tutorial_boost_body">Tieni premuto il pulsante di spinta per accelerare, ma consuma la tua dimensione per tutta la durata: usalo solo nelle vere emergenze.</string>
+    <string name="tutorial_powerups_title">Power-up</string>
+    <string name="tutorial_powerups_body">Alcuni power-up si attivano subito al contatto (Ingrandimento). Altri restano in tasca finché non li usi con il pulsante dedicato (Velocità, Invisibilità, Respingi, Congela, Aggancio). I rari rifornimenti speciali danno uno Scudo che sospende lo sgonfiamento per un po\'.</string>
+    <string name="tutorial_permanent_title">Potenziamenti permanenti</string>
+    <string name="tutorial_permanent_body">I potenziamenti di Velocità, Agilità e Potenza aumentano quella statistica per sempre: raccoglili quando li vedi, non scadono mai.</string>
+    <string name="tutorial_safezone_title">Zona sicura</string>
+    <string name="tutorial_safezone_body">L\'arena continua a restringersi. Resta dentro il cerchio: uscirne ti sgonfia molto più in fretta che restarci dentro.</string>
+    <string name="tutorial_finalround_title">Il finale</string>
+    <string name="tutorial_finalround_body">Quando il restringimento normale finisce, inizia la sfida finale: la zona continua a stringersi senza mai fermarsi. Crescere o prendere l\'Agilità è il modo migliore per starle dietro.</string>
+    <string name="tutorial_score_title">Punteggio</string>
+    <string name="tutorial_score_body">Punteggio, uccisioni e piazzamento finale compaiono in tempo reale nell\'HUD durante la partita, e finiscono dritti in classifica quando finisce.</string>
 </resources>
