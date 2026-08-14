@@ -9,6 +9,7 @@
     <string name="menu_options">Options</string>
     <string name="options_back">Back</string>
     <string name="menu_tutorial">Tutorial</string>
+    <string name="menu_customize">Customize</string>
     <string name="menu_music_label">Background music</string>
     <string name="menu_music_track_label">Music track</string>
     <string name="music_track_arcade">Arcade</string>
@@ -140,4 +141,17 @@
     <string name="tutorial_finalround_body">Once the normal shrink finishes, the final round begins: the zone keeps closing in without ever stopping. Growing bigger or grabbing Agility is your best way to keep up with it.</string>
     <string name="tutorial_score_title">Score</string>
     <string name="tutorial_score_body">Your score, kills and final placement all show up live on the HUD during a match, and feed straight into the leaderboard when it ends.</string>
+
+    <string name="customize_title">Customize your balloon</string>
+    <string name="customize_back">Back</string>
+    <string name="customize_locked_hint">Unlock with: %1$s</string>
+
+    <string name="color_sky_blue">Sky Blue</string>
+    <string name="color_rose">Rose</string>
+    <string name="color_seafoam">Seafoam</string>
+    <string name="color_sunset">Sunset</string>
+    <string name="color_lavender">Lavender</string>
+    <string name="color_crimson">Crimson</string>
+    <string name="color_emerald">Emerald</string>
+    <string name="color_midnight">Midnight</string>
 </resources>

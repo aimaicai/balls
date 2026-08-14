@@ -32,6 +32,7 @@ import com.hyperionsoftware.balls.game.PowerUp
 import com.hyperionsoftware.balls.game.PowerUpType
 import com.hyperionsoftware.balls.game.Vector2
 import com.hyperionsoftware.balls.score.HighScores
+import com.hyperionsoftware.balls.settings.CosmeticsSettings
 import kotlin.math.abs
 import kotlin.math.atan2
 import kotlin.math.ceil
@@ -333,6 +334,7 @@ class GameView @JvmOverloads constructor(
             powerUpFrequencyLevel = powerUpFrequencyLevel,
             arenaSize = arenaSize,
             skipToFinalRound = skipToFinalRound,
+            playerColor = CosmeticsSettings.getSelectedColor(context).colorInt,
             listener = object : GameListener {
                 override fun onVibrate() {
                     vibrateBounce()

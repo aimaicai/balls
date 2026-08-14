@@ -99,6 +99,9 @@ class OptionsActivity : AppCompatActivity() {
             override fun onNothingSelected(parent: AdapterView<*>) = Unit
         }
 
+        binding.customizeButton.setOnClickListener {
+            startActivity(Intent(this, CustomizeActivity::class.java))
+        }
         binding.tutorialButton.setOnClickListener {
             startActivity(Intent(this, TutorialActivity::class.java))
         }

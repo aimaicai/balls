@@ -9,6 +9,7 @@
     <string name="menu_options">Opzioni</string>
     <string name="options_back">Indietro</string>
     <string name="menu_tutorial">Tutorial</string>
+    <string name="menu_customize">Personalizza</string>
     <string name="menu_music_label">Musica di sottofondo</string>
     <string name="menu_music_track_label">Traccia musicale</string>
     <string name="music_track_arcade">Arcade</string>
@@ -140,4 +141,17 @@
     <string name="tutorial_finalround_body">Quando il restringimento normale finisce, inizia la sfida finale: la zona continua a stringersi senza mai fermarsi. Crescere o prendere l\'Agilità è il modo migliore per starle dietro.</string>
     <string name="tutorial_score_title">Punteggio</string>
     <string name="tutorial_score_body">Punteggio, uccisioni e piazzamento finale compaiono in tempo reale nell\'HUD durante la partita, e finiscono dritti in classifica quando finisce.</string>
+
+    <string name="customize_title">Personalizza il tuo palloncino</string>
+    <string name="customize_back">Indietro</string>
+    <string name="customize_locked_hint">Si sblocca con: %1$s</string>
+
+    <string name="color_sky_blue">Azzurro cielo</string>
+    <string name="color_rose">Rosa</string>
+    <string name="color_seafoam">Verde acqua</string>
+    <string name="color_sunset">Tramonto</string>
+    <string name="color_lavender">Lavanda</string>
+    <string name="color_crimson">Cremisi</string>
+    <string name="color_emerald">Smeraldo</string>
+    <string name="color_midnight">Notte</string>
 </resources>

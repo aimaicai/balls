@@ -46,6 +46,10 @@ class GameEngine(
     // around a single centered power-up) with whatever bot count is chosen, instead of
     // having to play a full match down to a handful of survivors just to test that stage.
     private val skipToFinalRound: Boolean = false,
+    // Cosmetic only - which color the player's own balloon is drawn in (see
+    // com.hyperionsoftware.balls.cosmetics.PlayerColor). Defaults to the original hardcoded
+    // blue so nothing changes for callers that don't care about this.
+    playerColor: Int = 0xFF4FC3F7.toInt(),
     private val listener: GameListener
 ) {
     // Must run before any property below reads WORLD_WIDTH/HEIGHT or
@@ -87,7 +91,7 @@ class GameEngine(
     val player = PlayerBlob(
         id = 0,
         position = Vector2(GameConfig.WORLD_WIDTH / 2f, GameConfig.WORLD_HEIGHT / 2f),
-        color = 0xFF4FC3F7.toInt()
+        color = playerColor
     )
 
     val blobs: MutableList<Blob> = mutableListOf(player)
