@@ -154,4 +154,16 @@
     <string name="color_crimson">Crimson</string>
     <string name="color_emerald">Emerald</string>
     <string name="color_midnight">Midnight</string>
+
+    <string name="daily_challenge_format">Daily challenge: %1$s</string>
+    <string name="daily_challenge_completed_format">✓ Daily challenge completed! Streak: %1$d</string>
+
+    <string name="challenge_win_a_match">Win a match</string>
+    <string name="challenge_absorb_five">Absorb at least 5 opponents in a match</string>
+    <string name="challenge_absorb_ten">Absorb at least 10 opponents in a match</string>
+    <string name="challenge_reach_final_round">Reach the final round</string>
+    <string name="challenge_win_from_final_round">Win after reaching the final round</string>
+    <string name="challenge_survive_three_minutes">Survive at least 3 minutes in a match</string>
+    <string name="challenge_reach_size_200">End a match with a size of at least 200</string>
+    <string name="challenge_quick_win">Win a match without ever reaching the final round</string>
 </resources>

@@ -154,4 +154,16 @@
     <string name="color_crimson">Cremisi</string>
     <string name="color_emerald">Smeraldo</string>
     <string name="color_midnight">Notte</string>
+
+    <string name="daily_challenge_format">Sfida del giorno: %1$s</string>
+    <string name="daily_challenge_completed_format">✓ Sfida del giorno completata! Serie: %1$d</string>
+
+    <string name="challenge_win_a_match">Vinci una partita</string>
+    <string name="challenge_absorb_five">Assorbi almeno 5 avversari in una partita</string>
+    <string name="challenge_absorb_ten">Assorbi almeno 10 avversari in una partita</string>
+    <string name="challenge_reach_final_round">Raggiungi il round finale</string>
+    <string name="challenge_win_from_final_round">Vinci dopo aver raggiunto il round finale</string>
+    <string name="challenge_survive_three_minutes">Sopravvivi almeno 3 minuti in una partita</string>
+    <string name="challenge_reach_size_200">Termina una partita con una dimensione di almeno 200</string>
+    <string name="challenge_quick_win">Vinci una partita senza mai raggiungere il round finale</string>
 </resources>

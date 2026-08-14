@@ -5,6 +5,7 @@ import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
 import com.hyperionsoftware.balls.audio.BackgroundMusicPlayer
 import com.hyperionsoftware.balls.audio.MusicSettings
+import com.hyperionsoftware.balls.challenges.DailyChallenges
 import com.hyperionsoftware.balls.databinding.ActivityMainMenuBinding
 import com.hyperionsoftware.balls.settings.GameSettings
 
@@ -54,6 +55,19 @@ class MainMenuActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         if (MusicSettings.isEnabled(this)) musicPlayer.start(MusicSettings.getSelectedTrack(this))
+        updateDailyChallengeText()
+    }
+
+    // Refreshed here rather than only in onCreate so it's current whether we're arriving
+    // fresh or returning from a just-finished match (or from Options) without needing this
+    // Activity to be told about the result some other way.
+    private fun updateDailyChallengeText() {
+        binding.dailyChallengeText.text = if (DailyChallenges.isCompletedToday(this)) {
+            getString(R.string.daily_challenge_completed_format, DailyChallenges.streak(this))
+        } else {
+            val challenge = DailyChallenges.todaysChallenge()
+            getString(R.string.daily_challenge_format, getString(challenge.descriptionResId))
+        }
     }
 
     override fun onPause() {
