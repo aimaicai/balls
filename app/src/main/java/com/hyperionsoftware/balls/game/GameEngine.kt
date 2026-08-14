@@ -407,7 +407,15 @@ class GameEngine(
         val offset = source.position - target.position
         val distance = offset.length()
         if (distance > range + target.radius || distance < 0.01f) return
-        target.position += offset * (1f / distance) * (GameConfig.HOOK_FORCE * potency)
+        val direction = offset * (1f / distance)
+        // Clamped to the actual gap left once their two bodies are touching, not a flat
+        // HOOK_FORCE - a target already closer than that (the common case when the source
+        // is small, since range doesn't shrink with it but real gaps do) would otherwise get
+        // yanked straight through the source and out the far side instead of stopping next
+        // to it, landing further away on the opposite side than where it started.
+        val restingGap = source.radius + target.radius
+        val pull = (distance - restingGap).coerceIn(0f, GameConfig.HOOK_FORCE * potency)
+        target.position += direction * pull
         target.clampToWorld()
     }
 
