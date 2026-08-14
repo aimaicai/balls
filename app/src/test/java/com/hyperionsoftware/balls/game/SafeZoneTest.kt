@@ -15,15 +15,23 @@ class SafeZoneTest {
         GameEngine(botCount = 1, powerUpFrequencyLevel = 1, skipToFinalRound = skipToFinalRound, listener = TestGameListener())
 
     // Every blob needs to stay alive for these tests to keep advancing matchElapsed at all
-    // (GameEngine.update becomes a no-op once the match ends) - shielding everyone on every
-    // step blocks the ambient leak entirely regardless of position or how far the zone has
-    // shrunk, sidestepping having to fuss over exact positions/radii to dodge zone/deflation
-    // death over a long simulated stretch.
+    // (GameEngine.update becomes a no-op once the match ends). Shielding everyone on every
+    // step blocks the ambient leak regardless of position or how far the zone has shrunk -
+    // but shield does NOT block absorption, only deflation, so that alone isn't enough: bots
+    // spawn with a randomized starting size (see BOT_START_SIZE_MIN/MAX_FACTOR) and actively
+    // hunt anything smaller, including a player left standing still for tens of simulated
+    // seconds here. Forcing every alive blob back to the same fixed radius every single step
+    // (undoing any GROWTH pickups too, not just the spawn-time randomization) keeps the
+    // absorb ratio pinned at exactly 1 the whole time, so neither side can ever be eligible
+    // to absorb the other no matter how the random bot AI plays out.
     private fun advance(engine: GameEngine, totalSeconds: Float, step: Float = 1f / 30f) {
         var remaining = totalSeconds
         while (remaining > 0.0001f) {
             for (blob in engine.blobs) {
-                if (blob.alive) blob.applyPowerUp(PowerUpType.SHIELD)
+                if (blob.alive) {
+                    blob.applyPowerUp(PowerUpType.SHIELD)
+                    blob.radius = GameConfig.BASE_RADIUS
+                }
             }
             val dt = minOf(step, remaining)
             engine.update(dt)

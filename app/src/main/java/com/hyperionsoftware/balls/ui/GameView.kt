@@ -310,7 +310,8 @@ class GameView @JvmOverloads constructor(
         botCount: Int,
         powerUpFrequencyLevel: Int,
         arenaSize: GameConfig.ArenaSize = GameConfig.ArenaSize.NORMAL,
-        skipToFinalRound: Boolean = false
+        skipToFinalRound: Boolean = false,
+        botAggressivenessLevel: Int = GameConfig.BOT_AGGRESSIVENESS_DEFAULT_LEVEL
     ) {
         if (started) return
         started = true
@@ -335,6 +336,7 @@ class GameView @JvmOverloads constructor(
             arenaSize = arenaSize,
             skipToFinalRound = skipToFinalRound,
             playerColor = CosmeticsSettings.getSelectedColor(context).colorInt,
+            botAggressivenessLevel = botAggressivenessLevel,
             listener = object : GameListener {
                 override fun onVibrate() {
                     vibrateBounce()
@@ -520,12 +522,13 @@ class GameView @JvmOverloads constructor(
         botCount: Int,
         powerUpFrequencyLevel: Int,
         arenaSize: GameConfig.ArenaSize = GameConfig.ArenaSize.NORMAL,
-        skipToFinalRound: Boolean = false
+        skipToFinalRound: Boolean = false,
+        botAggressivenessLevel: Int = GameConfig.BOT_AGGRESSIVENESS_DEFAULT_LEVEL
     ) {
         loopThread?.running = false
         loopThread?.join(500)
         started = false
-        startGame(botCount, powerUpFrequencyLevel, arenaSize, skipToFinalRound)
+        startGame(botCount, powerUpFrequencyLevel, arenaSize, skipToFinalRound, botAggressivenessLevel)
     }
 
     fun setBoosting(active: Boolean) {

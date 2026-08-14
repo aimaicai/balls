@@ -51,6 +51,22 @@
                 android:min="2" />
 
             <TextView
+                android:id="@+id/botAggressivenessText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="20dp"
+                android:textColor="@color/hud_text"
+                android:textSize="18sp" />
+
+            <SeekBar
+                android:id="@+id/botAggressivenessSeekBar"
+                android:layout_width="280dp"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:max="10"
+                android:min="1" />
+
+            <TextView
                 android:id="@+id/powerUpCountText"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"

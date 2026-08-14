@@ -93,6 +93,10 @@ class HighScoresActivity : AppCompatActivity() {
                         GameActivity.EXTRA_SKIP_TO_FINAL_ROUND,
                         intent.getBooleanExtra(GameActivity.EXTRA_SKIP_TO_FINAL_ROUND, false)
                     )
+                    .putExtra(
+                        GameActivity.EXTRA_BOT_AGGRESSIVENESS,
+                        intent.getIntExtra(GameActivity.EXTRA_BOT_AGGRESSIVENESS, GameConfig.BOT_AGGRESSIVENESS_DEFAULT_LEVEL)
+                    )
             )
             finish()
         }

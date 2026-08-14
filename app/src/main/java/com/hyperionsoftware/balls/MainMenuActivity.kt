@@ -29,6 +29,7 @@ class MainMenuActivity : AppCompatActivity() {
                     .putExtra(GameActivity.EXTRA_BOT_COUNT, GameSettings.getBotCount(this))
                     .putExtra(GameActivity.EXTRA_POWERUP_FREQUENCY, GameSettings.getPowerUpFrequency(this))
                     .putExtra(GameActivity.EXTRA_ARENA_SIZE, GameSettings.getArenaSize(this).name)
+                    .putExtra(GameActivity.EXTRA_BOT_AGGRESSIVENESS, GameSettings.getBotAggressiveness(this))
             )
         }
         binding.testFinaleButton.setOnClickListener {
@@ -37,6 +38,7 @@ class MainMenuActivity : AppCompatActivity() {
                     .putExtra(GameActivity.EXTRA_BOT_COUNT, GameSettings.getBotCount(this))
                     .putExtra(GameActivity.EXTRA_POWERUP_FREQUENCY, GameSettings.getPowerUpFrequency(this))
                     .putExtra(GameActivity.EXTRA_ARENA_SIZE, GameSettings.getArenaSize(this).name)
+                    .putExtra(GameActivity.EXTRA_BOT_AGGRESSIVENESS, GameSettings.getBotAggressiveness(this))
                     .putExtra(GameActivity.EXTRA_SKIP_TO_FINAL_ROUND, true)
             )
         }

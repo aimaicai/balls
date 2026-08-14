@@ -23,6 +23,7 @@ class OptionsActivity : AppCompatActivity() {
     private var botCount = GameSettings.DEFAULT_BOT_COUNT
     private var powerUpFrequencyLevel = GameConfig.POWERUP_DEFAULT_FREQUENCY_LEVEL
     private var arenaSize = GameConfig.ArenaSize.NORMAL
+    private var botAggressivenessLevel = GameConfig.BOT_AGGRESSIVENESS_DEFAULT_LEVEL
     private val musicPlayer = BackgroundMusicPlayer()
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -33,13 +34,16 @@ class OptionsActivity : AppCompatActivity() {
         botCount = GameSettings.getBotCount(this)
         powerUpFrequencyLevel = GameSettings.getPowerUpFrequency(this)
         arenaSize = GameSettings.getArenaSize(this)
+        botAggressivenessLevel = GameSettings.getBotAggressiveness(this)
 
         // android:min/android:max in the layout already bound each SeekBar to its range,
         // so progress IS the actual value directly (API 26+ semantics).
         binding.botsSeekBar.progress = botCount
+        binding.botAggressivenessSeekBar.progress = botAggressivenessLevel
         binding.powerUpSeekBar.progress = powerUpFrequencyLevel
         binding.arenaSizeSeekBar.progress = arenaSize.ordinal
         updateBotCountLabel()
+        updateBotAggressivenessLabel()
         updatePowerUpLabel()
         updateArenaSizeLabel()
 
@@ -48,6 +52,17 @@ class OptionsActivity : AppCompatActivity() {
                 botCount = progress
                 updateBotCountLabel()
                 GameSettings.setBotCount(this@OptionsActivity, botCount)
+            }
+
+            override fun onStartTrackingTouch(seekBar: SeekBar) = Unit
+            override fun onStopTrackingTouch(seekBar: SeekBar) = Unit
+        })
+
+        binding.botAggressivenessSeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(seekBar: SeekBar, progress: Int, fromUser: Boolean) {
+                botAggressivenessLevel = progress
+                updateBotAggressivenessLabel()
+                GameSettings.setBotAggressiveness(this@OptionsActivity, botAggressivenessLevel)
             }
 
             override fun onStartTrackingTouch(seekBar: SeekBar) = Unit
@@ -120,6 +135,10 @@ class OptionsActivity : AppCompatActivity() {
 
     private fun updateBotCountLabel() {
         binding.botsCountText.text = getString(R.string.menu_bots_label, botCount)
+    }
+
+    private fun updateBotAggressivenessLabel() {
+        binding.botAggressivenessText.text = getString(R.string.menu_bot_aggressiveness_label, botAggressivenessLevel)
     }
 
     private fun updatePowerUpLabel() {

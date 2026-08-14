@@ -125,6 +125,17 @@ object GameConfig {
     // so the endgame stays lively instead of everyone wandering aimlessly.
     const val BOT_MAX_AGGRESSION_BONUS = 1.2f
 
+    // A separate difficulty knob from bot COUNT: how sharply bots notice threats, prey and
+    // power-ups, independent of how many of them there are. Levels 1-10, matching the
+    // powerUpFrequency slider's shape; level 5 (the default) multiplies by exactly 1x, so
+    // leaving the slider untouched reproduces today's existing behavior exactly.
+    const val BOT_AGGRESSIVENESS_MIN_LEVEL = 1
+    const val BOT_AGGRESSIVENESS_MAX_LEVEL = 10
+    const val BOT_AGGRESSIVENESS_DEFAULT_LEVEL = 5
+
+    fun botAggressivenessMultiplier(level: Int): Float =
+        level.coerceIn(BOT_AGGRESSIVENESS_MIN_LEVEL, BOT_AGGRESSIVENESS_MAX_LEVEL) / BOT_AGGRESSIVENESS_DEFAULT_LEVEL.toFloat()
+
     const val COUNTDOWN_SECONDS = 3f
 
     // Dramatic cut into the final round: a brief title-card flash (gameplay frozen for

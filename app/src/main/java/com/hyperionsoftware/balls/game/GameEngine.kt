@@ -50,6 +50,9 @@ class GameEngine(
     // com.hyperionsoftware.balls.cosmetics.PlayerColor). Defaults to the original hardcoded
     // blue so nothing changes for callers that don't care about this.
     playerColor: Int = 0xFF4FC3F7.toInt(),
+    // How sharply bots notice threats/prey/power-ups, independent of botCount - see
+    // BotBlob.decideDirection and GameConfig.botAggressivenessMultiplier.
+    botAggressivenessLevel: Int = GameConfig.BOT_AGGRESSIVENESS_DEFAULT_LEVEL,
     private val listener: GameListener
 ) {
     // Must run before any property below reads WORLD_WIDTH/HEIGHT or
@@ -58,6 +61,8 @@ class GameEngine(
     init {
         GameConfig.applyArenaSize(arenaSize)
     }
+
+    val botAggressivenessMultiplier: Float = GameConfig.botAggressivenessMultiplier(botAggressivenessLevel)
 
     private val powerUpBaseMaxCount = GameConfig.POWERUP_MAX_COUNT_PER_LEVEL * powerUpFrequencyLevel
     private val powerUpFrequency = powerUpFrequencyLevel.toFloat()

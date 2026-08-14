@@ -17,7 +17,11 @@ class BotBlob(
     override fun decideDirection(engine: GameEngine, dt: Float): Vector2 {
         val finalRound = engine.isFinalRoundActive
         val aliveFraction = engine.aliveCount().toFloat() / engine.initialBlobCount
-        val aggression = 1f + (1f - aliveFraction) * GameConfig.BOT_MAX_AGGRESSION_BONUS
+        // The endgame-alive-count ramp and the player-chosen difficulty slider stack
+        // multiplicatively - at the default slider level (1x) this is exactly the same
+        // aggression value as before that slider existed.
+        val aggression = (1f + (1f - aliveFraction) * GameConfig.BOT_MAX_AGGRESSION_BONUS) *
+            engine.botAggressivenessMultiplier
         val visionRadius = (radius * 8f + 200f) * aggression
 
         var threat: Blob? = null

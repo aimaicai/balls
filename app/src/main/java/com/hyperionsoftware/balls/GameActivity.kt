@@ -26,6 +26,7 @@ class GameActivity : AppCompatActivity(), GameView.Callback {
     private var powerUpFrequencyLevel = GameConfig.POWERUP_DEFAULT_FREQUENCY_LEVEL
     private var arenaSize = GameConfig.ArenaSize.NORMAL
     private var skipToFinalRound = false
+    private var botAggressivenessLevel = GameConfig.BOT_AGGRESSIVENESS_DEFAULT_LEVEL
     private val musicPlayer = BackgroundMusicPlayer()
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -42,6 +43,7 @@ class GameActivity : AppCompatActivity(), GameView.Callback {
             runCatching { GameConfig.ArenaSize.valueOf(it) }.getOrNull()
         } ?: GameConfig.ArenaSize.NORMAL
         skipToFinalRound = intent.getBooleanExtra(EXTRA_SKIP_TO_FINAL_ROUND, false)
+        botAggressivenessLevel = intent.getIntExtra(EXTRA_BOT_AGGRESSIVENESS, GameConfig.BOT_AGGRESSIVENESS_DEFAULT_LEVEL)
 
         binding.joystickView.listener = binding.gameView
         binding.gameView.callback = this
@@ -60,7 +62,7 @@ class GameActivity : AppCompatActivity(), GameView.Callback {
         // No carried item at match start either.
         binding.activeItemButton.alpha = ACTIVE_ITEM_UNAVAILABLE_ALPHA
 
-        binding.gameView.startGame(botCount, powerUpFrequencyLevel, arenaSize, skipToFinalRound)
+        binding.gameView.startGame(botCount, powerUpFrequencyLevel, arenaSize, skipToFinalRound, botAggressivenessLevel)
     }
 
     override fun onResume() {
@@ -83,7 +85,9 @@ class GameActivity : AppCompatActivity(), GameView.Callback {
             .setTitle(getString(R.string.pause_title))
             .setCancelable(false)
             .setPositiveButton(getString(R.string.pause_resume)) { _, _ -> binding.gameView.resumeGame() }
-            .setNeutralButton(getString(R.string.pause_restart)) { _, _ -> binding.gameView.restart(botCount, powerUpFrequencyLevel, arenaSize, skipToFinalRound) }
+            .setNeutralButton(getString(R.string.pause_restart)) { _, _ ->
+                binding.gameView.restart(botCount, powerUpFrequencyLevel, arenaSize, skipToFinalRound, botAggressivenessLevel)
+            }
             .setNegativeButton(getString(R.string.pause_menu)) { _, _ -> goToMenu() }
             .show()
     }
@@ -111,6 +115,7 @@ class GameActivity : AppCompatActivity(), GameView.Callback {
                     .putExtra(EXTRA_POWERUP_FREQUENCY, powerUpFrequencyLevel)
                     .putExtra(EXTRA_ARENA_SIZE, arenaSize.name)
                     .putExtra(EXTRA_SKIP_TO_FINAL_ROUND, skipToFinalRound)
+                    .putExtra(EXTRA_BOT_AGGRESSIVENESS, botAggressivenessLevel)
                     .apply {
                         if (highlightTimestamp != null) {
                             putExtra(HighScoresActivity.EXTRA_HIGHLIGHT_TIMESTAMP, highlightTimestamp)
@@ -191,6 +196,7 @@ class GameActivity : AppCompatActivity(), GameView.Callback {
         const val EXTRA_POWERUP_FREQUENCY = "extra_powerup_frequency"
         const val EXTRA_ARENA_SIZE = "extra_arena_size"
         const val EXTRA_SKIP_TO_FINAL_ROUND = "extra_skip_to_final_round"
+        const val EXTRA_BOT_AGGRESSIVENESS = "extra_bot_aggressiveness"
         private const val BOOST_UNAVAILABLE_ALPHA = 0.35f
         private const val ACTIVE_ITEM_UNAVAILABLE_ALPHA = 0.35f
         private const val DEFAULT_BOTS = 100

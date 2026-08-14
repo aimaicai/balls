@@ -12,6 +12,7 @@ object GameSettings {
     private const val KEY_BOT_COUNT = "bot_count"
     private const val KEY_POWERUP_FREQUENCY = "powerup_frequency"
     private const val KEY_ARENA_SIZE = "arena_size"
+    private const val KEY_BOT_AGGRESSIVENESS = "bot_aggressiveness"
     const val DEFAULT_BOT_COUNT = 100
 
     fun getBotCount(context: Context): Int =
@@ -46,6 +47,17 @@ object GameSettings {
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             .edit()
             .putString(KEY_ARENA_SIZE, size.name)
+            .apply()
+    }
+
+    fun getBotAggressiveness(context: Context): Int =
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getInt(KEY_BOT_AGGRESSIVENESS, GameConfig.BOT_AGGRESSIVENESS_DEFAULT_LEVEL)
+
+    fun setBotAggressiveness(context: Context, level: Int) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putInt(KEY_BOT_AGGRESSIVENESS, level)
             .apply()
     }
 }

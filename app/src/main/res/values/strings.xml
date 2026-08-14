@@ -4,6 +4,7 @@
     <string name="menu_play">Play</string>
     <string name="menu_test_finale">Test Final Round</string>
     <string name="menu_bots_label">Opponents: %1$d</string>
+    <string name="menu_bot_aggressiveness_label">Bot aggressiveness: %1$d</string>
     <string name="menu_powerup_label">Power-up frequency: %1$d</string>
     <string name="menu_exit">Exit</string>
     <string name="menu_options">Options</string>
