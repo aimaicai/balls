@@ -15,6 +15,7 @@ class BotBlob(
     private var wanderTimer = Random.nextFloat() * 2f + 1f
 
     override fun decideDirection(engine: GameEngine, dt: Float): Vector2 {
+        val finalRound = engine.isFinalRoundActive
         val aliveFraction = engine.aliveCount().toFloat() / engine.initialBlobCount
         val aggression = 1f + (1f - aliveFraction) * GameConfig.BOT_MAX_AGGRESSION_BONUS
         val visionRadius = (radius * 8f + 200f) * aggression
@@ -70,8 +71,19 @@ class BotBlob(
         // Proactive: head back in well before actually leaving, since the zone keeps
         // shrinking underneath them - reacting only once already outside meant bots
         // routinely got caught by surprise and paid the much faster out-of-zone deflation
-        // rate for it. Not an emergency yet, so no need to spend size sprinting for it.
-        if (distanceFromZoneCenter > engine.safeZoneRadius * GameConfig.BOT_ZONE_SAFETY_MARGIN_FRACTION) {
+        // rate for it. The final round uses its own, tighter margin (see
+        // BOT_FINAL_ROUND_ZONE_SAFETY_MARGIN_FRACTION) since its zone never stops shrinking
+        // and turning still takes time to catch up (see Blob.steerTowards) - the normal
+        // phase's margin alone isn't enough of a lead there. Not an emergency yet either
+        // way, so no sprinting: burning size to get back early would just trade one drain
+        // for another.
+        val zoneMarginFraction = if (finalRound) {
+            GameConfig.BOT_FINAL_ROUND_ZONE_SAFETY_MARGIN_FRACTION
+        } else {
+            GameConfig.BOT_ZONE_SAFETY_MARGIN_FRACTION
+        }
+        if (distanceFromZoneCenter > engine.safeZoneRadius * zoneMarginFraction) {
+            isBoosting = false
             return Vector2(engine.safeZoneCenterX - position.x, engine.safeZoneCenterY - position.y).normalized()
         }
 
@@ -80,10 +92,23 @@ class BotBlob(
         // sprint itself to death before an opponent ever gets the chance to fight it.
         isBoosting = false
 
-        // Constant deflation means running low is a real survival problem, not just a
-        // setback: chase down the nearest growth power-up instead of whatever's merely
-        // closest.
-        if (radius < baseRadius * GameConfig.BOT_LOW_SIZE_FRACTION) {
+        if (finalRound) {
+            // The final round's constant leak never lets up and its zone keeps shrinking
+            // forever, so growing bigger or turning sharper (AGILITY_UP, which directly
+            // helps them react to that shrinking zone in time) is the actual survival plan
+            // there - not just an occasional refill once running low like the normal phase
+            // below. Sought right after immediate danger, ahead of chasing prey, since
+            // walking up to a free pickup is safer than picking a fight for one.
+            val refill = engine.powerUps
+                .filter { it.type == PowerUpType.GROWTH || it.type == PowerUpType.AGILITY_UP }
+                .minByOrNull { position.distanceTo(it.position) }
+            if (refill != null && position.distanceTo(refill.position) < visionRadius) {
+                return (refill.position - position).normalized()
+            }
+        } else if (radius < baseRadius * GameConfig.BOT_LOW_SIZE_FRACTION) {
+            // Constant deflation means running low is a real survival problem, not just a
+            // setback: chase down the nearest growth power-up instead of whatever's merely
+            // closest.
             val refill = engine.powerUps
                 .filter { it.type == PowerUpType.GROWTH }
                 .minByOrNull { position.distanceTo(it.position) }

@@ -214,6 +214,15 @@ object GameConfig {
     // waiting to actually cross the line.
     const val BOT_ZONE_SAFETY_MARGIN_FRACTION = 0.85f
 
+    // The final round's zone never stops shrinking, at a constant rate, instead of holding
+    // like the normal phase's staged shrink (see GameEngine.safeZoneRadius) - and turning
+    // still has inertia (facingDirection can't snap, see Blob.steerTowards), so the normal
+    // margin above reacts too late there: a bot can start its turn back to center well
+    // inside the "safe" band and still get caught by the time it's actually facing the
+    // right way. A tighter margin means heading back sooner, with more room to spare -
+    // without needing to sprint (and drain size) to make up the difference.
+    const val BOT_FINAL_ROUND_ZONE_SAFETY_MARGIN_FRACTION = 0.65f
+
     // Balloons are pushed by their own exhaust: a moving balloon blows a cone of air out its
     // back that shoves any other balloon caught in it further away. Range scales with the
     // source's own radius (a bigger balloon has a bigger nozzle).
