@@ -6,6 +6,7 @@ package com.hyperionsoftware.balls.game
 class TestGameListener : GameListener {
     var vibrateCount = 0
     var absorbCount = 0
+    var comboCounts = mutableListOf<Int>()
     var powerUpsCollected = mutableListOf<PowerUpType>()
     var activeItemsUsed = mutableListOf<PowerUpType>()
     var lastActiveItemSourceRadius = 0f
@@ -22,6 +23,10 @@ class TestGameListener : GameListener {
 
     override fun onAbsorb(x: Float, y: Float, sizeGain: Int, byPlayer: Boolean, absorberId: Int, victimId: Int) {
         absorbCount++
+    }
+
+    override fun onComboAchieved(x: Float, y: Float, comboCount: Int, byPlayer: Boolean) {
+        comboCounts.add(comboCount)
     }
 
     override fun onPowerUpCollected(x: Float, y: Float, type: PowerUpType, byPlayer: Boolean) {

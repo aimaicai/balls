@@ -2,6 +2,7 @@ package com.hyperionsoftware.balls.game
 
 import kotlin.math.cos
 import kotlin.math.hypot
+import kotlin.math.min
 import kotlin.math.sin
 import kotlin.math.sqrt
 import kotlin.random.Random
@@ -9,6 +10,10 @@ import kotlin.random.Random
 interface GameListener {
     fun onVibrate()
     fun onAbsorb(x: Float, y: Float, sizeGain: Int, byPlayer: Boolean, absorberId: Int, victimId: Int)
+    // Fired whenever an absorb actually extends an existing streak (comboCount >= 2) - the
+    // UI layer uses this to show a "COMBO xN!" moment distinct from the plain per-absorb
+    // "+size" callout.
+    fun onComboAchieved(x: Float, y: Float, comboCount: Int, byPlayer: Boolean)
     fun onPowerUpCollected(x: Float, y: Float, type: PowerUpType, byPlayer: Boolean)
     // sourceRadius and sourcePotencyMultiplier are the user's current radius and POTENCY_UP
     // multiplier at the moment of use - the UI needs both to draw REPEL/FREEZE/HOOK's ripple
@@ -179,6 +184,13 @@ class GameEngine(
     private var playerAbsorbCount = 0
     private var finalRoundTriggered = false
     private var finalRoundTriggeredAt = 0f
+
+    // Per-blob (keyed by id) combo tracking: when the same blob's absorbs land close enough
+    // together in time (see registerAbsorbCombo), each one after the first in that streak
+    // grants bonus growth and gets called out on screen. Bounded in size by botCount + 1 -
+    // dead blobs' entries are simply never touched again, not worth cleaning up.
+    private val comboStreak = mutableMapOf<Int, Int>()
+    private val lastAbsorbAt = mutableMapOf<Int, Float>()
 
     // Exposed read-only so the UI layer can react to the transition (e.g. an achievement
     // for reaching the final round) without needing its own copy of the trigger logic.
@@ -445,12 +457,12 @@ class GameEngine(
             for (powerUp in powerUps) {
                 if (powerUp.collected) continue
                 if (blob.position.distanceTo(powerUp.position) < blob.radius + powerUp.radius) {
-                    val growthMultiplier = if (finalRoundTriggered) {
-                        GameConfig.POWERUP_GROWTH_MULTIPLIER_FINAL_ROUND
+                    val growthRadiusBonus = if (finalRoundTriggered) {
+                        GameConfig.POWERUP_GROWTH_RADIUS_BONUS_FINAL_ROUND
                     } else {
-                        GameConfig.POWERUP_GROWTH_MULTIPLIER
+                        GameConfig.POWERUP_GROWTH_RADIUS_BONUS
                     }
-                    blob.applyPowerUp(powerUp.type, growthMultiplier)
+                    blob.applyPowerUp(powerUp.type, growthRadiusBonus)
                     powerUp.collected = true
                     listener.onPowerUpCollected(powerUp.position.x, powerUp.position.y, powerUp.type, blob === player)
                 }
@@ -477,13 +489,37 @@ class GameEngine(
             val y = smaller.position.y
             bigger.absorb(smaller)
             if (bigger === player) playerAbsorbCount++
+
+            val comboCount = registerAbsorbCombo(bigger)
+            if (comboCount >= 2) {
+                bigger.radius = min(GameConfig.MAX_RADIUS, bigger.radius + GameConfig.COMBO_GROWTH_BONUS)
+            }
+
             listener.onAbsorb(x, y, (bigger.radius - radiusBefore).toInt(), bigger === player, bigger.id, smaller.id)
+            if (comboCount >= 2) {
+                listener.onComboAchieved(x, y, comboCount, bigger === player)
+            }
         } else {
             bounce(a, b, distance)
             if (a is PlayerBlob || b is PlayerBlob) {
                 listener.onVibrate()
             }
         }
+    }
+
+    // Absorbs by the same blob land in a combo when they're no more than COMBO_WINDOW_SECONDS
+    // apart - anything slower than that resets the streak back to a fresh 1. Returns the
+    // streak length this absorb just extended it to.
+    private fun registerAbsorbCombo(absorber: Blob): Int {
+        val lastAt = lastAbsorbAt[absorber.id]
+        val count = if (lastAt != null && matchElapsed - lastAt <= GameConfig.COMBO_WINDOW_SECONDS) {
+            (comboStreak[absorber.id] ?: 1) + 1
+        } else {
+            1
+        }
+        lastAbsorbAt[absorber.id] = matchElapsed
+        comboStreak[absorber.id] = count
+        return count
     }
 
     private fun bounce(a: Blob, b: Blob, distance: Float) {

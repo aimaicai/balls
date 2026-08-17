@@ -108,6 +108,7 @@
 
     <string name="game_zone_death">Eliminato!</string>
     <string name="game_deflate_death">Sgonfiato!</string>
+    <string name="game_combo">COMBO x%1$d!</string>
 
     <string name="game_hud_size_format">Dimensione: %1$d</string>
     <string name="game_hud_kills_format">Uccisioni: %1$d</string>

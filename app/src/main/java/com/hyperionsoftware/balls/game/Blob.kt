@@ -167,11 +167,11 @@ abstract class Blob(
         return false
     }
 
-    fun applyPowerUp(type: PowerUpType, growthMultiplier: Float = GameConfig.POWERUP_GROWTH_MULTIPLIER) {
+    fun applyPowerUp(type: PowerUpType, growthRadiusBonus: Float = GameConfig.POWERUP_GROWTH_RADIUS_BONUS) {
         when (type) {
             PowerUpType.SHIELD -> shieldTimer = GameConfig.POWERUP_SHIELD_DURATION
             PowerUpType.GROWTH -> {
-                radius = min(GameConfig.MAX_RADIUS, radius * growthMultiplier)
+                radius = min(GameConfig.MAX_RADIUS, radius + growthRadiusBonus)
             }
             PowerUpType.SPEED_UP -> increasePermanentSpeed()
             PowerUpType.AGILITY_UP -> increasePermanentAgility()

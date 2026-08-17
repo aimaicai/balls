@@ -368,6 +368,17 @@ class GameView @JvmOverloads constructor(
                     }
                 }
 
+                override fun onComboAchieved(x: Float, y: Float, comboCount: Int, byPlayer: Boolean) {
+                    val color = if (byPlayer) Color.parseColor("#FFD54F") else Color.parseColor("#FFF59D")
+                    floatingTexts.add(
+                        FloatingText(x, y, context.getString(R.string.game_combo, comboCount), color, 1.6f)
+                    )
+                    if (byPlayer) {
+                        vibrateAbsorb()
+                        toneGenerator.startTone(ToneGenerator.TONE_PROP_BEEP2, 200)
+                    }
+                }
+
                 override fun onPowerUpCollected(x: Float, y: Float, type: PowerUpType, byPlayer: Boolean) {
                     val label = when (type) {
                         PowerUpType.SPEED -> context.getString(R.string.game_powerup_speed_ready)

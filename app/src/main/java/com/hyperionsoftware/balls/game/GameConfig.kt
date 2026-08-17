@@ -31,6 +31,13 @@ object GameConfig {
     // A blob must be at least this many times bigger (by radius) to absorb another.
     const val ABSORB_RATIO = 1.2f
 
+    // Chaining multiple absorbs within this window of each other counts as a combo - every
+    // chained absorb from the second one onward (see GameEngine.registerAbsorbCombo) grants
+    // this extra growth on top of whatever the absorption itself already gave, and is
+    // telegraphed on screen since watching a chain build is half the fun of landing one.
+    const val COMBO_WINDOW_SECONDS = 4f
+    const val COMBO_GROWTH_BONUS = 10f
+
     const val PLAYER_BASE_SPEED = 280f
     const val BOT_BASE_SPEED = 240f
 
@@ -50,14 +57,20 @@ object GameConfig {
     const val POWERUP_SPEED_MULTIPLIER = 2f
     const val POWERUP_SPEED_DURATION = 4f
     const val POWERUP_INVISIBILITY_DURATION = 2f
-    const val POWERUP_GROWTH_MULTIPLIER = 2f
 
-    // In the final round, a single GROWTH at the normal multiplier instantly cleared
-    // ABSORB_RATIO against everyone else (freshly reset to the same base size), turning the
-    // finale into "whoever reaches the first power-up wins". This weaker multiplier keeps
-    // GROWTH worth fighting for without letting one pickup alone decide the match - it takes
-    // two before the ratio crosses ABSORB_RATIO.
-    const val POWERUP_GROWTH_MULTIPLIER_FINAL_ROUND = 1.15f
+    // A fixed radius bonus rather than a multiplier - doubling compounded into a wildly
+    // disproportionate jump for an already-big balloon (the bigger you are, the more
+    // absolute size one pickup added, snowballing further), where a flat bonus adds the
+    // same amount regardless of current size.
+    const val POWERUP_GROWTH_RADIUS_BONUS = 20f
+
+    // In the final round, a single GROWTH at the normal bonus instantly cleared ABSORB_RATIO
+    // against everyone else (freshly reset to the same base size), turning the finale into
+    // "whoever reaches the first power-up wins". This weaker bonus keeps GROWTH worth
+    // fighting for without letting one pickup alone decide the match: at baseRadius (40),
+    // one pickup (46) stays under the 1.2x ABSORB_RATIO against an untouched opponent, but
+    // two (52) clears it.
+    const val POWERUP_GROWTH_RADIUS_BONUS_FINAL_ROUND = 6f
 
     // Size now drains away constantly just from existing (see the ambient leak below), so
     // GROWTH power-ups need to spawn noticeably more often than SPEED/INVISIBILITY or
