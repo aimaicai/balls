@@ -109,7 +109,11 @@ object GameConfig {
     // than speed's since a nimbler turn is a different kind of edge than raw power. Potency's
     // cap is kept modest since it compounds across three effects at once (REPEL/FREEZE/HOOK's
     // range plus each one's own intensity) rather than a single stat.
-    const val PERMANENT_STAT_TIER_COUNT = 10
+    // Kept low enough to actually be reachable within a match: each permanent-stat type is
+    // only 1 of 11 weighted slots in the regular spawn pool (see weightedPowerUpTypes), spawning
+    // every 3-6s for a ~105-135s match - so even a player prioritizing one stat all game only
+    // sees a handful of its pickups, let alone the whole arena's supply of them.
+    const val PERMANENT_STAT_TIER_COUNT = 5
     const val PERMANENT_SPEED_MAX_MULTIPLIER = 1.5f
     const val PERMANENT_TURN_RATE_MAX_MULTIPLIER = 3f
     const val PERMANENT_POTENCY_MAX_MULTIPLIER = 1.8f
