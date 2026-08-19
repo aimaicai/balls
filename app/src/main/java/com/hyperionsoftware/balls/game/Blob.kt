@@ -136,7 +136,8 @@ abstract class Blob(
 
     // Balloons always leak air, in or out of the safe zone - slower inside it, faster
     // outside - so standing still is never truly safe, only "safer" - except while
-    // shielded, which pauses this leak entirely. Hitting ZONE_DEATH_RADIUS deflates the
+    // shielded, which pauses this leak entirely (shielded also blocks being absorbed by a
+    // bigger balloon - see GameEngine.handlePair). Hitting ZONE_DEATH_RADIUS deflates the
     // balloon for good. Returns true if this was lethal.
     fun applyAmbientDeflation(inSafeZone: Boolean, dt: Float): Boolean {
         if (isShielded) return false

@@ -138,7 +138,7 @@
     <string name="tutorial_boost_title">Spinta</string>
     <string name="tutorial_boost_body">Tieni premuto il pulsante di spinta per accelerare, ma consuma la tua dimensione per tutta la durata: usalo solo nelle vere emergenze.</string>
     <string name="tutorial_powerups_title">Power-up</string>
-    <string name="tutorial_powerups_body">Alcuni power-up si attivano subito al contatto (Ingrandimento). Altri restano in tasca finché non li usi con il pulsante dedicato (Velocità, Invisibilità, Respingi, Congela, Aggancio). I rari rifornimenti speciali danno uno Scudo che sospende lo sgonfiamento per un po\'.</string>
+    <string name="tutorial_powerups_body">Alcuni power-up si attivano subito al contatto (Ingrandimento). Altri restano in tasca finché non li usi con il pulsante dedicato (Velocità, Invisibilità, Respingi, Congela, Aggancio). I rari rifornimenti speciali danno uno Scudo che sospende lo sgonfiamento e impedisce ai palloncini più grandi di assorbirti per un po\'.</string>
     <string name="tutorial_permanent_title">Potenziamenti permanenti</string>
     <string name="tutorial_permanent_body">I potenziamenti di Velocità, Agilità e Potenza aumentano quella statistica per sempre: raccoglili quando li vedi, non scadono mai.</string>
     <string name="tutorial_safezone_title">Zona sicura</string>

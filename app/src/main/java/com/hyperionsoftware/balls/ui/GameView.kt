@@ -969,7 +969,8 @@ class GameView @JvmOverloads constructor(
 
     private fun drawShieldAura(canvas: Canvas, blob: Blob, cx: Float, cy: Float, alpha: Int) {
         // A gently pulsing ring around a shielded balloon - distinct from the speed badge,
-        // signals the ambient leak is paused rather than an active power-up timer running.
+        // signals both that the ambient leak is paused and that touching a bigger balloon
+        // won't get this one absorbed, rather than an active power-up timer running.
         if (!blob.isShielded) return
         val pulse = 0.6f + 0.4f * sin(blob.exhaustPhase * 3f)
         shieldAuraPaint.alpha = (alpha * 0.5f * pulse).toInt().coerceIn(0, 255)

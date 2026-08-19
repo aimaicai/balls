@@ -87,6 +87,41 @@ class AbsorptionTest {
     }
 
     @Test
+    fun `a shielded smaller blob cannot be absorbed, even by a much bigger one`() {
+        val engine = newEngine()
+        val player = engine.player
+        val bot = engine.blobs.first { it.id != player.id }
+
+        bot.radius = 50f
+        player.radius = 50f / GameConfig.ABSORB_RATIO
+        bot.position = Vector2(1000f, 1000f)
+        player.position = Vector2(1000f + bot.radius + player.radius - 1f, 1000f)
+        player.applyPowerUp(PowerUpType.SHIELD)
+
+        engine.update(1f / 60f)
+
+        assertTrue("A shielded blob should not have been absorbed", player.alive)
+        assertTrue("The bigger blob should not have absorbed anything either", bot.alive)
+    }
+
+    @Test
+    fun `a shielded bigger blob still absorbs a smaller one normally`() {
+        val engine = newEngine()
+        val player = engine.player
+        val bot = engine.blobs.first { it.id != player.id }
+
+        player.radius = 50f
+        bot.radius = 50f / GameConfig.ABSORB_RATIO
+        player.position = Vector2(1000f, 1000f)
+        bot.position = Vector2(1000f + player.radius + bot.radius - 1f, 1000f)
+        player.applyPowerUp(PowerUpType.SHIELD)
+
+        engine.update(1f / 60f)
+
+        assertFalse("Shield on the absorbing side shouldn't stop it from absorbing", bot.alive)
+    }
+
+    @Test
     fun `absorbing the victim marks it dead and does not touch its own radius field`() {
         val engine = newEngine()
         val player = engine.player

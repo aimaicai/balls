@@ -482,8 +482,12 @@ class GameEngine(
 
         // A frozen balloon can't act at all, including absorbing - it's still fair game to
         // be absorbed itself (freeze offers no protection there), so only the bigger side
-        // being frozen turns this into a harmless bounce instead of an absorption.
-        if (ratio >= GameConfig.ABSORB_RATIO && !bigger.isFrozen) {
+        // being frozen turns this into a harmless bounce instead of an absorption. SHIELD is
+        // the opposite: it protects the smaller side from being absorbed (on top of already
+        // pausing its own ambient deflation - see Blob.applyAmbientDeflation), since a
+        // supply-drop-only power-up that a bigger balloon could just walk through and pop
+        // anyway would be worth almost nothing.
+        if (ratio >= GameConfig.ABSORB_RATIO && !bigger.isFrozen && !smaller.isShielded) {
             val radiusBefore = bigger.radius
             val x = smaller.position.x
             val y = smaller.position.y
