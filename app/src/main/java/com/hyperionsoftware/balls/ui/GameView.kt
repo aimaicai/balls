@@ -985,7 +985,7 @@ class GameView @JvmOverloads constructor(
         // world-space path via a rotation matrix. Shading/highlight below clip to this same
         // path but are drawn without rotating the canvas, so the light direction stays fixed
         // regardless of which way the balloon is pointed.
-        val angleDeg = Math.toDegrees(atan2(blob.facingDirection.y, blob.facingDirection.x).toDouble()).toFloat() + 90f
+        val angleDeg = facingAngleDeg(blob)
         balloonMatrix.reset()
         balloonMatrix.postScale(balloonSquash, balloonStretch)
         balloonMatrix.postRotate(angleDeg)
@@ -1014,17 +1014,26 @@ class GameView @JvmOverloads constructor(
     }
 
     // Only ever drawn on the player's own balloon (see BalloonSticker) - bots always keep
-    // their plain look. Drawn upright (no rotation with facingDirection) so it reads as a
-    // sticker the player picked, not a directional indicator like the speed badge below.
+    // their plain look. Rotates and squashes/stretches together with the balloon body's own
+    // egg shape (same angle and squash/stretch factors as drawBalloonBody) rather than
+    // staying a plain upright circle - it's meant to read as printed on the balloon's own
+    // surface, not a separate badge floating on top of it.
     private fun drawSticker(canvas: Canvas, blob: Blob, cx: Float, cy: Float, alpha: Int) {
         if (selectedSticker == BalloonSticker.NONE || blob !== engine.player) return
         stickerInkPaint.alpha = (235 * (alpha / 255f)).toInt().coerceIn(0, 255)
         stickerDetailPaint.alpha = (200 * (alpha / 255f)).toInt().coerceIn(0, 255)
         canvas.save()
         canvas.translate(cx, cy)
+        canvas.rotate(facingAngleDeg(blob))
+        canvas.scale(balloonSquash, balloonStretch)
         selectedSticker.drawInto(canvas, stickerInkPaint, stickerDetailPaint, blob.radius * 0.5f)
         canvas.restore()
     }
+
+    // The same facing-direction angle drawBalloonBody rotates the balloon's egg shape by -
+    // shared so the sticker can rotate in lockstep with the body instead of independently.
+    private fun facingAngleDeg(blob: Blob): Float =
+        Math.toDegrees(atan2(blob.facingDirection.y, blob.facingDirection.x).toDouble()).toFloat() + 90f
 
     private fun drawSpeedBadge(canvas: Canvas, blob: Blob, cx: Float, cy: Float, alpha: Int) {
         // A lightning bolt imprinted on the balloon signals the SPEED power-up is active -
