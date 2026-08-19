@@ -24,6 +24,9 @@ import android.view.SurfaceView
 import com.hyperionsoftware.balls.R
 import com.hyperionsoftware.balls.achievements.Achievement
 import com.hyperionsoftware.balls.achievements.Achievements
+import com.hyperionsoftware.balls.challenges.DailyChallenges
+import com.hyperionsoftware.balls.challenges.MatchResult
+import com.hyperionsoftware.balls.cosmetics.BalloonSticker
 import com.hyperionsoftware.balls.game.Blob
 import com.hyperionsoftware.balls.game.GameConfig
 import com.hyperionsoftware.balls.game.GameEngine
@@ -68,7 +71,12 @@ class GameView @JvmOverloads constructor(
     private var lastCarriedItemType: PowerUpType? = null
     private var botNames: List<String> = emptyList()
 
+    // Read once per match start, same as the player's chosen color - purely cosmetic, drawn
+    // only on the player's own balloon (see drawSticker), never threaded through GameEngine.
+    private var selectedSticker: BalloonSticker = BalloonSticker.NONE
+
     private val achievementAbsorbStreakTarget = 5
+    private val achievementDailyStreakTarget = 3
     private val exhaustPuffCount = 4
 
     private var countdownActive = false
@@ -170,6 +178,17 @@ class GameView @JvmOverloads constructor(
         style = Paint.Style.STROKE
         strokeWidth = 2f
         color = Color.parseColor("#CFD8DC")
+    }
+    // A pale, semi-opaque "ink" for the player's chosen sticker (see BalloonSticker) so it
+    // reads as a printed decal on top of any balloon color, plus a darker detail color used
+    // only for SKULL's eye holes.
+    private val stickerInkPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.parseColor("#F5F5F5")
+        alpha = 235
+    }
+    private val stickerDetailPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.parseColor("#212121")
+        alpha = 200
     }
 
     // Balloons are subtly egg-shaped along their direction of travel instead of perfect
@@ -330,6 +349,7 @@ class GameView @JvmOverloads constructor(
         lastBoostAvailable = false
         lastCarriedItemType = null
         botNames = BotNames.generate(botCount)
+        selectedSticker = CosmeticsSettings.getSelectedSticker(context)
         engine = GameEngine(
             botCount = botCount,
             powerUpFrequencyLevel = powerUpFrequencyLevel,
@@ -376,6 +396,7 @@ class GameView @JvmOverloads constructor(
                     if (byPlayer) {
                         vibrateAbsorb()
                         toneGenerator.startTone(ToneGenerator.TONE_PROP_BEEP2, 200)
+                        if (comboCount >= 3) unlockAchievement(Achievement.COMBO_MASTER)
                     }
                 }
 
@@ -496,6 +517,16 @@ class GameView @JvmOverloads constructor(
                     if (playerWon) unlockAchievement(Achievement.FIRST_WIN)
                     if (opponentsAbsorbed >= achievementAbsorbStreakTarget) {
                         unlockAchievement(Achievement.ABSORB_STREAK)
+                    }
+                    // Recorded here rather than in GameActivity's own onGameOver, so the
+                    // streak is already up to date by the time DAILY_DEDICATION checks it
+                    // just below.
+                    DailyChallenges.recordMatchResult(
+                        context,
+                        MatchResult(playerWon, finalRadius.toInt(), opponentsAbsorbed, elapsedSeconds.toInt(), reachedFinalRound)
+                    )
+                    if (DailyChallenges.streak(context) >= achievementDailyStreakTarget) {
+                        unlockAchievement(Achievement.DAILY_DEDICATION)
                     }
                     post {
                         callback?.onGameOver(
@@ -877,6 +908,7 @@ class GameView @JvmOverloads constructor(
 
         drawExhaust(canvas, blob, cx, cy, alpha)
         drawBalloonBody(canvas, blob, cx, cy, alpha)
+        drawSticker(canvas, blob, cx, cy, alpha)
         drawFrozenOverlay(canvas, blob, cx, cy, alpha)
         drawShieldAura(canvas, blob, cx, cy, alpha)
         drawSpeedBadge(canvas, blob, cx, cy, alpha)
@@ -977,6 +1009,19 @@ class GameView @JvmOverloads constructor(
             cx - blob.radius * 0.05f, cy - blob.radius * 0.15f,
             highlightPaint
         )
+        canvas.restore()
+    }
+
+    // Only ever drawn on the player's own balloon (see BalloonSticker) - bots always keep
+    // their plain look. Drawn upright (no rotation with facingDirection) so it reads as a
+    // sticker the player picked, not a directional indicator like the speed badge below.
+    private fun drawSticker(canvas: Canvas, blob: Blob, cx: Float, cy: Float, alpha: Int) {
+        if (selectedSticker == BalloonSticker.NONE || blob !== engine.player) return
+        stickerInkPaint.alpha = (235 * (alpha / 255f)).toInt().coerceIn(0, 255)
+        stickerDetailPaint.alpha = (200 * (alpha / 255f)).toInt().coerceIn(0, 255)
+        canvas.save()
+        canvas.translate(cx, cy)
+        selectedSticker.drawInto(canvas, stickerInkPaint, stickerDetailPaint, blob.radius * 0.5f)
         canvas.restore()
     }
 

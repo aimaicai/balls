@@ -84,6 +84,10 @@
     <string name="achievement_max_boost_desc">Tieni premuto lo scatto fino alla potenza massima.</string>
     <string name="achievement_max_size_title">Gigante dell\'Arena</string>
     <string name="achievement_max_size_desc">Raggiungi la dimensione massima del palloncino.</string>
+    <string name="achievement_combo_master_title">Reazione a Catena</string>
+    <string name="achievement_combo_master_desc">Ottieni una combo x3 o superiore in una singola partita.</string>
+    <string name="achievement_daily_dedication_title">Dedizione Quotidiana</string>
+    <string name="achievement_daily_dedication_desc">Completa la sfida del giorno per 3 giorni consecutivi.</string>
 
     <string name="game_feed_absorbed">%1$s ha inglobato %2$s</string>
     <string name="game_you_label">Tu</string>
@@ -147,6 +151,8 @@
     <string name="customize_title">Personalizza il tuo palloncino</string>
     <string name="customize_back">Indietro</string>
     <string name="customize_locked_hint">Si sblocca con: %1$s</string>
+    <string name="customize_color_section">Colore</string>
+    <string name="customize_sticker_section">Adesivo</string>
 
     <string name="color_sky_blue">Azzurro cielo</string>
     <string name="color_rose">Rosa</string>
@@ -156,6 +162,15 @@
     <string name="color_crimson">Cremisi</string>
     <string name="color_emerald">Smeraldo</string>
     <string name="color_midnight">Notte</string>
+
+    <string name="sticker_none">Nessuno</string>
+    <string name="sticker_star">Stella</string>
+    <string name="sticker_heart">Cuore</string>
+    <string name="sticker_crown">Corona</string>
+    <string name="sticker_skull">Teschio</string>
+    <string name="sticker_lightning">Fulmine</string>
+    <string name="sticker_fire">Fiamma</string>
+    <string name="sticker_spark">Scintilla</string>
 
     <string name="daily_challenge_format">Sfida del giorno: %1$s</string>
     <string name="daily_challenge_completed_format">✓ Sfida del giorno completata! Serie: %1$d</string>

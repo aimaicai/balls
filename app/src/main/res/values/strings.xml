@@ -84,6 +84,10 @@
     <string name="achievement_max_boost_desc">Hold the sprint until it reaches full power.</string>
     <string name="achievement_max_size_title">Arena Giant</string>
     <string name="achievement_max_size_desc">Reach the maximum balloon size.</string>
+    <string name="achievement_combo_master_title">Chain Reaction</string>
+    <string name="achievement_combo_master_desc">Land a x3 combo or better in a single match.</string>
+    <string name="achievement_daily_dedication_title">Daily Dedication</string>
+    <string name="achievement_daily_dedication_desc">Complete the daily challenge 3 days in a row.</string>
 
     <string name="game_feed_absorbed">%1$s absorbed %2$s</string>
     <string name="game_you_label">You</string>
@@ -147,6 +151,8 @@
     <string name="customize_title">Customize your balloon</string>
     <string name="customize_back">Back</string>
     <string name="customize_locked_hint">Unlock with: %1$s</string>
+    <string name="customize_color_section">Color</string>
+    <string name="customize_sticker_section">Sticker</string>
 
     <string name="color_sky_blue">Sky Blue</string>
     <string name="color_rose">Rose</string>
@@ -156,6 +162,15 @@
     <string name="color_crimson">Crimson</string>
     <string name="color_emerald">Emerald</string>
     <string name="color_midnight">Midnight</string>
+
+    <string name="sticker_none">None</string>
+    <string name="sticker_star">Star</string>
+    <string name="sticker_heart">Heart</string>
+    <string name="sticker_crown">Crown</string>
+    <string name="sticker_skull">Skull</string>
+    <string name="sticker_lightning">Lightning</string>
+    <string name="sticker_fire">Flame</string>
+    <string name="sticker_spark">Sparkle</string>
 
     <string name="daily_challenge_format">Daily challenge: %1$s</string>
     <string name="daily_challenge_completed_format">✓ Daily challenge completed! Streak: %1$d</string>

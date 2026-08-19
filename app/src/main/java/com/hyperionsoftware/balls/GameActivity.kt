@@ -11,8 +11,6 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import com.hyperionsoftware.balls.audio.BackgroundMusicPlayer
 import com.hyperionsoftware.balls.audio.MusicSettings
-import com.hyperionsoftware.balls.challenges.DailyChallenges
-import com.hyperionsoftware.balls.challenges.MatchResult
 import com.hyperionsoftware.balls.databinding.ActivityGameBinding
 import com.hyperionsoftware.balls.game.GameConfig
 import com.hyperionsoftware.balls.game.PowerUpType
@@ -101,10 +99,9 @@ class GameActivity : AppCompatActivity(), GameView.Callback {
         reachedFinalRound: Boolean
     ) {
         val score = HighScores.computeScore(playerWon, elapsedSeconds, opponentsAbsorbed, reachedFinalRound)
-        DailyChallenges.recordMatchResult(
-            this,
-            MatchResult(playerWon, finalRadius, opponentsAbsorbed, elapsedSeconds, reachedFinalRound)
-        )
+        // The daily challenge itself is already recorded by GameView's own onGameOver
+        // listener, which runs first and needs the streak up to date to check its
+        // DAILY_DEDICATION achievement - nothing left to do with it here.
 
         fun goToScores(highlightTimestamp: Long? = null) {
             startActivity(
