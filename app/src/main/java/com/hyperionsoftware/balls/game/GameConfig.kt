@@ -197,8 +197,25 @@ object GameConfig {
     // flash/freeze (see GameListener.onFinalRoundStarted).
     const val SAFE_ZONE_FINAL_START_RADIUS = 1000f
     const val SAFE_ZONE_FINAL_MIN_RADIUS = 600f
-    const val SAFE_ZONE_FINAL_SHRINK_SECONDS = 30f
+    private const val BASE_SAFE_ZONE_FINAL_SHRINK_SECONDS = 30f
+    var SAFE_ZONE_FINAL_SHRINK_SECONDS = BASE_SAFE_ZONE_FINAL_SHRINK_SECONDS
+        private set
     const val SAFE_ZONE_ABSOLUTE_MIN_RADIUS = 10f
+
+    // A separate, user-selectable knob from arena size: how fast the safe zone closes in,
+    // independent of how big it starts. Levels 1-10, same shape as the bot aggressiveness
+    // slider - level 5 (the default) multiplies by exactly 1x, reproducing today's pacing
+    // exactly; lower levels stretch both shrink phases' durations out (slower closing),
+    // higher levels compress them (faster closing). Only the actively shrinking portions are
+    // affected - SAFE_ZONE_STAGE_HOLD_SECONDS (the pause between stages) is untouched, since
+    // this is about how fast the zone closes, not how long it waits before closing.
+    const val SAFE_ZONE_SHRINK_SPEED_MIN_LEVEL = 1
+    const val SAFE_ZONE_SHRINK_SPEED_MAX_LEVEL = 10
+    const val SAFE_ZONE_SHRINK_SPEED_DEFAULT_LEVEL = 5
+
+    fun safeZoneShrinkSpeedMultiplier(level: Int): Float =
+        level.coerceIn(SAFE_ZONE_SHRINK_SPEED_MIN_LEVEL, SAFE_ZONE_SHRINK_SPEED_MAX_LEVEL) /
+            SAFE_ZONE_SHRINK_SPEED_DEFAULT_LEVEL.toFloat()
 
     // Balloons always leak air, everywhere, all the time - there is no truly "safe" state
     // anymore, only "slower". Inside the zone the leak is a slow background attrition;
@@ -269,5 +286,14 @@ object GameConfig {
         WORLD_HEIGHT = BASE_WORLD_HEIGHT * size.scaleFactor
         SAFE_ZONE_INITIAL_RADIUS = BASE_SAFE_ZONE_INITIAL_RADIUS * size.scaleFactor
         SAFE_ZONE_STAGE_SHRINK_SECONDS = BASE_SAFE_ZONE_STAGE_SHRINK_SECONDS * size.scaleFactor
+    }
+
+    // Always called right after applyArenaSize (see GameEngine's init block), so it further
+    // stretches/compresses whatever that call just set - the two knobs compose independently
+    // of each other.
+    fun applyShrinkSpeed(level: Int) {
+        val multiplier = safeZoneShrinkSpeedMultiplier(level)
+        SAFE_ZONE_STAGE_SHRINK_SECONDS /= multiplier
+        SAFE_ZONE_FINAL_SHRINK_SECONDS = BASE_SAFE_ZONE_FINAL_SHRINK_SECONDS / multiplier
     }
 }

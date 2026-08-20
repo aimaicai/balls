@@ -13,6 +13,7 @@ object GameSettings {
     private const val KEY_POWERUP_FREQUENCY = "powerup_frequency"
     private const val KEY_ARENA_SIZE = "arena_size"
     private const val KEY_BOT_AGGRESSIVENESS = "bot_aggressiveness"
+    private const val KEY_SAFE_ZONE_SHRINK_SPEED = "safe_zone_shrink_speed"
     const val DEFAULT_BOT_COUNT = 100
 
     fun getBotCount(context: Context): Int =
@@ -58,6 +59,17 @@ object GameSettings {
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             .edit()
             .putInt(KEY_BOT_AGGRESSIVENESS, level)
+            .apply()
+    }
+
+    fun getSafeZoneShrinkSpeed(context: Context): Int =
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getInt(KEY_SAFE_ZONE_SHRINK_SPEED, GameConfig.SAFE_ZONE_SHRINK_SPEED_DEFAULT_LEVEL)
+
+    fun setSafeZoneShrinkSpeed(context: Context, level: Int) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putInt(KEY_SAFE_ZONE_SHRINK_SPEED, level)
             .apply()
     }
 }

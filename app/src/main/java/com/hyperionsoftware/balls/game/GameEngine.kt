@@ -58,13 +58,17 @@ class GameEngine(
     // How sharply bots notice threats/prey/power-ups, independent of botCount - see
     // BotBlob.decideDirection and GameConfig.botAggressivenessMultiplier.
     botAggressivenessLevel: Int = GameConfig.BOT_AGGRESSIVENESS_DEFAULT_LEVEL,
+    // How fast the safe zone closes in, independent of arena size - see
+    // GameConfig.applyShrinkSpeed.
+    safeZoneShrinkSpeedLevel: Int = GameConfig.SAFE_ZONE_SHRINK_SPEED_DEFAULT_LEVEL,
     private val listener: GameListener
 ) {
-    // Must run before any property below reads WORLD_WIDTH/HEIGHT or
-    // SAFE_ZONE_INITIAL_RADIUS, since Kotlin runs init blocks and property initializers
-    // in declaration order.
+    // Must run before any property below reads WORLD_WIDTH/HEIGHT, SAFE_ZONE_INITIAL_RADIUS,
+    // SAFE_ZONE_STAGE_SHRINK_SECONDS or SAFE_ZONE_FINAL_SHRINK_SECONDS, since Kotlin runs
+    // init blocks and property initializers in declaration order.
     init {
         GameConfig.applyArenaSize(arenaSize)
+        GameConfig.applyShrinkSpeed(safeZoneShrinkSpeedLevel)
     }
 
     val botAggressivenessMultiplier: Float = GameConfig.botAggressivenessMultiplier(botAggressivenessLevel)

@@ -98,6 +98,22 @@
                 android:max="3"
                 android:min="0" />
 
+            <TextView
+                android:id="@+id/safeZoneShrinkSpeedText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="20dp"
+                android:textColor="@color/hud_text"
+                android:textSize="18sp" />
+
+            <SeekBar
+                android:id="@+id/safeZoneShrinkSpeedSeekBar"
+                android:layout_width="280dp"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:max="10"
+                android:min="1" />
+
             <com.google.android.material.switchmaterial.SwitchMaterial
                 android:id="@+id/musicSwitch"
                 android:layout_width="wrap_content"

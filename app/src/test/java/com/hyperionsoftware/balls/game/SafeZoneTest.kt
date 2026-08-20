@@ -11,8 +11,16 @@ import org.junit.Test
 // GameConfig's comments on both constants).
 class SafeZoneTest {
 
-    private fun newEngine(skipToFinalRound: Boolean = false) =
-        GameEngine(botCount = 1, powerUpFrequencyLevel = 1, skipToFinalRound = skipToFinalRound, listener = TestGameListener())
+    private fun newEngine(
+        skipToFinalRound: Boolean = false,
+        safeZoneShrinkSpeedLevel: Int = GameConfig.SAFE_ZONE_SHRINK_SPEED_DEFAULT_LEVEL
+    ) = GameEngine(
+        botCount = 1,
+        powerUpFrequencyLevel = 1,
+        skipToFinalRound = skipToFinalRound,
+        safeZoneShrinkSpeedLevel = safeZoneShrinkSpeedLevel,
+        listener = TestGameListener()
+    )
 
     // Every blob needs to stay alive for these tests to keep advancing matchElapsed at all
     // (GameEngine.update becomes a no-op once the match ends). Shielding everyone on every
@@ -132,5 +140,42 @@ class SafeZoneTest {
         advance(engine, 200f, step = 2f)
         assertEquals(GameConfig.SAFE_ZONE_ABSOLUTE_MIN_RADIUS, engine.safeZoneRadius, 0.01f)
         assertFalse(engine.safeZoneRadius < 0f)
+    }
+
+    @Test
+    fun `the default shrink speed level reproduces the base shrink durations exactly`() {
+        newEngine(safeZoneShrinkSpeedLevel = GameConfig.SAFE_ZONE_SHRINK_SPEED_DEFAULT_LEVEL)
+        assertEquals(18f, GameConfig.SAFE_ZONE_STAGE_SHRINK_SECONDS, 0.001f)
+        assertEquals(30f, GameConfig.SAFE_ZONE_FINAL_SHRINK_SECONDS, 0.001f)
+    }
+
+    @Test
+    fun `the minimum shrink speed level makes both shrink phases 5x longer`() {
+        newEngine(safeZoneShrinkSpeedLevel = GameConfig.SAFE_ZONE_SHRINK_SPEED_MIN_LEVEL)
+        assertEquals(18f * 5f, GameConfig.SAFE_ZONE_STAGE_SHRINK_SECONDS, 0.01f)
+        assertEquals(30f * 5f, GameConfig.SAFE_ZONE_FINAL_SHRINK_SECONDS, 0.01f)
+    }
+
+    @Test
+    fun `the maximum shrink speed level makes both shrink phases half as long`() {
+        newEngine(safeZoneShrinkSpeedLevel = GameConfig.SAFE_ZONE_SHRINK_SPEED_MAX_LEVEL)
+        assertEquals(18f / 2f, GameConfig.SAFE_ZONE_STAGE_SHRINK_SECONDS, 0.01f)
+        assertEquals(30f / 2f, GameConfig.SAFE_ZONE_FINAL_SHRINK_SECONDS, 0.01f)
+    }
+
+    @Test
+    fun `a slower shrink speed level actually makes the zone shrink more slowly in practice`() {
+        val fastEngine = newEngine(safeZoneShrinkSpeedLevel = GameConfig.SAFE_ZONE_SHRINK_SPEED_MAX_LEVEL)
+        advance(fastEngine, GameConfig.SAFE_ZONE_STAGE_HOLD_SECONDS + 1f)
+        val fastRadius = fastEngine.safeZoneRadius
+
+        val slowEngine = newEngine(safeZoneShrinkSpeedLevel = GameConfig.SAFE_ZONE_SHRINK_SPEED_MIN_LEVEL)
+        advance(slowEngine, GameConfig.SAFE_ZONE_STAGE_HOLD_SECONDS + 1f)
+        val slowRadius = slowEngine.safeZoneRadius
+
+        assertTrue(
+            "The same 1 second into the shrink phase, the slower level should have shrunk less",
+            (GameConfig.SAFE_ZONE_INITIAL_RADIUS - slowRadius) < (GameConfig.SAFE_ZONE_INITIAL_RADIUS - fastRadius)
+        )
     }
 }

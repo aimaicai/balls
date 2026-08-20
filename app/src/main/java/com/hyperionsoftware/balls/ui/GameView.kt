@@ -330,7 +330,8 @@ class GameView @JvmOverloads constructor(
         powerUpFrequencyLevel: Int,
         arenaSize: GameConfig.ArenaSize = GameConfig.ArenaSize.NORMAL,
         skipToFinalRound: Boolean = false,
-        botAggressivenessLevel: Int = GameConfig.BOT_AGGRESSIVENESS_DEFAULT_LEVEL
+        botAggressivenessLevel: Int = GameConfig.BOT_AGGRESSIVENESS_DEFAULT_LEVEL,
+        safeZoneShrinkSpeedLevel: Int = GameConfig.SAFE_ZONE_SHRINK_SPEED_DEFAULT_LEVEL
     ) {
         if (started) return
         started = true
@@ -357,6 +358,7 @@ class GameView @JvmOverloads constructor(
             skipToFinalRound = skipToFinalRound,
             playerColor = CosmeticsSettings.getSelectedColor(context).colorInt,
             botAggressivenessLevel = botAggressivenessLevel,
+            safeZoneShrinkSpeedLevel = safeZoneShrinkSpeedLevel,
             listener = object : GameListener {
                 override fun onVibrate() {
                     vibrateBounce()
@@ -565,12 +567,13 @@ class GameView @JvmOverloads constructor(
         powerUpFrequencyLevel: Int,
         arenaSize: GameConfig.ArenaSize = GameConfig.ArenaSize.NORMAL,
         skipToFinalRound: Boolean = false,
-        botAggressivenessLevel: Int = GameConfig.BOT_AGGRESSIVENESS_DEFAULT_LEVEL
+        botAggressivenessLevel: Int = GameConfig.BOT_AGGRESSIVENESS_DEFAULT_LEVEL,
+        safeZoneShrinkSpeedLevel: Int = GameConfig.SAFE_ZONE_SHRINK_SPEED_DEFAULT_LEVEL
     ) {
         loopThread?.running = false
         loopThread?.join(500)
         started = false
-        startGame(botCount, powerUpFrequencyLevel, arenaSize, skipToFinalRound, botAggressivenessLevel)
+        startGame(botCount, powerUpFrequencyLevel, arenaSize, skipToFinalRound, botAggressivenessLevel, safeZoneShrinkSpeedLevel)
     }
 
     fun setBoosting(active: Boolean) {

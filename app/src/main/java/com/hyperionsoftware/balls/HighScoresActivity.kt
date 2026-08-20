@@ -97,6 +97,13 @@ class HighScoresActivity : AppCompatActivity() {
                         GameActivity.EXTRA_BOT_AGGRESSIVENESS,
                         intent.getIntExtra(GameActivity.EXTRA_BOT_AGGRESSIVENESS, GameConfig.BOT_AGGRESSIVENESS_DEFAULT_LEVEL)
                     )
+                    .putExtra(
+                        GameActivity.EXTRA_SAFE_ZONE_SHRINK_SPEED,
+                        intent.getIntExtra(
+                            GameActivity.EXTRA_SAFE_ZONE_SHRINK_SPEED,
+                            GameConfig.SAFE_ZONE_SHRINK_SPEED_DEFAULT_LEVEL
+                        )
+                    )
             )
             finish()
         }

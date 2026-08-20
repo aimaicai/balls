@@ -24,6 +24,7 @@ class OptionsActivity : AppCompatActivity() {
     private var powerUpFrequencyLevel = GameConfig.POWERUP_DEFAULT_FREQUENCY_LEVEL
     private var arenaSize = GameConfig.ArenaSize.NORMAL
     private var botAggressivenessLevel = GameConfig.BOT_AGGRESSIVENESS_DEFAULT_LEVEL
+    private var safeZoneShrinkSpeedLevel = GameConfig.SAFE_ZONE_SHRINK_SPEED_DEFAULT_LEVEL
     private val musicPlayer = BackgroundMusicPlayer()
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -35,6 +36,7 @@ class OptionsActivity : AppCompatActivity() {
         powerUpFrequencyLevel = GameSettings.getPowerUpFrequency(this)
         arenaSize = GameSettings.getArenaSize(this)
         botAggressivenessLevel = GameSettings.getBotAggressiveness(this)
+        safeZoneShrinkSpeedLevel = GameSettings.getSafeZoneShrinkSpeed(this)
 
         // android:min/android:max in the layout already bound each SeekBar to its range,
         // so progress IS the actual value directly (API 26+ semantics).
@@ -42,10 +44,12 @@ class OptionsActivity : AppCompatActivity() {
         binding.botAggressivenessSeekBar.progress = botAggressivenessLevel
         binding.powerUpSeekBar.progress = powerUpFrequencyLevel
         binding.arenaSizeSeekBar.progress = arenaSize.ordinal
+        binding.safeZoneShrinkSpeedSeekBar.progress = safeZoneShrinkSpeedLevel
         updateBotCountLabel()
         updateBotAggressivenessLabel()
         updatePowerUpLabel()
         updateArenaSizeLabel()
+        updateSafeZoneShrinkSpeedLabel()
 
         binding.botsSeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar, progress: Int, fromUser: Boolean) {
@@ -85,6 +89,17 @@ class OptionsActivity : AppCompatActivity() {
                 arenaSize = GameConfig.ArenaSize.entries[progress]
                 updateArenaSizeLabel()
                 GameSettings.setArenaSize(this@OptionsActivity, arenaSize)
+            }
+
+            override fun onStartTrackingTouch(seekBar: SeekBar) = Unit
+            override fun onStopTrackingTouch(seekBar: SeekBar) = Unit
+        })
+
+        binding.safeZoneShrinkSpeedSeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(seekBar: SeekBar, progress: Int, fromUser: Boolean) {
+                safeZoneShrinkSpeedLevel = progress
+                updateSafeZoneShrinkSpeedLabel()
+                GameSettings.setSafeZoneShrinkSpeed(this@OptionsActivity, safeZoneShrinkSpeedLevel)
             }
 
             override fun onStartTrackingTouch(seekBar: SeekBar) = Unit
@@ -153,5 +168,10 @@ class OptionsActivity : AppCompatActivity() {
             GameConfig.ArenaSize.HUGE -> R.string.arena_size_huge
         }
         binding.arenaSizeText.text = getString(R.string.menu_arena_label, getString(sizeLabelRes))
+    }
+
+    private fun updateSafeZoneShrinkSpeedLabel() {
+        binding.safeZoneShrinkSpeedText.text =
+            getString(R.string.menu_safe_zone_shrink_speed_label, safeZoneShrinkSpeedLevel)
     }
 }
