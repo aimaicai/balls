@@ -34,6 +34,8 @@ import com.hyperionsoftware.balls.game.GameListener
 import com.hyperionsoftware.balls.game.PowerUp
 import com.hyperionsoftware.balls.game.PowerUpType
 import com.hyperionsoftware.balls.game.Vector2
+import com.hyperionsoftware.balls.records.PersonalRecords
+import com.hyperionsoftware.balls.records.RecordType
 import com.hyperionsoftware.balls.score.HighScores
 import com.hyperionsoftware.balls.settings.CosmeticsSettings
 import kotlin.math.abs
@@ -131,6 +133,8 @@ class GameView @JvmOverloads constructor(
     // space like FloatingText) so it reads clearly regardless of where the player is.
     private class AchievementPopup(val text: String, var ttl: Float, val maxTtl: Float = ttl)
 
+    // Shared by achievement-unlocked toasts and "new record" toasts - both are just a brief
+    // centered banner, they only ever differ in wording (see showPopup).
     private val achievementPopups = mutableListOf<AchievementPopup>()
 
     // Per-match latches for achievements that would otherwise need checking every frame -
@@ -139,6 +143,17 @@ class GameView @JvmOverloads constructor(
     // doesn't need one of these: it's unlocked straight from onFinalRoundStarted instead.
     private var maxSizeAchievementChecked = false
     private var maxBoostAchievementChecked = false
+
+    // Personal-record tracking for this match. POPS and COMBO only ever change on their own
+    // discrete events (an absorb, a combo), so PersonalRecords.tryBeat is cheap to call
+    // straight from those listeners. SIZE changes every frame instead (GROWTH pickups, not
+    // just absorbing), so matchPeakSize tracks it locally and only ever writes through
+    // checkLiveRecord once - right when it first crosses the old record - to avoid hitting
+    // SharedPreferences every single frame while the balloon keeps growing after that; the
+    // true final peak still gets one last silent catch-up write in onGameOver.
+    private var matchPeakSize = 0
+    private var matchBestCombo = 0
+    private val announcedRecordsThisMatch = mutableSetOf<RecordType>()
 
     private val vibrator: Vibrator by lazy {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -340,6 +355,9 @@ class GameView @JvmOverloads constructor(
         achievementPopups.clear()
         maxSizeAchievementChecked = false
         maxBoostAchievementChecked = false
+        matchPeakSize = 0
+        matchBestCombo = 0
+        announcedRecordsThisMatch.clear()
         finalRoundTransitionActive = false
         finalRoundTransitionElapsed = 0f
         // Skip-to-final-round testing gets its own dramatic entrance the instant the
@@ -378,6 +396,7 @@ class GameView @JvmOverloads constructor(
                         vibrateAbsorb()
                         toneGenerator.startTone(ToneGenerator.TONE_PROP_ACK, 150)
                         unlockAchievement(Achievement.FIRST_ABSORB)
+                        checkLiveRecord(RecordType.POPS, engine.playerOpponentsAbsorbed)
                     }
                     addFeedEntry(
                         context.getString(R.string.game_feed_absorbed, blobLabel(absorberId), blobLabel(victimId))
@@ -399,6 +418,8 @@ class GameView @JvmOverloads constructor(
                         vibrateAbsorb()
                         toneGenerator.startTone(ToneGenerator.TONE_PROP_BEEP2, 200)
                         if (comboCount >= 3) unlockAchievement(Achievement.COMBO_MASTER)
+                        matchBestCombo = maxOf(matchBestCombo, comboCount)
+                        checkLiveRecord(RecordType.COMBO, matchBestCombo)
                     }
                 }
 
@@ -530,6 +551,18 @@ class GameView @JvmOverloads constructor(
                     if (DailyChallenges.streak(context) >= achievementDailyStreakTarget) {
                         unlockAchievement(Achievement.DAILY_DEDICATION)
                     }
+                    // Silent catch-ups, no popup: POPS/COMBO already announced live the
+                    // instant they crossed the old record (see checkLiveRecord), and the
+                    // render loop just stopped above so nothing would show a toast now
+                    // anyway. SIZE still needs one last write here since its own live check
+                    // stops touching storage right after its first announcement this match
+                    // (see matchPeakSize) - this makes sure the true final peak sticks even
+                    // if it kept growing afterward. LONGEST_MATCH/DAILY_STREAK/TOTAL_WINS are
+                    // only ever knowable at game over anyway, so they only ever update here.
+                    PersonalRecords.tryBeat(context, RecordType.SIZE, finalRadius.toInt())
+                    PersonalRecords.tryBeat(context, RecordType.LONGEST_MATCH, elapsedSeconds.toInt())
+                    PersonalRecords.tryBeat(context, RecordType.DAILY_STREAK, DailyChallenges.streak(context))
+                    if (playerWon) PersonalRecords.incrementTotalWins(context)
                     post {
                         callback?.onGameOver(
                             playerWon, finalRadius.toInt(), playersRemaining, opponentsAbsorbed,
@@ -650,14 +683,30 @@ class GameView @JvmOverloads constructor(
         if (feedEntries.size > 5) feedEntries.removeAt(0)
     }
 
+    private fun showPopup(text: String) {
+        achievementPopups.add(AchievementPopup(text, 3f))
+    }
+
     // Unlocks are idempotent (Achievements.unlock only returns true the first time ever),
     // so every call site can fire unconditionally without checking isUnlocked itself.
     private fun unlockAchievement(achievement: Achievement) {
         if (Achievements.unlock(context, achievement)) {
-            achievementPopups.add(
-                AchievementPopup(
-                    context.getString(R.string.achievement_unlocked_format, context.getString(achievement.titleResId)),
-                    3f
+            showPopup(context.getString(R.string.achievement_unlocked_format, context.getString(achievement.titleResId)))
+        }
+    }
+
+    // Raises the stored personal best for `type` if `value` beats it, and - the first time
+    // that happens in a given match - shows a little "NEW RECORD!" toast for it. Safe to call
+    // as often as the stat changes: once a match has already announced a type, tryBeat still
+    // keeps quietly raising the stored value further (see matchPeakSize/matchBestCombo) but
+    // never pops a second toast for it.
+    private fun checkLiveRecord(type: RecordType, value: Int) {
+        if (PersonalRecords.tryBeat(context, type, value) && announcedRecordsThisMatch.add(type)) {
+            showPopup(
+                context.getString(
+                    R.string.record_broken_format,
+                    context.getString(type.titleResId),
+                    PersonalRecords.formatValue(context, type, value)
                 )
             )
         }
@@ -674,6 +723,12 @@ class GameView @JvmOverloads constructor(
         if (!maxBoostAchievementChecked && player.isBoostAtMaxPower) {
             maxBoostAchievementChecked = true
             unlockAchievement(Achievement.MAX_BOOST)
+        }
+        // Size can grow from a GROWTH pickup too, not just absorbing, so this needs its own
+        // per-frame check rather than living in onAbsorb like the POPS/COMBO records do.
+        if (RecordType.SIZE !in announcedRecordsThisMatch) {
+            matchPeakSize = maxOf(matchPeakSize, player.radius.toInt())
+            checkLiveRecord(RecordType.SIZE, matchPeakSize)
         }
     }
 
@@ -1383,7 +1438,7 @@ class GameView @JvmOverloads constructor(
             context.getString(R.string.game_hud_size_format, player.radius.toInt()), 24f, 56f, hudTextPaint
         )
         canvas.drawText(
-            context.getString(R.string.game_hud_kills_format, engine.playerOpponentsAbsorbed), 24f, 90f, hudTextPaint
+            context.getString(R.string.game_hud_pops_format, engine.playerOpponentsAbsorbed), 24f, 90f, hudTextPaint
         )
 
         val playersText = context.getString(R.string.game_hud_players_format, engine.aliveCount())

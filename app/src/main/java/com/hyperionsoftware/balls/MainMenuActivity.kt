@@ -50,6 +50,9 @@ class MainMenuActivity : AppCompatActivity() {
         binding.achievementsButton.setOnClickListener {
             startActivity(Intent(this, AchievementsActivity::class.java))
         }
+        binding.recordsButton.setOnClickListener {
+            startActivity(Intent(this, RecordsActivity::class.java))
+        }
         binding.optionsButton.setOnClickListener {
             startActivity(Intent(this, OptionsActivity::class.java))
         }

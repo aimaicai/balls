@@ -47,6 +47,12 @@
             android:theme="@style/Theme.Balls" />
 
         <activity
+            android:name=".RecordsActivity"
+            android:exported="false"
+            android:screenOrientation="portrait"
+            android:theme="@style/Theme.Balls" />
+
+        <activity
             android:name=".OptionsActivity"
             android:exported="false"
             android:screenOrientation="portrait"
