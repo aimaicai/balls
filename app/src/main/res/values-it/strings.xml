@@ -47,6 +47,8 @@
     <string name="high_scores_enter_initials">Nuovo record! Inserisci le tue iniziali</string>
     <string name="high_scores_confirm">OK</string>
     <string name="high_scores_new_record">★ NUOVO RECORD! ★</string>
+    <string name="high_scores_match_stats_format">Durata %1$s  •  Assorbimenti %2$d  •  Dimensione %3$d</string>
+    <string name="high_scores_reached_final_round">Round finale raggiunto!</string>
 
     <string name="menu_achievements">Obiettivi</string>
     <string name="achievements_title">Obiettivi</string>
@@ -58,7 +60,7 @@
     <string name="records_title">Record Personali</string>
     <string name="records_back">Indietro</string>
     <string name="record_broken_format">NUOVO RECORD! %1$s: %2$s</string>
-    <string name="record_pops_title">Più scoppi in una partita</string>
+    <string name="record_absorptions_title">Più assorbimenti in una partita</string>
     <string name="record_combo_title">Combo più grande</string>
     <string name="record_size_title">Palloncino più grande</string>
     <string name="record_longest_match_title">Partita più lunga sopravvissuta</string>
@@ -103,7 +105,7 @@
     <string name="achievement_daily_dedication_title">Dedizione Quotidiana</string>
     <string name="achievement_daily_dedication_desc">Completa la sfida del giorno per 3 giorni consecutivi.</string>
 
-    <string name="game_feed_absorbed">%1$s ha fatto scoppiare %2$s</string>
+    <string name="game_feed_absorbed">%1$s ha assorbito %2$s</string>
     <string name="game_you_label">Tu</string>
     <string name="game_bot_label_format">Bot %1$d</string>
 
@@ -129,7 +131,7 @@
     <string name="game_combo">COMBO x%1$d!</string>
 
     <string name="game_hud_size_format">Dimensione: %1$d</string>
-    <string name="game_hud_pops_format">Scoppi: %1$d</string>
+    <string name="game_hud_absorptions_format">Assorbimenti: %1$d</string>
     <string name="game_hud_players_format">Giocatori: %1$d</string>
     <string name="game_hud_zone_format">Zona: %1$d%%</string>
     <string name="game_hud_score_format">Punteggio: %1$d</string>
@@ -160,7 +162,7 @@
     <string name="tutorial_finalround_title">Il finale</string>
     <string name="tutorial_finalround_body">Quando il restringimento normale finisce, inizia la sfida finale: la zona continua a stringersi senza mai fermarsi. Crescere o prendere l\'Agilità è il modo migliore per starle dietro.</string>
     <string name="tutorial_score_title">Punteggio</string>
-    <string name="tutorial_score_body">Punteggio, scoppi e piazzamento finale compaiono in tempo reale nell\'HUD durante la partita, e finiscono dritti in classifica quando finisce.</string>
+    <string name="tutorial_score_body">Punteggio, assorbimenti e piazzamento finale compaiono in tempo reale nell\'HUD durante la partita, e finiscono dritti in classifica quando finisce.</string>
 
     <string name="customize_title">Personalizza il tuo palloncino</string>
     <string name="customize_back">Indietro</string>

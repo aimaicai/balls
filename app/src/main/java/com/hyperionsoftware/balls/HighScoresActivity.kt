@@ -12,9 +12,10 @@ import com.hyperionsoftware.balls.game.GameConfig
 import com.hyperionsoftware.balls.score.HighScores
 
 // Old-school arcade cabinet style on purpose: just rank, three-letter initials and score,
-// monospace on the app's own dark/amber palette - no dates, no match stats, nothing else.
-// Shown directly at the end of a match (see GameActivity.onGameOver) instead of behind a
-// button, with that match's result and a "play again" shortcut when arriving that way.
+// monospace on the app's own dark/amber palette. Shown directly at the end of a match (see
+// GameActivity.onGameOver) instead of behind a button, with that match's result, a small
+// secondary line of stats (duration/absorptions/size - see matchStatsText) and a "play
+// again" shortcut when arriving that way.
 class HighScoresActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityHighScoresBinding
@@ -79,6 +80,21 @@ class HighScoresActivity : AppCompatActivity() {
             score
         )
 
+        val elapsedSeconds = intent.getIntExtra(EXTRA_MATCH_ELAPSED_SECONDS, 0)
+        val durationText = "%02d:%02d".format(elapsedSeconds / 60, elapsedSeconds % 60)
+        val statsText = getString(
+            R.string.high_scores_match_stats_format,
+            durationText,
+            intent.getIntExtra(EXTRA_MATCH_ABSORBED, 0),
+            intent.getIntExtra(EXTRA_MATCH_FINAL_RADIUS, 0)
+        )
+        binding.matchStatsText.visibility = View.VISIBLE
+        binding.matchStatsText.text = if (intent.getBooleanExtra(EXTRA_MATCH_REACHED_FINAL_ROUND, false)) {
+            "$statsText  •  ${getString(R.string.high_scores_reached_final_round)}"
+        } else {
+            statsText
+        }
+
         binding.playAgainButton.visibility = View.VISIBLE
         binding.playAgainButton.setOnClickListener {
             startActivity(
@@ -125,6 +141,10 @@ class HighScoresActivity : AppCompatActivity() {
     companion object {
         const val EXTRA_MATCH_WON = "extra_match_won"
         const val EXTRA_MATCH_SCORE = "extra_match_score"
+        const val EXTRA_MATCH_FINAL_RADIUS = "extra_match_final_radius"
+        const val EXTRA_MATCH_ABSORBED = "extra_match_absorbed"
+        const val EXTRA_MATCH_ELAPSED_SECONDS = "extra_match_elapsed_seconds"
+        const val EXTRA_MATCH_REACHED_FINAL_ROUND = "extra_match_reached_final_round"
         const val EXTRA_HIGHLIGHT_TIMESTAMP = "extra_highlight_timestamp"
         private const val DEFAULT_BOTS = 100
     }

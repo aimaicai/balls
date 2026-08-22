@@ -8,7 +8,7 @@ import com.hyperionsoftware.balls.R
 // set a personal best here for a single stat). Each entry is its own simple running maximum,
 // persisted independently of everything else.
 enum class RecordType(val titleResId: Int) {
-    POPS(R.string.record_pops_title),
+    ABSORPTIONS(R.string.record_absorptions_title),
     COMBO(R.string.record_combo_title),
     SIZE(R.string.record_size_title),
     LONGEST_MATCH(R.string.record_longest_match_title),
@@ -46,7 +46,7 @@ object PersonalRecords {
         RecordType.COMBO -> if (value == 0) "-" else context.getString(R.string.record_value_combo_format, value)
         RecordType.LONGEST_MATCH -> "%02d:%02d".format(value / 60, value % 60)
         RecordType.DAILY_STREAK -> context.getString(R.string.record_value_days_format, value)
-        RecordType.POPS, RecordType.SIZE, RecordType.TOTAL_WINS -> value.toString()
+        RecordType.ABSORPTIONS, RecordType.SIZE, RecordType.TOTAL_WINS -> value.toString()
     }
 
     private fun prefs(context: Context) = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)

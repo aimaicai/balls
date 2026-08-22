@@ -47,6 +47,8 @@
     <string name="high_scores_enter_initials">New record! Enter your initials</string>
     <string name="high_scores_confirm">OK</string>
     <string name="high_scores_new_record">★ NEW RECORD! ★</string>
+    <string name="high_scores_match_stats_format">Duration %1$s  •  Absorptions %2$d  •  Size %3$d</string>
+    <string name="high_scores_reached_final_round">Reached the final round!</string>
 
     <string name="menu_achievements">Achievements</string>
     <string name="achievements_title">Achievements</string>
@@ -58,7 +60,7 @@
     <string name="records_title">Personal Records</string>
     <string name="records_back">Back</string>
     <string name="record_broken_format">NEW RECORD! %1$s: %2$s</string>
-    <string name="record_pops_title">Most pops in a match</string>
+    <string name="record_absorptions_title">Most absorptions in a match</string>
     <string name="record_combo_title">Biggest combo</string>
     <string name="record_size_title">Biggest balloon</string>
     <string name="record_longest_match_title">Longest match survived</string>
@@ -103,7 +105,7 @@
     <string name="achievement_daily_dedication_title">Daily Dedication</string>
     <string name="achievement_daily_dedication_desc">Complete the daily challenge 3 days in a row.</string>
 
-    <string name="game_feed_absorbed">%1$s popped %2$s</string>
+    <string name="game_feed_absorbed">%1$s absorbed %2$s</string>
     <string name="game_you_label">You</string>
     <string name="game_bot_label_format">Bot %1$d</string>
 
@@ -129,7 +131,7 @@
     <string name="game_combo">COMBO x%1$d!</string>
 
     <string name="game_hud_size_format">Size: %1$d</string>
-    <string name="game_hud_pops_format">Pops: %1$d</string>
+    <string name="game_hud_absorptions_format">Absorptions: %1$d</string>
     <string name="game_hud_players_format">Players: %1$d</string>
     <string name="game_hud_zone_format">Zone: %1$d%%</string>
     <string name="game_hud_score_format">Score: %1$d</string>
@@ -160,7 +162,7 @@
     <string name="tutorial_finalround_title">Final round</string>
     <string name="tutorial_finalround_body">Once the normal shrink finishes, the final round begins: the zone keeps closing in without ever stopping. Growing bigger or grabbing Agility is your best way to keep up with it.</string>
     <string name="tutorial_score_title">Score</string>
-    <string name="tutorial_score_body">Your score, pops and final placement all show up live on the HUD during a match, and feed straight into the leaderboard when it ends.</string>
+    <string name="tutorial_score_body">Your score, absorptions and final placement all show up live on the HUD during a match, and feed straight into the leaderboard when it ends.</string>
 
     <string name="customize_title">Customize your balloon</string>
     <string name="customize_back">Back</string>

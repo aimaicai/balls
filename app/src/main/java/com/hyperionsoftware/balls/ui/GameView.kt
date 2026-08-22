@@ -396,7 +396,7 @@ class GameView @JvmOverloads constructor(
                         vibrateAbsorb()
                         toneGenerator.startTone(ToneGenerator.TONE_PROP_ACK, 150)
                         unlockAchievement(Achievement.FIRST_ABSORB)
-                        checkLiveRecord(RecordType.POPS, engine.playerOpponentsAbsorbed)
+                        checkLiveRecord(RecordType.ABSORPTIONS, engine.playerOpponentsAbsorbed)
                     }
                     addFeedEntry(
                         context.getString(R.string.game_feed_absorbed, blobLabel(absorberId), blobLabel(victimId))
@@ -1438,7 +1438,7 @@ class GameView @JvmOverloads constructor(
             context.getString(R.string.game_hud_size_format, player.radius.toInt()), 24f, 56f, hudTextPaint
         )
         canvas.drawText(
-            context.getString(R.string.game_hud_pops_format, engine.playerOpponentsAbsorbed), 24f, 90f, hudTextPaint
+            context.getString(R.string.game_hud_absorptions_format, engine.playerOpponentsAbsorbed), 24f, 90f, hudTextPaint
         )
 
         val playersText = context.getString(R.string.game_hud_players_format, engine.aliveCount())
