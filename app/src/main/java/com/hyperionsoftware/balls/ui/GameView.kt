@@ -75,6 +75,17 @@ class GameView @JvmOverloads constructor(
     private var started = false
     private var lastBoostAvailable = false
     private var lastCarriedItemType: PowerUpType? = null
+
+    // Set from the UI thread when the active-item button is tapped, consumed only by
+    // GameThread at the top of its next tick. Calling engine.activateCarriedItem straight
+    // from the click listener used to reach across threads into GameEngine's mutable
+    // collections (blobs, powerUps) and this view's own render-side lists (floatingTexts,
+    // effectRipples) while GameThread could be iterating or mutating those same lists on its
+    // own loop, which showed up as a rare ConcurrentModificationException crash. Every other
+    // player input (steering, boosting) already only ever writes a single field for the loop
+    // to read next tick - this follows the same rule instead of calling into the engine directly.
+    @Volatile
+    private var activeItemRequested = false
     private var botNames: List<String> = emptyList()
 
     // Read once per match start, same as the player's chosen color - purely cosmetic, drawn
@@ -115,10 +126,20 @@ class GameView @JvmOverloads constructor(
     // instead of only mattering when they happen on screen.
     private val feedEntries = mutableListOf<FeedEntry>()
 
-    private class EffectRipple(val x: Float, val y: Float, val maxRadius: Float, val ringColor: Int, var ttl: Float, val maxTtl: Float = ttl)
+    private class EffectRipple(
+        val x: Float,
+        val y: Float,
+        val maxRadius: Float,
+        val ringColor: Int,
+        var ttl: Float,
+        val maxTtl: Float = ttl,
+        val inward: Boolean = false
+    )
 
-    // An expanding ring wherever a carried item (REPEL/FREEZE) gets used, so the burst
-    // reads clearly even though it only affects things for an instant.
+    // An expanding ring wherever a carried item (REPEL/FREEZE) gets used, so the burst reads
+    // clearly even though it only affects things for an instant. HOOK's ring runs the other
+    // way (inward = true): it collapses from its reach down to the center, echoing the pull
+    // instead of a push.
     private val effectRipples = mutableListOf<EffectRipple>()
 
     // The victim otherwise just vanishes the instant it dies (Blob.alive flips off and the
@@ -505,7 +526,7 @@ class GameView @JvmOverloads constructor(
                         else -> null
                     }
                     if (rippleRadius != null) {
-                        effectRipples.add(EffectRipple(x, y, rippleRadius, color, 0.5f))
+                        effectRipples.add(EffectRipple(x, y, rippleRadius, color, 0.5f, inward = type == PowerUpType.HOOK))
                     }
                     if (byPlayer) {
                         vibratePowerUp()
@@ -642,11 +663,12 @@ class GameView @JvmOverloads constructor(
         }
     }
 
-    // Spends whatever the player is currently carrying (REPEL or FREEZE), if anything.
-    // A no-op if the slot is empty.
+    // Spends whatever the player is currently carrying, if anything - a no-op if the slot is
+    // empty. Only records the request here; GameThread is the one that actually calls into
+    // the engine, since this is invoked from the UI thread (the button's click listener).
     fun useActiveItem() {
         if (started) {
-            engine.activateCarriedItem(engine.player)
+            activeItemRequested = true
         }
     }
 
@@ -831,6 +853,11 @@ class GameView @JvmOverloads constructor(
                 var dt = (now - lastTime) / 1_000_000_000f
                 lastTime = now
                 dt = min(dt, 0.05f)
+
+                if (activeItemRequested) {
+                    activeItemRequested = false
+                    engine.activateCarriedItem(engine.player)
+                }
 
                 if (countdownActive) {
                     countdownRemaining -= dt
@@ -1029,10 +1056,11 @@ class GameView @JvmOverloads constructor(
             val progress = 1f - (ripple.ttl / ripple.maxTtl)
             ripplePaint.color = ripple.ringColor
             ripplePaint.alpha = (255 * (1f - progress)).toInt().coerceIn(0, 255)
+            val radiusProgress = if (ripple.inward) 1f - progress else progress
             canvas.drawCircle(
                 ripple.x + offsetX,
                 ripple.y + offsetY,
-                ripple.maxRadius * progress,
+                ripple.maxRadius * radiusProgress,
                 ripplePaint
             )
         }
