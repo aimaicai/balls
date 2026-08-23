@@ -69,6 +69,42 @@
                 android:layout_marginTop="8dp"
                 android:orientation="vertical" />
 
+            <TextView
+                android:id="@+id/cordSectionTitle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="24dp"
+                android:text="@string/customize_cord_section"
+                android:textColor="@color/hud_text"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:alpha="0.85" />
+
+            <LinearLayout
+                android:id="@+id/cordGrid"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:orientation="vertical" />
+
+            <TextView
+                android:id="@+id/exhaustSectionTitle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="24dp"
+                android:text="@string/customize_exhaust_section"
+                android:textColor="@color/hud_text"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:alpha="0.85" />
+
+            <LinearLayout
+                android:id="@+id/exhaustGrid"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:orientation="vertical" />
+
         </LinearLayout>
 
     </ScrollView>

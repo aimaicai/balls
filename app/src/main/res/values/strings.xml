@@ -169,6 +169,8 @@
     <string name="customize_locked_hint">Unlock with: %1$s</string>
     <string name="customize_color_section">Color</string>
     <string name="customize_sticker_section">Sticker</string>
+    <string name="customize_cord_section">String</string>
+    <string name="customize_exhaust_section">Exhaust</string>
 
     <string name="color_sky_blue">Sky Blue</string>
     <string name="color_rose">Rose</string>
@@ -187,6 +189,19 @@
     <string name="sticker_lightning">Lightning</string>
     <string name="sticker_fire">Flame</string>
     <string name="sticker_spark">Sparkle</string>
+
+    <string name="cord_classic_grey">Classic Grey</string>
+    <string name="cord_midnight_black">Midnight Black</string>
+    <string name="cord_golden">Golden</string>
+    <string name="cord_crimson">Crimson</string>
+    <string name="cord_emerald">Emerald</string>
+    <string name="cord_electric_purple">Electric Purple</string>
+
+    <string name="exhaust_classic">Classic</string>
+    <string name="exhaust_bubbles">Bubbles</string>
+    <string name="exhaust_stardust">Stardust</string>
+    <string name="exhaust_hearts">Hearts</string>
+    <string name="exhaust_clouds">Clouds</string>
 
     <string name="daily_challenge_format">Daily challenge: %1$s</string>
     <string name="daily_challenge_completed_format">✓ Daily challenge completed! Streak: %1$d</string>

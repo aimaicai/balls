@@ -26,7 +26,9 @@ import com.hyperionsoftware.balls.achievements.Achievement
 import com.hyperionsoftware.balls.achievements.Achievements
 import com.hyperionsoftware.balls.challenges.DailyChallenges
 import com.hyperionsoftware.balls.challenges.MatchResult
+import com.hyperionsoftware.balls.cosmetics.BalloonCord
 import com.hyperionsoftware.balls.cosmetics.BalloonSticker
+import com.hyperionsoftware.balls.cosmetics.ExhaustStyle
 import com.hyperionsoftware.balls.game.Blob
 import com.hyperionsoftware.balls.game.GameConfig
 import com.hyperionsoftware.balls.game.GameEngine
@@ -74,8 +76,11 @@ class GameView @JvmOverloads constructor(
     private var botNames: List<String> = emptyList()
 
     // Read once per match start, same as the player's chosen color - purely cosmetic, drawn
-    // only on the player's own balloon (see drawSticker), never threaded through GameEngine.
+    // only on the player's own balloon (see drawSticker/drawString/drawExhaust), never
+    // threaded through GameEngine.
     private var selectedSticker: BalloonSticker = BalloonSticker.NONE
+    private var selectedCord: BalloonCord = BalloonCord.CLASSIC_GREY
+    private var selectedExhaustStyle: ExhaustStyle = ExhaustStyle.CLASSIC
 
     private val achievementAbsorbStreakTarget = 5
     private val achievementDailyStreakTarget = 3
@@ -369,6 +374,8 @@ class GameView @JvmOverloads constructor(
         lastCarriedItemType = null
         botNames = BotNames.generate(botCount)
         selectedSticker = CosmeticsSettings.getSelectedSticker(context)
+        selectedCord = CosmeticsSettings.getSelectedCord(context)
+        selectedExhaustStyle = CosmeticsSettings.getSelectedExhaustStyle(context)
         engine = GameEngine(
             botCount = botCount,
             powerUpFrequencyLevel = powerUpFrequencyLevel,
@@ -1139,7 +1146,9 @@ class GameView @JvmOverloads constructor(
     }
 
     private fun drawString(canvas: Canvas, blob: Blob, cx: Float, cy: Float, alpha: Int) {
-        // A thin string dangling from the knot, swaying gently, for balloon realism.
+        // A thin string dangling from the knot, swaying gently, for balloon realism. Only
+        // the player's own string can be recolored (see BalloonCord) - bots always keep the
+        // original plain grey.
         val back = blob.facingDirection * -1f
         val edgeRadius = blob.radius * balloonStretch
         val knotSize = blob.radius * 0.22f
@@ -1148,6 +1157,7 @@ class GameView @JvmOverloads constructor(
         val length = blob.radius * 0.9f
         val sway = sin(blob.exhaustPhase * 2.3f) * blob.radius * 0.15f
 
+        stringPaint.color = if (blob === engine.player) selectedCord.colorInt else BalloonCord.CLASSIC_GREY.colorInt
         stringPaint.alpha = (alpha * 0.6f).toInt()
         val path = Path().apply {
             moveTo(startX, startY)
@@ -1163,7 +1173,9 @@ class GameView @JvmOverloads constructor(
     // wobbles side to side on its own phase (a multiple of exhaustPhase, offset per puff)
     // so the trail curls like real smoke instead of holding a rigid wedge shape. Fixed
     // count and pure math, no per-frame allocation, since this runs for every blob, every
-    // frame, in matches with 100+ bots.
+    // frame, in matches with 100+ bots - only the player's own puffs ever use a non-default
+    // ExhaustStyle (see selectedExhaustStyle), so that shape's own drawPuff is the only one
+    // that can allocate anything, and only once per player frame, not per bot.
     private fun drawExhaust(canvas: Canvas, blob: Blob, cx: Float, cy: Float, alpha: Int) {
         if (!blob.isThrusting && !blob.isBoosting) return
 
@@ -1179,6 +1191,7 @@ class GameView @JvmOverloads constructor(
         val edgeRadius = blob.radius * balloonStretch
         val trailLength = blob.radius * (1.4f + 0.5f * pulse) * intensity
         val baseAlphaFraction = if (boosting) 0.75f else 0.5f
+        val style = if (blob === engine.player) selectedExhaustStyle else ExhaustStyle.CLASSIC
 
         exhaustPaint.color = if (boosting) Color.parseColor("#FF7043") else Color.parseColor("#B3E5FC")
         for (i in 0 until exhaustPuffCount) {
@@ -1187,9 +1200,11 @@ class GameView @JvmOverloads constructor(
             val wobble = sin(blob.exhaustPhase * (5f + i * 2.1f) + i * 1.9f) * blob.radius * 0.22f * fraction
             val puffX = cx + back.x * distance + perpX * wobble
             val puffY = cy + back.y * distance + perpY * wobble
-            val puffRadius = (blob.radius * (0.45f - fraction * 0.24f) * intensity).coerceAtLeast(1f)
+            // Starts narrow right at the knot and billows outward with distance, like real
+            // exhaust dispersing, rather than the other way around.
+            val puffRadius = (blob.radius * (0.21f + fraction * 0.24f) * intensity).coerceAtLeast(1f)
             exhaustPaint.alpha = (alpha * baseAlphaFraction * pulse * (1f - fraction * 0.7f)).toInt().coerceIn(0, 255)
-            canvas.drawCircle(puffX, puffY, puffRadius, exhaustPaint)
+            style.drawPuff(canvas, exhaustPaint, puffX, puffY, puffRadius)
         }
     }
 

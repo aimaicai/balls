@@ -169,6 +169,8 @@
     <string name="customize_locked_hint">Si sblocca con: %1$s</string>
     <string name="customize_color_section">Colore</string>
     <string name="customize_sticker_section">Adesivo</string>
+    <string name="customize_cord_section">Filo</string>
+    <string name="customize_exhaust_section">Scia</string>
 
     <string name="color_sky_blue">Azzurro cielo</string>
     <string name="color_rose">Rosa</string>
@@ -187,6 +189,19 @@
     <string name="sticker_lightning">Fulmine</string>
     <string name="sticker_fire">Fiamma</string>
     <string name="sticker_spark">Scintilla</string>
+
+    <string name="cord_classic_grey">Grigio classico</string>
+    <string name="cord_midnight_black">Nero notte</string>
+    <string name="cord_golden">Dorato</string>
+    <string name="cord_crimson">Cremisi</string>
+    <string name="cord_emerald">Smeraldo</string>
+    <string name="cord_electric_purple">Viola elettrico</string>
+
+    <string name="exhaust_classic">Classica</string>
+    <string name="exhaust_bubbles">Bolle</string>
+    <string name="exhaust_stardust">Polvere di stelle</string>
+    <string name="exhaust_hearts">Cuoricini</string>
+    <string name="exhaust_clouds">Nuvole</string>
 
     <string name="daily_challenge_format">Sfida del giorno: %1$s</string>
     <string name="daily_challenge_completed_format">✓ Sfida del giorno completata! Serie: %1$d</string>
