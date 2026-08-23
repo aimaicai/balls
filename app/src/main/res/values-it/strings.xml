@@ -49,6 +49,7 @@
     <string name="high_scores_new_record">★ NUOVO RECORD! ★</string>
     <string name="high_scores_match_stats_format">Durata %1$s  •  Assorbimenti %2$d  •  Dimensione %3$d</string>
     <string name="high_scores_reached_final_round">Round finale raggiunto!</string>
+    <string name="high_scores_helium_earned_format">+%1$d Elio</string>
 
     <string name="menu_achievements">Obiettivi</string>
     <string name="achievements_title">Obiettivi</string>
@@ -104,6 +105,8 @@
     <string name="achievement_combo_master_desc">Ottieni una combo x3 o superiore in una singola partita.</string>
     <string name="achievement_daily_dedication_title">Dedizione Quotidiana</string>
     <string name="achievement_daily_dedication_desc">Completa la sfida del giorno per 3 giorni consecutivi.</string>
+    <string name="achievement_pacifist_victory_title">Pacifista</string>
+    <string name="achievement_pacifist_victory_desc">Vinci una partita senza mai assorbire un avversario.</string>
 
     <string name="game_feed_absorbed">%1$s ha assorbito %2$s</string>
     <string name="game_you_label">Tu</string>
@@ -171,6 +174,9 @@
     <string name="customize_sticker_section">Adesivo</string>
     <string name="customize_cord_section">Filo</string>
     <string name="customize_exhaust_section">Scia</string>
+    <string name="customize_helium_balance_format">Elio: %1$d</string>
+    <string name="customize_buy_for_helium_format">Compra per %1$d Elio</string>
+    <string name="customize_insufficient_helium">Elio insufficiente - continua a giocare per guadagnarne di più!</string>
 
     <string name="color_sky_blue">Azzurro cielo</string>
     <string name="color_rose">Rosa</string>

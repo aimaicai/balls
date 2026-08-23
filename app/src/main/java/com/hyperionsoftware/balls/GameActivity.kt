@@ -12,6 +12,8 @@ import androidx.appcompat.app.AppCompatActivity
 import com.hyperionsoftware.balls.audio.BackgroundMusicPlayer
 import com.hyperionsoftware.balls.audio.MusicSettings
 import com.hyperionsoftware.balls.databinding.ActivityGameBinding
+import com.hyperionsoftware.balls.economy.HeliumRewards
+import com.hyperionsoftware.balls.economy.Wallet
 import com.hyperionsoftware.balls.game.GameConfig
 import com.hyperionsoftware.balls.game.PowerUpType
 import com.hyperionsoftware.balls.score.HighScores
@@ -112,6 +114,9 @@ class GameActivity : AppCompatActivity(), GameView.Callback {
         // listener, which runs first and needs the streak up to date to check its
         // DAILY_DEDICATION achievement - nothing left to do with it here.
 
+        val heliumEarned = HeliumRewards.forMatch(playerWon, opponentsAbsorbed, elapsedSeconds, reachedFinalRound)
+        Wallet.add(this, heliumEarned)
+
         fun goToScores(highlightTimestamp: Long? = null) {
             startActivity(
                 Intent(this, HighScoresActivity::class.java)
@@ -121,6 +126,7 @@ class GameActivity : AppCompatActivity(), GameView.Callback {
                     .putExtra(HighScoresActivity.EXTRA_MATCH_ABSORBED, opponentsAbsorbed)
                     .putExtra(HighScoresActivity.EXTRA_MATCH_ELAPSED_SECONDS, elapsedSeconds)
                     .putExtra(HighScoresActivity.EXTRA_MATCH_REACHED_FINAL_ROUND, reachedFinalRound)
+                    .putExtra(HighScoresActivity.EXTRA_MATCH_HELIUM_EARNED, heliumEarned)
                     .putExtra(EXTRA_BOT_COUNT, botCount)
                     .putExtra(EXTRA_POWERUP_FREQUENCY, powerUpFrequencyLevel)
                     .putExtra(EXTRA_ARENA_SIZE, arenaSize.name)

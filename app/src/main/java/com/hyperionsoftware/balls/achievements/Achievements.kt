@@ -23,7 +23,8 @@ enum class Achievement(val titleResId: Int, val descriptionResId: Int) {
     MAX_BOOST(R.string.achievement_max_boost_title, R.string.achievement_max_boost_desc),
     MAX_SIZE(R.string.achievement_max_size_title, R.string.achievement_max_size_desc),
     COMBO_MASTER(R.string.achievement_combo_master_title, R.string.achievement_combo_master_desc),
-    DAILY_DEDICATION(R.string.achievement_daily_dedication_title, R.string.achievement_daily_dedication_desc)
+    DAILY_DEDICATION(R.string.achievement_daily_dedication_title, R.string.achievement_daily_dedication_desc),
+    PACIFIST_VICTORY(R.string.achievement_pacifist_victory_title, R.string.achievement_pacifist_victory_desc)
 }
 
 // Local unlock state, persisted via SharedPreferences as a simple delimited set of unlocked

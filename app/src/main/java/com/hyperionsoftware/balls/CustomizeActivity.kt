@@ -3,12 +3,14 @@ package com.hyperionsoftware.balls
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
+import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.view.Gravity
 import android.view.View
 import android.widget.LinearLayout
 import android.widget.TextView
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.hyperionsoftware.balls.achievements.Achievements
 import com.hyperionsoftware.balls.cosmetics.BalloonCord
@@ -16,13 +18,16 @@ import com.hyperionsoftware.balls.cosmetics.BalloonSticker
 import com.hyperionsoftware.balls.cosmetics.ExhaustStyle
 import com.hyperionsoftware.balls.cosmetics.PlayerColor
 import com.hyperionsoftware.balls.databinding.ActivityCustomizeBinding
+import com.hyperionsoftware.balls.economy.PurchasedCosmetics
+import com.hyperionsoftware.balls.economy.Wallet
 import com.hyperionsoftware.balls.settings.CosmeticsSettings
 import kotlin.math.min
 
 // Lets the player pick their own balloon's color, sticker, string color and exhaust style -
-// a few of each free from the start, the rest unlocked by achievements already worth chasing
-// for their own sake (see PlayerColor/BalloonSticker/BalloonCord/ExhaustStyle). Bots always
-// keep their own fixed look, none of this ever affects them.
+// a few of each free from the start, the rest unlocked either by achievements already worth
+// chasing for their own sake, or by spending Helium earned from playing (see
+// PlayerColor/BalloonSticker/BalloonCord/ExhaustStyle and economy.Wallet/PurchasedCosmetics).
+// Bots always keep their own fixed look, none of this ever affects them.
 class CustomizeActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityCustomizeBinding
@@ -40,6 +45,8 @@ class CustomizeActivity : AppCompatActivity() {
     // its rows - simpler and more predictable than android.widget.GridLayout's column-
     // weight quirks for something this small.
     private fun refreshGrid() {
+        binding.heliumBalanceText.text = getString(R.string.customize_helium_balance_format, Wallet.getBalance(this))
+
         binding.colorGrid.removeAllViews()
         val selectedColor = CosmeticsSettings.getSelectedColor(this)
         PlayerColor.entries.chunked(COLUMNS).forEach { rowColors ->
@@ -93,9 +100,38 @@ class CustomizeActivity : AppCompatActivity() {
         }
     }
 
+    // Shared by all four swatch functions: shows a "Buy for N Helium" affordance under a
+    // locked item that also has a Helium price, spending on tap and re-selecting the item
+    // the moment it's bought so the player doesn't need a second tap to try it out.
+    private fun purchaseAffordance(container: LinearLayout, key: String, costHelium: Int, select: () -> Unit) {
+        if (costHelium <= 0) return
+        container.addView(TextView(this).apply {
+            text = getString(R.string.customize_buy_for_helium_format, costHelium)
+            setTextColor(getColor(R.color.accent))
+            textSize = 11f
+            setTypeface(typeface, Typeface.BOLD)
+            gravity = Gravity.CENTER
+            setPadding(0, dp(4), 0, 0)
+            isClickable = true
+            isFocusable = true
+            setOnClickListener {
+                if (Wallet.spend(this@CustomizeActivity, costHelium)) {
+                    PurchasedCosmetics.markPurchased(this@CustomizeActivity, key)
+                    select()
+                    refreshGrid()
+                } else {
+                    Toast.makeText(this@CustomizeActivity, R.string.customize_insufficient_helium, Toast.LENGTH_SHORT).show()
+                }
+            }
+        })
+    }
+
     private fun swatchView(color: PlayerColor, isSelected: Boolean): View {
         val requiredAchievement = color.requiredAchievement
-        val unlocked = requiredAchievement == null || Achievements.isUnlocked(this, requiredAchievement)
+        val key = "color:${color.name}"
+        val unlocked = requiredAchievement == null ||
+            Achievements.isUnlocked(this, requiredAchievement) ||
+            PurchasedCosmetics.isPurchased(this, key)
 
         val container = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -133,6 +169,7 @@ class CustomizeActivity : AppCompatActivity() {
                 alpha = 0.55f
                 setPadding(0, dp(2), 0, 0)
             })
+            purchaseAffordance(container, key, color.costHelium) { CosmeticsSettings.setSelectedColor(this, color) }
         }
 
         if (unlocked) {
@@ -149,7 +186,10 @@ class CustomizeActivity : AppCompatActivity() {
 
     private fun stickerSwatchView(sticker: BalloonSticker, isSelected: Boolean): View {
         val requiredAchievement = sticker.requiredAchievement
-        val unlocked = requiredAchievement == null || Achievements.isUnlocked(this, requiredAchievement)
+        val key = "sticker:${sticker.name}"
+        val unlocked = requiredAchievement == null ||
+            Achievements.isUnlocked(this, requiredAchievement) ||
+            PurchasedCosmetics.isPurchased(this, key)
 
         val container = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -205,6 +245,7 @@ class CustomizeActivity : AppCompatActivity() {
                 alpha = 0.55f
                 setPadding(0, dp(2), 0, 0)
             })
+            purchaseAffordance(container, key, sticker.costHelium) { CosmeticsSettings.setSelectedSticker(this, sticker) }
         }
 
         if (unlocked) {
@@ -221,7 +262,10 @@ class CustomizeActivity : AppCompatActivity() {
 
     private fun cordSwatchView(cord: BalloonCord, isSelected: Boolean): View {
         val requiredAchievement = cord.requiredAchievement
-        val unlocked = requiredAchievement == null || Achievements.isUnlocked(this, requiredAchievement)
+        val key = "cord:${cord.name}"
+        val unlocked = requiredAchievement == null ||
+            Achievements.isUnlocked(this, requiredAchievement) ||
+            PurchasedCosmetics.isPurchased(this, key)
 
         val container = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -257,6 +301,7 @@ class CustomizeActivity : AppCompatActivity() {
                 alpha = 0.55f
                 setPadding(0, dp(2), 0, 0)
             })
+            purchaseAffordance(container, key, cord.costHelium) { CosmeticsSettings.setSelectedCord(this, cord) }
         }
 
         if (unlocked) {
@@ -273,7 +318,10 @@ class CustomizeActivity : AppCompatActivity() {
 
     private fun exhaustSwatchView(exhaustStyle: ExhaustStyle, isSelected: Boolean): View {
         val requiredAchievement = exhaustStyle.requiredAchievement
-        val unlocked = requiredAchievement == null || Achievements.isUnlocked(this, requiredAchievement)
+        val key = "exhaust:${exhaustStyle.name}"
+        val unlocked = requiredAchievement == null ||
+            Achievements.isUnlocked(this, requiredAchievement) ||
+            PurchasedCosmetics.isPurchased(this, key)
 
         val container = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -326,6 +374,9 @@ class CustomizeActivity : AppCompatActivity() {
                 alpha = 0.55f
                 setPadding(0, dp(2), 0, 0)
             })
+            purchaseAffordance(container, key, exhaustStyle.costHelium) {
+                CosmeticsSettings.setSelectedExhaustStyle(this, exhaustStyle)
+            }
         }
 
         if (unlocked) {

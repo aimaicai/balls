@@ -49,6 +49,7 @@
     <string name="high_scores_new_record">★ NEW RECORD! ★</string>
     <string name="high_scores_match_stats_format">Duration %1$s  •  Absorptions %2$d  •  Size %3$d</string>
     <string name="high_scores_reached_final_round">Reached the final round!</string>
+    <string name="high_scores_helium_earned_format">+%1$d Helium</string>
 
     <string name="menu_achievements">Achievements</string>
     <string name="achievements_title">Achievements</string>
@@ -104,6 +105,8 @@
     <string name="achievement_combo_master_desc">Land a x3 combo or better in a single match.</string>
     <string name="achievement_daily_dedication_title">Daily Dedication</string>
     <string name="achievement_daily_dedication_desc">Complete the daily challenge 3 days in a row.</string>
+    <string name="achievement_pacifist_victory_title">Pacifist</string>
+    <string name="achievement_pacifist_victory_desc">Win a match without ever absorbing an opponent.</string>
 
     <string name="game_feed_absorbed">%1$s absorbed %2$s</string>
     <string name="game_you_label">You</string>
@@ -171,6 +174,9 @@
     <string name="customize_sticker_section">Sticker</string>
     <string name="customize_cord_section">String</string>
     <string name="customize_exhaust_section">Exhaust</string>
+    <string name="customize_helium_balance_format">Helium: %1$d</string>
+    <string name="customize_buy_for_helium_format">Buy for %1$d Helium</string>
+    <string name="customize_insufficient_helium">Not enough Helium yet - keep playing to earn more!</string>
 
     <string name="color_sky_blue">Sky Blue</string>
     <string name="color_rose">Rose</string>

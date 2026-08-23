@@ -82,18 +82,23 @@ class HighScoresActivity : AppCompatActivity() {
 
         val elapsedSeconds = intent.getIntExtra(EXTRA_MATCH_ELAPSED_SECONDS, 0)
         val durationText = "%02d:%02d".format(elapsedSeconds / 60, elapsedSeconds % 60)
-        val statsText = getString(
-            R.string.high_scores_match_stats_format,
-            durationText,
-            intent.getIntExtra(EXTRA_MATCH_ABSORBED, 0),
-            intent.getIntExtra(EXTRA_MATCH_FINAL_RADIUS, 0)
+        val statsParts = mutableListOf(
+            getString(
+                R.string.high_scores_match_stats_format,
+                durationText,
+                intent.getIntExtra(EXTRA_MATCH_ABSORBED, 0),
+                intent.getIntExtra(EXTRA_MATCH_FINAL_RADIUS, 0)
+            )
         )
-        binding.matchStatsText.visibility = View.VISIBLE
-        binding.matchStatsText.text = if (intent.getBooleanExtra(EXTRA_MATCH_REACHED_FINAL_ROUND, false)) {
-            "$statsText  •  ${getString(R.string.high_scores_reached_final_round)}"
-        } else {
-            statsText
+        if (intent.getBooleanExtra(EXTRA_MATCH_REACHED_FINAL_ROUND, false)) {
+            statsParts.add(getString(R.string.high_scores_reached_final_round))
         }
+        val heliumEarned = intent.getIntExtra(EXTRA_MATCH_HELIUM_EARNED, 0)
+        if (heliumEarned > 0) {
+            statsParts.add(getString(R.string.high_scores_helium_earned_format, heliumEarned))
+        }
+        binding.matchStatsText.visibility = View.VISIBLE
+        binding.matchStatsText.text = statsParts.joinToString("  •  ")
 
         binding.playAgainButton.visibility = View.VISIBLE
         binding.playAgainButton.setOnClickListener {
@@ -145,6 +150,7 @@ class HighScoresActivity : AppCompatActivity() {
         const val EXTRA_MATCH_ABSORBED = "extra_match_absorbed"
         const val EXTRA_MATCH_ELAPSED_SECONDS = "extra_match_elapsed_seconds"
         const val EXTRA_MATCH_REACHED_FINAL_ROUND = "extra_match_reached_final_round"
+        const val EXTRA_MATCH_HELIUM_EARNED = "extra_match_helium_earned"
         const val EXTRA_HIGHLIGHT_TIMESTAMP = "extra_highlight_timestamp"
         private const val DEFAULT_BOTS = 100
     }

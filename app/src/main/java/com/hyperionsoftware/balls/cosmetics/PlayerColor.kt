@@ -8,16 +8,22 @@ import com.hyperionsoftware.balls.achievements.Achievement
 // their own fixed palette (see GameEngine's bot colors), so this never affects them. A few
 // are free from the start; the rest unlock through achievements already worth chasing for
 // their own sake, so picking a favorite becomes another small reward for playing instead of
-// a separate grind. Chosen to stay visually distinct from the bot palette, the power-up
-// colors, and the safe-zone/danger-indicator reds so the player's own balloon never gets
-// confused for any of those.
-enum class PlayerColor(val colorInt: Int, val labelResId: Int, val requiredAchievement: Achievement?) {
+// a separate grind - or can be bought outright with Helium (costHelium, 0 for the free ones)
+// via CustomizeActivity for anyone who'd rather not wait for the achievement. Chosen to stay
+// visually distinct from the bot palette, the power-up colors, and the safe-zone/danger-
+// indicator reds so the player's own balloon never gets confused for any of those.
+enum class PlayerColor(
+    val colorInt: Int,
+    val labelResId: Int,
+    val requiredAchievement: Achievement?,
+    val costHelium: Int = 0
+) {
     SKY_BLUE(Color.parseColor("#4FC3F7"), R.string.color_sky_blue, null), // the original, unchanged default
     ROSE(Color.parseColor("#F06292"), R.string.color_rose, null),
     SEAFOAM(Color.parseColor("#4DB6AC"), R.string.color_seafoam, null),
-    SUNSET(Color.parseColor("#FFA000"), R.string.color_sunset, Achievement.FIRST_WIN),
-    LAVENDER(Color.parseColor("#9575CD"), R.string.color_lavender, Achievement.FINAL_ROUND),
-    CRIMSON(Color.parseColor("#C62828"), R.string.color_crimson, Achievement.ABSORB_STREAK),
-    EMERALD(Color.parseColor("#2E7D32"), R.string.color_emerald, Achievement.MAX_SPEED_STAT),
-    MIDNIGHT(Color.parseColor("#303F9F"), R.string.color_midnight, Achievement.MAX_POTENCY_STAT)
+    SUNSET(Color.parseColor("#FFA000"), R.string.color_sunset, Achievement.FIRST_WIN, 150),
+    LAVENDER(Color.parseColor("#9575CD"), R.string.color_lavender, Achievement.FINAL_ROUND, 150),
+    CRIMSON(Color.parseColor("#C62828"), R.string.color_crimson, Achievement.ABSORB_STREAK, 150),
+    EMERALD(Color.parseColor("#2E7D32"), R.string.color_emerald, Achievement.MAX_SPEED_STAT, 150),
+    MIDNIGHT(Color.parseColor("#303F9F"), R.string.color_midnight, Achievement.MAX_POTENCY_STAT, 150)
 }

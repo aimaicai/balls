@@ -7,14 +7,16 @@ import com.hyperionsoftware.balls.R
 import com.hyperionsoftware.balls.achievements.Achievement
 
 // The shape of the player's own exhaust puffs (see GameView.drawExhaust) - purely cosmetic,
-// same unlock pattern as PlayerColor/BalloonSticker/BalloonCord. Bots always keep the
-// original plain circle puffs, this only ever affects the player's own trail.
-enum class ExhaustStyle(val labelResId: Int, val requiredAchievement: Achievement?) {
+// same unlock pattern as PlayerColor/BalloonSticker/BalloonCord: a couple free, the rest
+// behind achievements or buyable outright with Helium via costHelium (see CustomizeActivity).
+// Bots always keep the original plain circle puffs, this only ever affects the player's own
+// trail.
+enum class ExhaustStyle(val labelResId: Int, val requiredAchievement: Achievement?, val costHelium: Int = 0) {
     CLASSIC(R.string.exhaust_classic, null), // the original, unchanged default
     BUBBLES(R.string.exhaust_bubbles, null),
-    STARDUST(R.string.exhaust_stardust, Achievement.USE_SPEED),
-    HEARTS(R.string.exhaust_hearts, Achievement.USE_INVISIBILITY),
-    CLOUDS(R.string.exhaust_clouds, Achievement.MAX_SIZE);
+    STARDUST(R.string.exhaust_stardust, Achievement.USE_SPEED, 100),
+    HEARTS(R.string.exhaust_hearts, Achievement.USE_INVISIBILITY, 100),
+    CLOUDS(R.string.exhaust_clouds, Achievement.MAX_SIZE, 100);
 
     // Draws a single puff centered at (cx, cy) with the given color/alpha already set on
     // paint. Shared by the actual in-game exhaust trail and the CustomizeActivity preview

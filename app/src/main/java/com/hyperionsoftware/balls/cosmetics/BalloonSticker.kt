@@ -10,18 +10,19 @@ import kotlin.math.sin
 
 // A small decal drawn on top of the player's own balloon - purely cosmetic, same unlock
 // pattern as PlayerColor (a few free from the start, the rest behind achievements already
-// worth chasing). Never drawn upside down or skewed with the balloon's facing direction -
-// it's meant to read as a sticker the player picked, not a directional indicator. Bots never
-// wear one; this only ever affects the player's own balloon (see GameView.drawSticker).
-enum class BalloonSticker(val labelResId: Int, val requiredAchievement: Achievement?) {
+// worth chasing, or buyable outright with Helium via costHelium - see CustomizeActivity).
+// Never drawn upside down or skewed with the balloon's facing direction - it's meant to read
+// as a sticker the player picked, not a directional indicator. Bots never wear one; this
+// only ever affects the player's own balloon (see GameView.drawSticker).
+enum class BalloonSticker(val labelResId: Int, val requiredAchievement: Achievement?, val costHelium: Int = 0) {
     NONE(R.string.sticker_none, null), // the default - no sticker, the plain balloon
     STAR(R.string.sticker_star, null),
     HEART(R.string.sticker_heart, null),
-    CROWN(R.string.sticker_crown, Achievement.FIRST_WIN),
-    SKULL(R.string.sticker_skull, Achievement.ABSORB_STREAK),
-    LIGHTNING(R.string.sticker_lightning, Achievement.MAX_BOOST),
-    FIRE(R.string.sticker_fire, Achievement.DAILY_DEDICATION),
-    SPARK(R.string.sticker_spark, Achievement.COMBO_MASTER);
+    CROWN(R.string.sticker_crown, Achievement.FIRST_WIN, 120),
+    SKULL(R.string.sticker_skull, Achievement.ABSORB_STREAK, 120),
+    LIGHTNING(R.string.sticker_lightning, Achievement.MAX_BOOST, 120),
+    FIRE(R.string.sticker_fire, Achievement.DAILY_DEDICATION, 120),
+    SPARK(R.string.sticker_spark, Achievement.COMBO_MASTER, 120);
 
     // Draws this sticker centered at the canvas's current origin, sized to roughly fit
     // within +/-size on each axis. Shared by the in-game balloon decal (GameView) and the

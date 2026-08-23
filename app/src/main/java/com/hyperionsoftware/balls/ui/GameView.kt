@@ -29,6 +29,8 @@ import com.hyperionsoftware.balls.challenges.MatchResult
 import com.hyperionsoftware.balls.cosmetics.BalloonCord
 import com.hyperionsoftware.balls.cosmetics.BalloonSticker
 import com.hyperionsoftware.balls.cosmetics.ExhaustStyle
+import com.hyperionsoftware.balls.economy.HeliumRewards
+import com.hyperionsoftware.balls.economy.Wallet
 import com.hyperionsoftware.balls.game.Blob
 import com.hyperionsoftware.balls.game.GameConfig
 import com.hyperionsoftware.balls.game.GameEngine
@@ -545,16 +547,18 @@ class GameView @JvmOverloads constructor(
                         400
                     )
                     if (playerWon) unlockAchievement(Achievement.FIRST_WIN)
+                    if (playerWon && opponentsAbsorbed == 0) unlockAchievement(Achievement.PACIFIST_VICTORY)
                     if (opponentsAbsorbed >= achievementAbsorbStreakTarget) {
                         unlockAchievement(Achievement.ABSORB_STREAK)
                     }
                     // Recorded here rather than in GameActivity's own onGameOver, so the
                     // streak is already up to date by the time DAILY_DEDICATION checks it
                     // just below.
-                    DailyChallenges.recordMatchResult(
+                    val justCompletedDailyChallenge = DailyChallenges.recordMatchResult(
                         context,
                         MatchResult(playerWon, finalRadius.toInt(), opponentsAbsorbed, elapsedSeconds.toInt(), reachedFinalRound)
                     )
+                    if (justCompletedDailyChallenge) Wallet.add(context, HeliumRewards.DAILY_CHALLENGE_BONUS)
                     if (DailyChallenges.streak(context) >= achievementDailyStreakTarget) {
                         unlockAchievement(Achievement.DAILY_DEDICATION)
                     }
@@ -695,9 +699,11 @@ class GameView @JvmOverloads constructor(
     }
 
     // Unlocks are idempotent (Achievements.unlock only returns true the first time ever),
-    // so every call site can fire unconditionally without checking isUnlocked itself.
+    // so every call site can fire unconditionally without checking isUnlocked itself. Every
+    // brand-new unlock also pays out a small one-time Helium bonus (see HeliumRewards).
     private fun unlockAchievement(achievement: Achievement) {
         if (Achievements.unlock(context, achievement)) {
+            Wallet.add(context, HeliumRewards.ACHIEVEMENT_UNLOCK_BONUS)
             showPopup(context.getString(R.string.achievement_unlocked_format, context.getString(achievement.titleResId)))
         }
     }
