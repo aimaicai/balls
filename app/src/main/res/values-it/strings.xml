@@ -7,7 +7,6 @@
     <string name="menu_bots_label">Avversari: %1$d</string>
     <string name="menu_bot_aggressiveness_label">Aggressività bot: %1$d</string>
     <string name="menu_powerup_label">Frequenza power-up: %1$d</string>
-    <string name="menu_exit">Esci</string>
     <string name="menu_options">Opzioni</string>
     <string name="options_back">Indietro</string>
     <string name="menu_tutorial">Tutorial</string>

@@ -56,7 +56,6 @@ class MainMenuActivity : AppCompatActivity() {
         binding.optionsButton.setOnClickListener {
             startActivity(Intent(this, OptionsActivity::class.java))
         }
-        binding.exitButton.setOnClickListener { finish() }
     }
 
     override fun onResume() {
