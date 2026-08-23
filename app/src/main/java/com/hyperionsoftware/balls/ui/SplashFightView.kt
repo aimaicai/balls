@@ -56,9 +56,10 @@ class SplashFightView @JvmOverloads constructor(
         setShadowLayer(14f, 0f, 6f, Color.argb(180, 0, 0, 0))
     }
 
-    // Reads from the app_name resource rather than a hardcoded literal, so a future rename
-    // only ever needs to happen in strings.xml.
-    private val title: String = context.getString(R.string.app_name)
+    // The full game name (see game_full_name), distinct from the shorter app_name used for
+    // the actual Android app label/launcher icon - reads from strings.xml rather than a
+    // hardcoded literal, so a future rename only ever needs to happen there.
+    private val title: String = context.getString(R.string.game_full_name)
 
     private var elapsedMs = 0f
     private var animator: ValueAnimator? = null
