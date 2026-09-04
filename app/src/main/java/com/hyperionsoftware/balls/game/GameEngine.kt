@@ -205,23 +205,19 @@ class GameEngine(
     val playerOpponentsAbsorbed: Int get() = playerAbsorbCount
 
     init {
-        val colors = intArrayOf(
-            0xFFEF5350.toInt(), 0xFF66BB6A.toInt(), 0xFFAB47BC.toInt(), 0xFFFFA726.toInt(),
-            0xFF26C6DA.toInt(), 0xFFEC407A.toInt(), 0xFF9CCC65.toInt(), 0xFF5C6BC0.toInt()
-        )
+        val palette = BotPersonality.PALETTE
         repeat(botCount) { index ->
             val margin = GameConfig.BASE_RADIUS * 2f
             val position = Vector2(
                 Random.nextFloat() * (GameConfig.WORLD_WIDTH - margin * 2f) + margin,
                 Random.nextFloat() * (GameConfig.WORLD_HEIGHT - margin * 2f) + margin
             )
-            // A small repeatable cast of personalities (see BotPersonality) rather than every
-            // bot behaving identically - cycled by spawn order so the same few "characters"
-            // repeat once there are more bots than personalities, same as Pac-Man's ghosts.
-            val personality = BotPersonality.entries[index % BotPersonality.entries.size]
-            val bot = BotBlob(
-                id = index + 1, position = position, color = colors[index % colors.size], personality = personality
-            )
+            // Color and personality come from the same palette entry (see BotPersonality) -
+            // a bot's color always means the same character, cycling through the palette by
+            // spawn order so the same few "characters" repeat once there are more bots than
+            // personalities, same as Pac-Man's ghosts.
+            val (color, personality) = palette[index % palette.size]
+            val bot = BotBlob(id = index + 1, position = position, color = color, personality = personality)
             // A little starting-size variance breaks the "everyone's identical, nobody can
             // absorb anybody" opening stalemate - the player still starts at a fair
             // baseRadius, only bots get this.

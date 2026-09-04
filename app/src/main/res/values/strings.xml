@@ -166,6 +166,16 @@
     <string name="tutorial_finalround_body">Once the normal shrink finishes, the final round begins: the zone keeps closing in without ever stopping. Growing bigger or grabbing Agility is your best way to keep up with it.</string>
     <string name="tutorial_score_title">Score</string>
     <string name="tutorial_score_body">Your score, absorptions and final placement all show up live on the HUD during a match, and feed straight into the leaderboard when it ends.</string>
+    <string name="tutorial_personality_title">Bot personalities</string>
+    <string name="tutorial_personality_intro">Bots come in a few different characters, and their balloon color always tells you which:</string>
+    <string name="bot_personality_hunter_name">Hunter</string>
+    <string name="bot_personality_hunter_desc">Bold: rarely breaks off a chase for a power-up, and holds its nerve a beat longer before fleeing.</string>
+    <string name="bot_personality_collector_name">Collector</string>
+    <string name="bot_personality_collector_desc">Greedy for upgrades: happily breaks off a chase for a nearby power-up, especially a permanent one.</string>
+    <string name="bot_personality_cautious_name">Cautious</string>
+    <string name="bot_personality_cautious_desc">Shy: flees threats from further away and heads back to the safe zone earlier.</string>
+    <string name="bot_personality_balanced_name">Balanced</string>
+    <string name="bot_personality_balanced_desc">No particular quirks - a steady, middle-of-the-road opponent.</string>
 
     <string name="customize_title">Customize your balloon</string>
     <string name="customize_back">Back</string>

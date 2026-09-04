@@ -166,6 +166,16 @@
     <string name="tutorial_finalround_body">Quando il restringimento normale finisce, inizia la sfida finale: la zona continua a stringersi senza mai fermarsi. Crescere o prendere l\'Agilità è il modo migliore per starle dietro.</string>
     <string name="tutorial_score_title">Punteggio</string>
     <string name="tutorial_score_body">Punteggio, assorbimenti e piazzamento finale compaiono in tempo reale nell\'HUD durante la partita, e finiscono dritti in classifica quando finisce.</string>
+    <string name="tutorial_personality_title">Personalità dei bot</string>
+    <string name="tutorial_personality_intro">I bot hanno alcuni caratteri diversi, e il colore del loro palloncino ti dice sempre quale:</string>
+    <string name="bot_personality_hunter_name">Cacciatore</string>
+    <string name="bot_personality_hunter_desc">Audace: interrompe raramente un inseguimento per un power-up e resiste un attimo di più prima di fuggire.</string>
+    <string name="bot_personality_collector_name">Collezionista</string>
+    <string name="bot_personality_collector_desc">Goloso di potenziamenti: interrompe volentieri un inseguimento per un power-up vicino, specialmente se permanente.</string>
+    <string name="bot_personality_cautious_name">Prudente</string>
+    <string name="bot_personality_cautious_desc">Timido: fugge dalle minacce da più lontano e torna prima nella zona sicura.</string>
+    <string name="bot_personality_balanced_name">Equilibrato</string>
+    <string name="bot_personality_balanced_desc">Nessuna particolarità: un avversario stabile e nella media.</string>
 
     <string name="customize_title">Personalizza il tuo palloncino</string>
     <string name="customize_back">Indietro</string>

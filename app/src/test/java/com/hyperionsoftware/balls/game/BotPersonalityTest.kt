@@ -6,11 +6,11 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-// Covers BotPersonality: bots get a repeatable archetype cycled by spawn order (see
-// GameEngine), and each archetype's multipliers actually change BotBlob's decisions rather
-// than just carrying a different label. BALANCED reproduces the original, personality-less
-// numbers exactly - every other test file's bots are built without choosing a personality and
-// implicitly rely on that.
+// Covers BotPersonality: bots get a repeatable archetype tied to their balloon color (see
+// GameEngine and BotPersonality.PALETTE), and each archetype's multipliers actually change
+// BotBlob's decisions rather than just carrying a different label. BALANCED reproduces the
+// original, personality-less numbers exactly - every other test file's bots are built without
+// choosing a personality and implicitly rely on that.
 class BotPersonalityTest {
 
     private fun clearThePlayer(engine: GameEngine) {
@@ -24,13 +24,29 @@ class BotPersonalityTest {
     }
 
     @Test
-    fun `GameEngine assigns personalities cyclically by spawn order`() {
-        val botCount = BotPersonality.entries.size * 2 + 1
+    fun `GameEngine assigns each bot's color and personality from the same palette entry, cycling by spawn order`() {
+        val palette = BotPersonality.PALETTE
+        val botCount = palette.size * 2 + 1
         val engine = GameEngine(botCount = botCount, powerUpFrequencyLevel = 1, listener = TestGameListener())
         val bots = engine.blobs.filterIsInstance<BotBlob>().sortedBy { it.id }
 
-        val expected = List(botCount) { BotPersonality.entries[it % BotPersonality.entries.size] }
-        assertEquals(expected, bots.map { it.personality })
+        val expected = List(botCount) { palette[it % palette.size] }
+        assertEquals(expected.map { it.second }, bots.map { it.personality })
+        assertEquals(expected.map { it.first }, bots.map { it.color })
+    }
+
+    @Test
+    fun `every personality has at least one color and every palette color resolves back to it`() {
+        for (personality in BotPersonality.entries) {
+            val colors = BotPersonality.colorsFor(personality)
+            assertTrue("$personality should have at least one color in the palette", colors.isNotEmpty())
+        }
+        for ((color, personality) in BotPersonality.PALETTE) {
+            assertTrue(
+                "The color assigned to $personality should be listed under colorsFor($personality)",
+                color in BotPersonality.colorsFor(personality)
+            )
+        }
     }
 
     @Test

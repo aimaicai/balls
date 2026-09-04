@@ -3,7 +3,14 @@ package com.hyperionsoftware.balls.game
 // A small, repeatable cast of behavioral archetypes for bots - like Pac-Man's four ghosts,
 // there are usually more bots in a match than personalities, so the same handful of
 // "characters" show up more than once instead of every bot behaving identically or getting a
-// fully random, one-off temperament. Assigned cyclically by spawn order (see GameEngine).
+// fully random, one-off temperament.
+//
+// A bot's personality is decided by its balloon COLOR (see PALETTE below), not by raw spawn
+// order - deliberately, so a color always means the same character and a player can learn to
+// recognize "the red ones hunt, the green ones hoard power-ups" etc. across matches (see the
+// legend in TutorialActivity). This is meant as a playtesting aid while personalities are
+// still being tuned; if it turns out to give away too much once the game ships, only PALETTE
+// and the legend section need to go, nothing else about BotBlob/GameEngine depends on it.
 //
 // BALANCED sits first on purpose: every multiplier below is neutral (1x), reproducing the
 // original, personality-less BotBlob behavior exactly. Existing tests build bots via
@@ -40,5 +47,30 @@ enum class BotPersonality(
 
     // Greedy for upgrades: readily breaks off a chase for a nearby power-up, especially a
     // permanent stat one, even when it's a bit further away than the prey it was chasing.
-    COLLECTOR(visionMultiplier = 1f, fleeBufferMultiplier = 1f, zoneMarginMultiplier = 1f, pickupDetourThreshold = 1.1f)
+    COLLECTOR(visionMultiplier = 1f, fleeBufferMultiplier = 1f, zoneMarginMultiplier = 1f, pickupDetourThreshold = 1.1f);
+
+    companion object {
+        // The single source of truth for both a bot's color AND its personality - GameEngine
+        // assigns bots color-then-personality straight from this list (cycling through it by
+        // spawn order the same way the old flat color array did), and the same list drives
+        // the color legend in TutorialActivity, so the two can never drift apart. Two colors
+        // per personality since there are twice as many colors as personalities; every
+        // original color value is kept, just paired up with a personality instead of handed
+        // out by raw index.
+        val PALETTE: List<Pair<Int, BotPersonality>> = listOf(
+            0xFFEF5350.toInt() to HUNTER, // red
+            0xFF66BB6A.toInt() to COLLECTOR, // green
+            0xFFAB47BC.toInt() to CAUTIOUS, // purple
+            0xFF26C6DA.toInt() to BALANCED, // cyan
+            0xFFFFA726.toInt() to HUNTER, // orange
+            0xFF9CCC65.toInt() to COLLECTOR, // light green
+            0xFF5C6BC0.toInt() to CAUTIOUS, // indigo
+            0xFFEC407A.toInt() to BALANCED // pink
+        )
+
+        // Every color assigned to this personality, in PALETTE order - what the legend shows
+        // next to each personality's name/description.
+        fun colorsFor(personality: BotPersonality): List<Int> =
+            PALETTE.filter { it.second == personality }.map { it.first }
+    }
 }
