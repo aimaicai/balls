@@ -25,7 +25,7 @@ class OptionsActivity : AppCompatActivity() {
     private var arenaSize = GameConfig.ArenaSize.NORMAL
     private var botAggressivenessLevel = GameConfig.BOT_AGGRESSIVENESS_DEFAULT_LEVEL
     private var safeZoneShrinkSpeedLevel = GameConfig.SAFE_ZONE_SHRINK_SPEED_DEFAULT_LEVEL
-    private val musicPlayer = BackgroundMusicPlayer()
+    private val musicPlayer = BackgroundMusicPlayer(this)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)

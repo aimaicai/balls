@@ -2,9 +2,8 @@ package com.hyperionsoftware.balls.audio
 
 import android.content.Context
 
-// Whether background music is on, and which of the synthesized tracks to play - both
-// persisted via SharedPreferences so the choice sticks across launches without needing a
-// dedicated settings screen.
+// Whether background music is on, and which track from the playlist to play - both
+// persisted via SharedPreferences so the choice sticks across launches.
 object MusicSettings {
     private const val PREFS_NAME = "settings"
     private const val KEY_MUSIC_ENABLED = "music_enabled"
@@ -21,12 +20,12 @@ object MusicSettings {
             .apply()
     }
 
-    // Defaults to ARCADE - the track that always played before this was selectable, so
-    // nobody's experience changes on update until they actually pick something else.
+    // Falls back to the first track in the playlist if nothing's stored yet, or if a
+    // previously selected track no longer exists (e.g. the playlist was rearranged).
     fun getSelectedTrack(context: Context): MusicTrack {
         val storedName = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             .getString(KEY_SELECTED_TRACK, null)
-        return MusicTrack.entries.find { it.name == storedName } ?: MusicTrack.ARCADE
+        return MusicTrack.entries.find { it.name == storedName } ?: MusicTrack.entries.first()
     }
 
     fun setSelectedTrack(context: Context, track: MusicTrack) {

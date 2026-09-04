@@ -13,10 +13,7 @@
     <string name="menu_customize">Personalizza</string>
     <string name="menu_music_label">Musica di sottofondo</string>
     <string name="menu_music_track_label">Traccia musicale</string>
-    <string name="music_track_arcade">Arcade</string>
-    <string name="music_track_chill">Rilassata</string>
-    <string name="music_track_chiptune">Retro 8-bit</string>
-    <string name="music_track_rock">Rock</string>
+    <string name="music_track_cieli_di_zucchero">Cieli di zucchero</string>
     <string name="menu_arena_label">Dimensione arena: %1$s</string>
     <string name="menu_safe_zone_shrink_speed_label">Velocità restringimento zona sicura: %1$d</string>
     <string name="arena_size_small">Piccola</string>

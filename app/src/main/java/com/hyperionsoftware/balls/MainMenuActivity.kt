@@ -16,7 +16,7 @@ import com.hyperionsoftware.balls.settings.GameSettings
 class MainMenuActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainMenuBinding
-    private val musicPlayer = BackgroundMusicPlayer()
+    private val musicPlayer = BackgroundMusicPlayer(this)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
