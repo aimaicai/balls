@@ -14,6 +14,7 @@
     <string name="menu_music_label">Musica di sottofondo</string>
     <string name="menu_music_track_label">Traccia musicale</string>
     <string name="music_track_cieli_di_zucchero">Cieli di zucchero</string>
+    <string name="music_track_senza_pieta">Senza pietà</string>
     <string name="menu_arena_label">Dimensione arena: %1$s</string>
     <string name="menu_safe_zone_shrink_speed_label">Velocità restringimento zona sicura: %1$d</string>
     <string name="arena_size_small">Piccola</string>

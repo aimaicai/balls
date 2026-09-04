@@ -65,6 +65,10 @@ class GameView @JvmOverloads constructor(
         )
         fun onBoostAvailabilityChanged(available: Boolean)
         fun onCarriedItemChanged(type: PowerUpType?)
+        // The final round is meant to always feel the same regardless of whichever track
+        // the player picked for the rest of the match - see GameActivity, which switches
+        // background music to a dedicated final-round track on this.
+        fun onFinalRoundStarted()
     }
 
     var callback: Callback? = null
@@ -616,6 +620,7 @@ class GameView @JvmOverloads constructor(
                     vibrateFinalRoundAlert()
                     toneGenerator.startTone(ToneGenerator.TONE_PROP_BEEP2, 300)
                     unlockAchievement(Achievement.FINAL_ROUND)
+                    post { callback?.onFinalRoundStarted() }
                 }
             }
         )

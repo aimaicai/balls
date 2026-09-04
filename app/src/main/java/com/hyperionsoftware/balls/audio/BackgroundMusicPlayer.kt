@@ -27,6 +27,9 @@ class BackgroundMusicPlayer(private val context: Context) {
                     .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
                     .build()
             )
+            // Turned down from full volume so sound effects (absorbs, power-ups, the boost
+            // hiss) still cut through instead of getting buried under the music.
+            setVolume(MUSIC_VOLUME, MUSIC_VOLUME)
             isLooping = true
             start()
         }
@@ -39,5 +42,9 @@ class BackgroundMusicPlayer(private val context: Context) {
         }
         mediaPlayer = null
         currentTrack = null
+    }
+
+    private companion object {
+        const val MUSIC_VOLUME = 0.5f
     }
 }

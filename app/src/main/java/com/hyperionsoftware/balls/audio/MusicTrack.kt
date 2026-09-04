@@ -7,5 +7,6 @@ import com.hyperionsoftware.balls.R
 // Starts with just one track; meant to be extended with more entries as they're added,
 // nothing else about the selection/playback code needs to change when that happens.
 enum class MusicTrack(val labelResId: Int, val rawResId: Int) {
-    CIELI_DI_ZUCCHERO(R.string.music_track_cieli_di_zucchero, R.raw.cieli_di_zucchero)
+    CIELI_DI_ZUCCHERO(R.string.music_track_cieli_di_zucchero, R.raw.cieli_di_zucchero),
+    SENZA_PIETA(R.string.music_track_senza_pieta, R.raw.senza_pieta)
 }

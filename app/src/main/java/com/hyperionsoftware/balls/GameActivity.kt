@@ -11,6 +11,7 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import com.hyperionsoftware.balls.audio.BackgroundMusicPlayer
 import com.hyperionsoftware.balls.audio.MusicSettings
+import com.hyperionsoftware.balls.audio.MusicTrack
 import com.hyperionsoftware.balls.databinding.ActivityGameBinding
 import com.hyperionsoftware.balls.economy.HeliumRewards
 import com.hyperionsoftware.balls.economy.Wallet
@@ -75,7 +76,10 @@ class GameActivity : AppCompatActivity(), GameView.Callback {
     override fun onResume() {
         super.onResume()
         binding.gameView.resumeGame()
-        if (MusicSettings.isEnabled(this)) musicPlayer.start(MusicSettings.getSelectedTrack(this))
+        // Jumping straight to the final round (see EXTRA_SKIP_TO_FINAL_ROUND) fires
+        // onFinalRoundStarted during startGame() itself, before this runs - starting with
+        // the right track directly here avoids depending on that ordering.
+        if (MusicSettings.isEnabled(this)) musicPlayer.start(startingMusicTrack())
     }
 
     override fun onPause() {
@@ -96,6 +100,10 @@ class GameActivity : AppCompatActivity(), GameView.Callback {
                 binding.gameView.restart(
                     botCount, powerUpFrequencyLevel, arenaSize, skipToFinalRound, botAggressivenessLevel, safeZoneShrinkSpeedLevel
                 )
+                // A previous attempt may have switched music to the final-round track (see
+                // onFinalRoundStarted below) - a fresh match should start back on whichever
+                // track actually matches the new one. A no-op if it's already playing.
+                if (MusicSettings.isEnabled(this)) musicPlayer.start(startingMusicTrack())
             }
             .setNegativeButton(getString(R.string.pause_menu)) { _, _ -> goToMenu() }
             .show()
@@ -177,6 +185,18 @@ class GameActivity : AppCompatActivity(), GameView.Callback {
             }
             .show()
     }
+
+    // The final round always plays the same track, no matter which one the player picked
+    // for the rest of the match - a no-op if it's somehow already playing (e.g. skipping
+    // straight to the final round from the main menu).
+    override fun onFinalRoundStarted() {
+        if (MusicSettings.isEnabled(this)) musicPlayer.start(MusicTrack.SENZA_PIETA)
+    }
+
+    // Whichever track a match should open with: the dedicated final-round one when jumping
+    // straight there (see EXTRA_SKIP_TO_FINAL_ROUND), otherwise whatever the player picked.
+    private fun startingMusicTrack(): MusicTrack =
+        if (skipToFinalRound) MusicTrack.SENZA_PIETA else MusicSettings.getSelectedTrack(this)
 
     override fun onBoostAvailabilityChanged(available: Boolean) {
         binding.boostButton.alpha = if (available) 1f else BOOST_UNAVAILABLE_ALPHA
