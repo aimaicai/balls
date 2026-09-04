@@ -215,7 +215,13 @@ class GameEngine(
                 Random.nextFloat() * (GameConfig.WORLD_WIDTH - margin * 2f) + margin,
                 Random.nextFloat() * (GameConfig.WORLD_HEIGHT - margin * 2f) + margin
             )
-            val bot = BotBlob(id = index + 1, position = position, color = colors[index % colors.size])
+            // A small repeatable cast of personalities (see BotPersonality) rather than every
+            // bot behaving identically - cycled by spawn order so the same few "characters"
+            // repeat once there are more bots than personalities, same as Pac-Man's ghosts.
+            val personality = BotPersonality.entries[index % BotPersonality.entries.size]
+            val bot = BotBlob(
+                id = index + 1, position = position, color = colors[index % colors.size], personality = personality
+            )
             // A little starting-size variance breaks the "everyone's identical, nobody can
             // absorb anybody" opening stalemate - the player still starts at a fair
             // baseRadius, only bots get this.

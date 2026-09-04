@@ -8,7 +8,11 @@ import kotlin.random.Random
 class BotBlob(
     id: Int,
     position: Vector2,
-    color: Int
+    color: Int,
+    // Defaults to the original, personality-less behavior exactly (see BotPersonality) -
+    // every caller that doesn't pass one (including every existing test) gets the same bot
+    // AI as before this existed.
+    val personality: BotPersonality = BotPersonality.BALANCED
 ) : Blob(id, position, GameConfig.BASE_RADIUS, color) {
 
     private var wanderDirection = randomDirection()
@@ -22,7 +26,7 @@ class BotBlob(
         // aggression value as before that slider existed.
         val aggression = (1f + (1f - aliveFraction) * GameConfig.BOT_MAX_AGGRESSION_BONUS) *
             engine.botAggressivenessMultiplier
-        val visionRadius = (radius * 8f + 200f) * aggression
+        val visionRadius = (radius * 8f + 200f) * aggression * personality.visionMultiplier
 
         var threat: Blob? = null
         var threatDistance = Float.MAX_VALUE
@@ -55,7 +59,9 @@ class BotBlob(
         // one exception - it would pull the very threat that's already on top of them even
         // closer, so it's held back rather than used defensively.
         val nearThreat = threat
-        if (nearThreat != null && threatDistance < (radius + nearThreat.radius) * 1.5f) {
+        if (nearThreat != null &&
+            threatDistance < (radius + nearThreat.radius) * 1.5f * personality.fleeBufferMultiplier
+        ) {
             if (carriedItem != null && carriedItem != PowerUpType.HOOK) {
                 engine.activateCarriedItem(this)
             }
@@ -81,11 +87,13 @@ class BotBlob(
         // phase's margin alone isn't enough of a lead there. Not an emergency yet either
         // way, so no sprinting: burning size to get back early would just trade one drain
         // for another.
-        val zoneMarginFraction = if (finalRound) {
-            GameConfig.BOT_FINAL_ROUND_ZONE_SAFETY_MARGIN_FRACTION
-        } else {
-            GameConfig.BOT_ZONE_SAFETY_MARGIN_FRACTION
-        }
+        val zoneMarginFraction = (
+            if (finalRound) {
+                GameConfig.BOT_FINAL_ROUND_ZONE_SAFETY_MARGIN_FRACTION
+            } else {
+                GameConfig.BOT_ZONE_SAFETY_MARGIN_FRACTION
+            }
+            ) * personality.zoneMarginMultiplier
         if (distanceFromZoneCenter > engine.safeZoneRadius * zoneMarginFraction) {
             isBoosting = false
             return Vector2(engine.safeZoneCenterX - position.x, engine.safeZoneCenterY - position.y).normalized()
@@ -126,6 +134,25 @@ class BotBlob(
         }
 
         if (prey != null) {
+            // A visible chase used to always win outright, even against a power-up sitting
+            // right next to the bot the whole time - which is why pickups so often floated
+            // unclaimed with several bots around, since one almost always had some prey in
+            // sight. A genuinely close pickup breaks off the chase instead, weighted by how
+            // much closer it is than the prey (see BotPersonality.pickupDetourThreshold) and
+            // boosted further for a permanent stat pickup, since that benefit outlasts the
+            // single pickup while prey might still be there after a short detour.
+            val nearbyPowerUp = engine.powerUps
+                .filter { position.distanceTo(it.position) < visionRadius }
+                .minByOrNull { position.distanceTo(it.position) }
+            if (nearbyPowerUp != null) {
+                val pickupDistance = position.distanceTo(nearbyPowerUp.position)
+                val detourThreshold = personality.pickupDetourThreshold *
+                    (if (isPermanentUpgrade(nearbyPowerUp.type)) PERMANENT_UPGRADE_DETOUR_BONUS else 1f)
+                if (pickupDistance < preyDistance * detourThreshold) {
+                    return (nearbyPowerUp.position - position).normalized()
+                }
+            }
+
             // HOOK is offensive rather than defensive - reel prey in while it's still in
             // reach instead of only ever saving carried items for emergencies.
             if (carriedItem == PowerUpType.HOOK) {
@@ -150,5 +177,15 @@ class BotBlob(
     private fun randomDirection(): Vector2 {
         val angle = Random.nextFloat() * (Math.PI * 2).toFloat()
         return Vector2(cos(angle), sin(angle))
+    }
+
+    private fun isPermanentUpgrade(type: PowerUpType) =
+        type == PowerUpType.SPEED_UP || type == PowerUpType.AGILITY_UP || type == PowerUpType.POTENCY_UP
+
+    companion object {
+        // On top of personality.pickupDetourThreshold, applied only to permanent stat
+        // pickups (SPEED_UP/AGILITY_UP/POTENCY_UP) - their benefit outlasts the single
+        // pickup, unlike GROWTH or a carried item, so they're worth a bigger detour.
+        private const val PERMANENT_UPGRADE_DETOUR_BONUS = 1.5f
     }
 }
