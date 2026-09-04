@@ -239,6 +239,13 @@ class GameView @JvmOverloads constructor(
     private val balloonStretch = 1.12f
     private val balloonSquash = 0.94f
     private val balloonMatrix = Matrix()
+    // Reused across every blob, every frame (drawBalloonBody/drawKnot/drawString) instead of
+    // a fresh Path() each call - with 100+ bots in a match this ran per blob per frame, and
+    // Path allocations are real GC pressure on top of everything else the render loop does.
+    private val balloonLocalOutlinePath = Path()
+    private val balloonWorldOutlinePath = Path()
+    private val knotPath = Path()
+    private val stringPath = Path()
     private val safeZoneFillColor = Color.argb(90, 200, 40, 40)
     private val safeZonePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = Color.parseColor("#EF5350")
@@ -1090,14 +1097,15 @@ class GameView @JvmOverloads constructor(
         balloonMatrix.postRotate(angleDeg)
         balloonMatrix.postTranslate(cx, cy)
 
-        val localOutline = Path().apply { addCircle(0f, 0f, blob.radius, Path.Direction.CW) }
-        val worldOutline = Path()
-        localOutline.transform(balloonMatrix, worldOutline)
+        balloonLocalOutlinePath.reset()
+        balloonLocalOutlinePath.addCircle(0f, 0f, blob.radius, Path.Direction.CW)
+        balloonWorldOutlinePath.reset()
+        balloonLocalOutlinePath.transform(balloonMatrix, balloonWorldOutlinePath)
 
-        canvas.drawPath(worldOutline, bodyPaint)
+        canvas.drawPath(balloonWorldOutlinePath, bodyPaint)
 
         canvas.save()
-        canvas.clipPath(worldOutline)
+        canvas.clipPath(balloonWorldOutlinePath)
 
         shadePaint.color = darken(blob.color, 0.6f)
         shadePaint.alpha = (alpha * 0.45f).toInt()
@@ -1156,51 +1164,53 @@ class GameView @JvmOverloads constructor(
     }
 
     private fun drawKnot(canvas: Canvas, blob: Blob, cx: Float, cy: Float, alpha: Int) {
-        // The knot (where the air comes from) sits at the back, opposite whichever way
-        // the balloon is currently facing - right on the stretched egg's pointed end.
-        val back = blob.facingDirection * -1f
+        // The knot (where the air comes from) sits at the back, opposite whichever way the
+        // balloon is currently facing - right on the stretched egg's pointed end. backX/backY
+        // instead of blob.facingDirection * -1f (a Vector2) - this runs every blob, every
+        // frame, so a throwaway allocation here scales straight with bot count.
+        val backX = -blob.facingDirection.x
+        val backY = -blob.facingDirection.y
         val edgeRadius = blob.radius * balloonStretch
         val knotSize = blob.radius * 0.22f
-        val baseX = cx + back.x * edgeRadius * 0.85f
-        val baseY = cy + back.y * edgeRadius * 0.85f
-        val tipX = cx + back.x * (edgeRadius + knotSize)
-        val tipY = cy + back.y * (edgeRadius + knotSize)
-        val perpX = -back.y * knotSize * 0.5f
-        val perpY = back.x * knotSize * 0.5f
+        val baseX = cx + backX * edgeRadius * 0.85f
+        val baseY = cy + backY * edgeRadius * 0.85f
+        val tipX = cx + backX * (edgeRadius + knotSize)
+        val tipY = cy + backY * (edgeRadius + knotSize)
+        val perpX = -backY * knotSize * 0.5f
+        val perpY = backX * knotSize * 0.5f
 
         knotPaint.color = darken(blob.color, 0.55f)
         knotPaint.alpha = alpha
-        val path = Path().apply {
-            moveTo(baseX + perpX, baseY + perpY)
-            lineTo(baseX - perpX, baseY - perpY)
-            lineTo(tipX, tipY)
-            close()
-        }
-        canvas.drawPath(path, knotPaint)
+        knotPath.reset()
+        knotPath.moveTo(baseX + perpX, baseY + perpY)
+        knotPath.lineTo(baseX - perpX, baseY - perpY)
+        knotPath.lineTo(tipX, tipY)
+        knotPath.close()
+        canvas.drawPath(knotPath, knotPaint)
     }
 
     private fun drawString(canvas: Canvas, blob: Blob, cx: Float, cy: Float, alpha: Int) {
         // A thin string dangling from the knot, swaying gently, for balloon realism. Only
         // the player's own string can be recolored (see BalloonCord) - bots always keep the
         // original plain grey.
-        val back = blob.facingDirection * -1f
+        val backX = -blob.facingDirection.x
+        val backY = -blob.facingDirection.y
         val edgeRadius = blob.radius * balloonStretch
         val knotSize = blob.radius * 0.22f
-        val startX = cx + back.x * (edgeRadius + knotSize)
-        val startY = cy + back.y * (edgeRadius + knotSize)
+        val startX = cx + backX * (edgeRadius + knotSize)
+        val startY = cy + backY * (edgeRadius + knotSize)
         val length = blob.radius * 0.9f
         val sway = sin(blob.exhaustPhase * 2.3f) * blob.radius * 0.15f
 
         stringPaint.color = if (blob === engine.player) selectedCord.colorInt else BalloonCord.CLASSIC_GREY.colorInt
         stringPaint.alpha = (alpha * 0.6f).toInt()
-        val path = Path().apply {
-            moveTo(startX, startY)
-            quadTo(
-                startX + back.x * length * 0.5f + sway, startY + back.y * length * 0.5f,
-                startX + back.x * length + sway * 0.6f, startY + back.y * length
-            )
-        }
-        canvas.drawPath(path, stringPaint)
+        stringPath.reset()
+        stringPath.moveTo(startX, startY)
+        stringPath.quadTo(
+            startX + backX * length * 0.5f + sway, startY + backY * length * 0.5f,
+            startX + backX * length + sway * 0.6f, startY + backY * length
+        )
+        canvas.drawPath(stringPath, stringPaint)
     }
 
     // A trail of soft, shrinking puffs instead of one hard-edged triangle - each puff
@@ -1217,9 +1227,10 @@ class GameView @JvmOverloads constructor(
         // ordinary movement (calm pale blue), so it's obvious at a glance who is burning
         // size for speed versus just cruising.
         val boosting = blob.isBoosting
-        val back = blob.facingDirection * -1f
-        val perpX = -back.y
-        val perpY = back.x
+        val backX = -blob.facingDirection.x
+        val backY = -blob.facingDirection.y
+        val perpX = -backY
+        val perpY = backX
         val pulse = 0.7f + 0.3f * sin(blob.exhaustPhase * (if (boosting) 22f else 14f))
         val intensity = if (boosting) 1.7f else 1f
         val edgeRadius = blob.radius * balloonStretch
@@ -1232,8 +1243,8 @@ class GameView @JvmOverloads constructor(
             val fraction = i / (exhaustPuffCount - 1).toFloat()
             val distance = edgeRadius + trailLength * fraction
             val wobble = sin(blob.exhaustPhase * (5f + i * 2.1f) + i * 1.9f) * blob.radius * 0.22f * fraction
-            val puffX = cx + back.x * distance + perpX * wobble
-            val puffY = cy + back.y * distance + perpY * wobble
+            val puffX = cx + backX * distance + perpX * wobble
+            val puffY = cy + backY * distance + perpY * wobble
             // Starts narrow right at the knot and billows outward with distance, like real
             // exhaust dispersing, rather than the other way around.
             val puffRadius = (blob.radius * (0.21f + fraction * 0.24f) * intensity).coerceAtLeast(1f)

@@ -449,12 +449,16 @@ class GameEngine(
     fun aliveCount(): Int = blobs.count { it.alive }
 
     private fun resolveCollisions() {
-        val alive = blobs.filter { it.alive }
-        for (i in alive.indices) {
-            val a = alive[i]
+        // Iterates blobs directly (skipping dead ones inline) rather than filtering into a
+        // fresh list first - this runs every single tick, so that filtered list was one more
+        // allocation per frame on top of the pairwise checks below.
+        for (i in blobs.indices) {
+            val a = blobs[i]
             if (!a.alive) continue
-            for (j in i + 1 until alive.size) {
-                handlePair(a, alive[j])
+            for (j in i + 1 until blobs.size) {
+                val b = blobs[j]
+                if (!b.alive) continue
+                handlePair(a, b)
             }
         }
 

@@ -111,20 +111,18 @@ class BotBlob(
             // there - not just an occasional refill once running low like the normal phase
             // below. Sought right after immediate danger, ahead of chasing prey, since
             // walking up to a free pickup is safer than picking a fight for one.
-            val refill = engine.powerUps
-                .filter { it.type == PowerUpType.GROWTH || it.type == PowerUpType.AGILITY_UP }
-                .minByOrNull { position.distanceTo(it.position) }
-            if (refill != null && position.distanceTo(refill.position) < visionRadius) {
+            val refill = nearestPowerUpWithin(engine, visionRadius) {
+                it == PowerUpType.GROWTH || it == PowerUpType.AGILITY_UP
+            }
+            if (refill != null) {
                 return (refill.position - position).normalized()
             }
         } else if (radius < baseRadius * GameConfig.BOT_LOW_SIZE_FRACTION) {
             // Constant deflation means running low is a real survival problem, not just a
             // setback: chase down the nearest growth power-up instead of whatever's merely
             // closest.
-            val refill = engine.powerUps
-                .filter { it.type == PowerUpType.GROWTH }
-                .minByOrNull { position.distanceTo(it.position) }
-            if (refill != null && position.distanceTo(refill.position) < visionRadius) {
+            val refill = nearestPowerUpWithin(engine, visionRadius) { it == PowerUpType.GROWTH }
+            if (refill != null) {
                 return (refill.position - position).normalized()
             }
         }
@@ -141,9 +139,7 @@ class BotBlob(
             // much closer it is than the prey (see BotPersonality.pickupDetourThreshold) and
             // boosted further for a permanent stat pickup, since that benefit outlasts the
             // single pickup while prey might still be there after a short detour.
-            val nearbyPowerUp = engine.powerUps
-                .filter { position.distanceTo(it.position) < visionRadius }
-                .minByOrNull { position.distanceTo(it.position) }
+            val nearbyPowerUp = nearestPowerUpWithin(engine, visionRadius) { true }
             if (nearbyPowerUp != null) {
                 val pickupDistance = position.distanceTo(nearbyPowerUp.position)
                 val detourThreshold = personality.pickupDetourThreshold *
@@ -161,8 +157,8 @@ class BotBlob(
             return (prey.position - position).normalized()
         }
 
-        val nearestPowerUp = engine.powerUps.minByOrNull { position.distanceTo(it.position) }
-        if (nearestPowerUp != null && position.distanceTo(nearestPowerUp.position) < visionRadius) {
+        val nearestPowerUp = nearestPowerUpWithin(engine, visionRadius) { true }
+        if (nearestPowerUp != null) {
             return (nearestPowerUp.position - position).normalized()
         }
 
@@ -181,6 +177,25 @@ class BotBlob(
 
     private fun isPermanentUpgrade(type: PowerUpType) =
         type == PowerUpType.SPEED_UP || type == PowerUpType.AGILITY_UP || type == PowerUpType.POTENCY_UP
+
+    // The nearest power-up matching predicate, strictly closer than maxDistance (or null if
+    // none qualify) - a single manual pass instead of filter+minByOrNull, which computed
+    // distanceTo twice per candidate and allocated a throwaway filtered list every call. This
+    // runs from up to four different spots in decideDirection, for every bot, every single
+    // frame, so keeping it allocation-free matters a lot once there are a lot of bots.
+    private fun nearestPowerUpWithin(engine: GameEngine, maxDistance: Float, predicate: (PowerUpType) -> Boolean): PowerUp? {
+        var nearest: PowerUp? = null
+        var nearestDistance = maxDistance
+        for (powerUp in engine.powerUps) {
+            if (!predicate(powerUp.type)) continue
+            val d = position.distanceTo(powerUp.position)
+            if (d < nearestDistance) {
+                nearest = powerUp
+                nearestDistance = d
+            }
+        }
+        return nearest
+    }
 
     companion object {
         // On top of personality.pickupDetourThreshold, applied only to permanent stat

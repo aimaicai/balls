@@ -99,7 +99,12 @@ abstract class Blob(
             boostHoldSeconds = if (isBoosting) boostHoldSeconds + dt else 0f
 
             val speed = effectiveSpeed(baseSpeed)
-            position += facingDirection * (speed * dt)
+            // Mutates position's own fields directly (same as clampToWorld right below)
+            // instead of "position += facingDirection * (speed * dt)", which allocated two
+            // throwaway Vector2s - unconditional, every alive blob, every single tick.
+            val step = speed * dt
+            position.x += facingDirection.x * step
+            position.y += facingDirection.y * step
             clampToWorld()
         }
 
