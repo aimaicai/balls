@@ -34,14 +34,9 @@ object RaceConfig {
     // should cost something.
     const val OFF_TRACK_MARGIN = 90f
 
-    // Purely a rendering size now (the pulsing lookahead marker - see RaceView) - lap
-    // progress itself is continuous along the track's own path (see RaceEngine.
-    // updateRaceProgress), not a waypoint radius to reach.
-    const val CHECKPOINT_RADIUS = 260f
-
-    // How far ahead along the track's own path a bot (and the player's lookahead marker)
-    // aims, as a sliding target that keeps sliding forward with the blob instead of a fixed
-    // next-checkpoint waypoint - see RaceTrack.pointAtArcLength.
+    // How far ahead along the track's own path a bot aims, as a sliding target that keeps
+    // sliding forward with it instead of a fixed next-checkpoint waypoint - see
+    // RaceTrack.pointAtArcLength.
     const val LOOKAHEAD_DISTANCE = 400f
 
     // Caps how much of a raw arc-length jump (see RaceTrack.closestArcLength) counts toward

@@ -71,7 +71,6 @@ class RaceView @JvmOverloads constructor(
     private var countdownActive = false
     private var countdownRemaining = 0f
     private var lastDirection = Vector2(0f, 0f)
-    private var beaconPhase = 0f
 
     // Read once per race start, same as the player's chosen color - purely cosmetic, drawn
     // only on the player's own balloon (see drawSticker/drawString/drawExhaust), never
@@ -123,11 +122,6 @@ class RaceView @JvmOverloads constructor(
         strokeCap = Paint.Cap.ROUND
         strokeWidth = 6f
         pathEffect = DashPathEffect(floatArrayOf(46f, 34f), 0f)
-    }
-    private val nextCheckpointPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.parseColor("#00E5FF")
-        style = Paint.Style.STROKE
-        strokeWidth = 8f
     }
     private val startLinePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = Color.WHITE
@@ -459,7 +453,6 @@ class RaceView @JvmOverloads constructor(
 
     private fun render(canvas: Canvas, dt: Float) {
         canvas.drawColor(Color.parseColor("#0F1620"))
-        beaconPhase += dt
 
         val player = engine.player
         val camX = cameraCoord(player.position.x, width, RaceConfig.WORLD_WIDTH)
@@ -513,21 +506,29 @@ class RaceView @JvmOverloads constructor(
         canvas.drawPath(trackPath, trackCenterLinePaint)
         canvas.restore()
 
+        drawStartFinishLine(canvas, offsetX, offsetY)
+    }
+
+    // Drawn perpendicular to the track's own local direction at checkpoints[0] - the average
+    // of the incoming and outgoing segment directions there, not a fixed axis - so the line
+    // actually cuts across the corridor the way a real finish line would, matching exactly
+    // where RaceTrack.closestArcLength's 0/totalLength seam sits, rather than an
+    // approximation that only happened to look right for a particular track layout.
+    private fun drawStartFinishLine(canvas: Canvas, offsetX: Float, offsetY: Float) {
         val track = engine.track
-        val start = track.checkpoints[0]
+        val checkpoints = track.checkpoints
+        val start = checkpoints[0]
+        val incoming = (checkpoints[0] - checkpoints[checkpoints.size - 1]).normalized()
+        val outgoing = (checkpoints[1] - checkpoints[0]).normalized()
+        val forward = Vector2(incoming.x + outgoing.x, incoming.y + outgoing.y).normalized()
+        val perpendicular = Vector2(-forward.y, forward.x)
         canvas.drawLine(
-            start.x + offsetX, start.y + offsetY - track.halfWidth,
-            start.x + offsetX, start.y + offsetY + track.halfWidth,
+            start.x + offsetX + perpendicular.x * track.halfWidth,
+            start.y + offsetY + perpendicular.y * track.halfWidth,
+            start.x + offsetX - perpendicular.x * track.halfWidth,
+            start.y + offsetY - perpendicular.y * track.halfWidth,
             startLinePaint
         )
-
-        // A sliding lookahead point some distance ahead of the player along the track's own
-        // path (see RaceTrack.pointAtArcLength) - not a waypoint that has to be reached, just
-        // a "keep heading this way" cue, since there's no camera-viewport indicator on the
-        // minimap yet.
-        val target = track.pointAtArcLength(engine.player.trackArcPosition + RaceConfig.LOOKAHEAD_DISTANCE)
-        val pulse = RaceConfig.CHECKPOINT_RADIUS * (0.4f + 0.08f * sin(beaconPhase * 4f))
-        canvas.drawCircle(target.x + offsetX, target.y + offsetY, pulse, nextCheckpointPaint)
     }
 
     private fun drawBlob(canvas: Canvas, blob: RaceBlob, offsetX: Float, offsetY: Float) {
