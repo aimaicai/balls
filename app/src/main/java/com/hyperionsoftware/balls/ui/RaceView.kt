@@ -210,14 +210,17 @@ class RaceView @JvmOverloads constructor(
 
     private val trackPath = Path()
 
-    // A small always-on-screen overview of the whole circuit, top-center (the one corner
-    // free of HUD text/buttons) - just the track shape and every blob's live position, no
-    // camera-viewport indicator or per-checkpoint detail, to keep this a "simple" minimap as
-    // asked rather than a second full HUD.
-    private val minimapWidth = 160f
+    // A small always-on-screen overview of the whole circuit - just the track shape and every
+    // blob's live position, no camera-viewport indicator or per-checkpoint detail, to keep
+    // this a "simple" minimap as asked rather than a second full HUD. Tucked in the top-right
+    // corner, below the pause button and timer, rather than top-center - sitting in the
+    // middle of the screen covered too much of the actual play area right in front of the
+    // camera.
+    private val minimapWidth = 130f
     private val minimapHeight = minimapWidth * (RaceConfig.WORLD_HEIGHT / RaceConfig.WORLD_WIDTH)
     private val minimapScale = minimapWidth / RaceConfig.WORLD_WIDTH
-    private val minimapTop = 112f
+    private val minimapMarginRight = 20f
+    private val minimapTop = 150f
     private val minimapPadding = 10f
     private val minimapDotRadius = 7f / minimapScale
     private val minimapBackgroundPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.argb(175, 10, 16, 22) }
@@ -810,7 +813,7 @@ class RaceView @JvmOverloads constructor(
     // plus a dot per live blob (the player's own ringed in white to stand out) - no
     // camera-viewport rectangle or checkpoint detail, deliberately kept minimal.
     private fun drawMinimap(canvas: Canvas) {
-        val left = (width - minimapWidth) / 2f
+        val left = width - minimapMarginRight - minimapWidth
         val top = minimapTop
 
         canvas.drawRect(

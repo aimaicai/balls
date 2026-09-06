@@ -48,11 +48,18 @@ class RaceEngine(
     playerColor: Int = 0xFF4FC3F7.toInt(),
     private val listener: RaceListener
 ) {
+    // Every racer starts already facing the track's own forward direction (checkpoint 0 to
+    // checkpoint 1) instead of RaceBlob's fixed default "up" - otherwise the opening seconds
+    // of every race showed a grid of balloons facing a direction that had nothing to do with
+    // the circuit, only turning to match once steering (or chasing the next checkpoint)
+    // kicked in a moment later.
+    private val startForward: Vector2 = (track.checkpoints[1] - track.checkpoints[0]).normalized()
+
     val player = RacePlayerBlob(
         id = 0,
         position = startGridPosition(0),
         color = playerColor
-    )
+    ).also { it.facingDirection = startForward }
 
     val blobs: MutableList<RaceBlob> = mutableListOf(player)
     val powerUps: MutableList<PowerUp> = mutableListOf()
@@ -67,6 +74,7 @@ class RaceEngine(
         repeat(botCount) { index ->
             val color = palette[index % palette.size].first
             val bot = RaceBotBlob(id = index + 1, position = startGridPosition(index + 1), color = color)
+            bot.facingDirection = startForward
             bot.radius = RaceConfig.BASE_RADIUS * (
                 RaceConfig.BOT_START_SIZE_MIN_FACTOR +
                     Random.nextFloat() * (RaceConfig.BOT_START_SIZE_MAX_FACTOR - RaceConfig.BOT_START_SIZE_MIN_FACTOR)
@@ -82,15 +90,14 @@ class RaceEngine(
     // is needed here.
     private fun startGridPosition(index: Int): Vector2 {
         val start = track.checkpoints[0]
-        val forward = (track.checkpoints[1] - start).normalized()
-        val perpendicular = Vector2(-forward.y, forward.x)
+        val perpendicular = Vector2(-startForward.y, startForward.x)
         val row = index / 2
         val lateralSide = if (index % 2 == 0) -1f else 1f
         val lateral = lateralSide * RaceConfig.MIN_SPAWN_SEPARATION * 0.6f
         val backward = (row + 1) * RaceConfig.MIN_SPAWN_SEPARATION * 0.9f
         return Vector2(
-            start.x - forward.x * backward + perpendicular.x * lateral,
-            start.y - forward.y * backward + perpendicular.y * lateral
+            start.x - startForward.x * backward + perpendicular.x * lateral,
+            start.y - startForward.y * backward + perpendicular.y * lateral
         )
     }
 
