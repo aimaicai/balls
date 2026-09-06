@@ -39,9 +39,16 @@ class RaceBotBlob(
         val safeToSprint = radius > RaceConfig.BOT_SPRINT_MIN_RADIUS
 
         // An about-to-collide threat overrides everything else, same panic logic as classic
-        // mode's bots.
+        // mode's bots - but tighter than classic mode's own 1.5x (see BotBlob), since a
+        // packed starting grid (or a tight pack mid-race) puts same-size rivals within a
+        // generous multiplier constantly. At 1.5x, bots spent most of a race dodging
+        // sideways away from whoever was merely racing alongside them instead of actually
+        // chasing the next checkpoint - which read as barely ever facing the direction of
+        // travel. Reserving panic for a genuinely imminent touch lets racing-forward (see
+        // towardNextCheckpoint) be the default the vast majority of the time, only broken by
+        // a real last-moment dodge.
         val nearThreat = threat
-        if (nearThreat != null && threatDistance < (radius + nearThreat.radius) * 1.5f) {
+        if (nearThreat != null && threatDistance < (radius + nearThreat.radius) * 1.1f) {
             if (carriedItem != null && carriedItem != PowerUpType.HOOK) {
                 engine.activateCarriedItem(this)
             }

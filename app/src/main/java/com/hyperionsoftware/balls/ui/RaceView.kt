@@ -195,13 +195,18 @@ class RaceView @JvmOverloads constructor(
         isFakeBoldText = true
     }
 
-    private val balloonStretch = 1.12f
-    private val balloonSquash = 0.94f
+    // More elongated than classic mode's own 1.12/0.94 (see GameView) - a race is exactly the
+    // context where "which way is this thing actually facing" needs to read at a glance, so
+    // the egg shape here is a deliberately more obvious torpedo, not just a subtle stretch.
+    private val balloonStretch = 1.3f
+    private val balloonSquash = 0.82f
     private val balloonMatrix = Matrix()
     private val balloonLocalOutlinePath = Path()
     private val balloonWorldOutlinePath = Path()
     private val knotPath = Path()
     private val stringPath = Path()
+    private val nosePath = Path()
+    private val nosePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.WHITE }
 
     private val trackPath = Path()
 
@@ -541,6 +546,7 @@ class RaceView @JvmOverloads constructor(
 
         drawExhaust(canvas, blob, cx, cy, alpha)
         drawBalloonBody(canvas, blob, cx, cy, alpha)
+        drawNose(canvas, blob, cx, cy, alpha)
         drawSticker(canvas, blob, cx, cy, alpha)
         if (blob.isFrozen) {
             frozenOverlayPaint.alpha = (alpha * 0.4f).toInt().coerceIn(0, 255)
@@ -588,6 +594,32 @@ class RaceView @JvmOverloads constructor(
             highlightPaint
         )
         canvas.restore()
+    }
+
+    // A small bright wedge at the FRONT of the balloon (opposite the knot, which trails at
+    // the back) - an unambiguous "which way is this thing pointed" cue that doesn't depend
+    // on noticing the body's own egg-shape rotation, since a race is exactly the context
+    // where that needs to be obvious at a glance, for every racer, not just the player's own.
+    private fun drawNose(canvas: Canvas, blob: RaceBlob, cx: Float, cy: Float, alpha: Int) {
+        val forwardX = blob.facingDirection.x
+        val forwardY = blob.facingDirection.y
+        val edgeRadius = blob.radius * balloonStretch
+        val noseLength = blob.radius * 0.36f
+        val noseWidth = blob.radius * 0.3f
+        val tipX = cx + forwardX * (edgeRadius + noseLength * 0.35f)
+        val tipY = cy + forwardY * (edgeRadius + noseLength * 0.35f)
+        val baseX = cx + forwardX * (edgeRadius - noseLength * 0.65f)
+        val baseY = cy + forwardY * (edgeRadius - noseLength * 0.65f)
+        val perpX = -forwardY * noseWidth * 0.5f
+        val perpY = forwardX * noseWidth * 0.5f
+
+        nosePaint.alpha = (200 * (alpha / 255f)).toInt().coerceIn(0, 255)
+        nosePath.reset()
+        nosePath.moveTo(baseX + perpX, baseY + perpY)
+        nosePath.lineTo(baseX - perpX, baseY - perpY)
+        nosePath.lineTo(tipX, tipY)
+        nosePath.close()
+        canvas.drawPath(nosePath, nosePaint)
     }
 
     // Only ever drawn on the player's own balloon (see BalloonSticker) - bots always keep
