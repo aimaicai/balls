@@ -83,6 +83,19 @@ class RaceProgressTest {
     }
 
     @Test
+    fun `crossing the finish line right off the starting grid does not count as a lap`() {
+        val engine = newEngine(totalLaps = 5)
+        // The starting grid sits just behind the line - driving forward crosses it almost
+        // immediately, well before actually covering anything close to a lap.
+        driveLaps(engine, RaceTrack.OVAL, ticks = 60)
+        assertEquals(
+            "A trivial starting-grid crossing must not count as completing a lap",
+            0,
+            engine.player.lapsCompleted
+        )
+    }
+
+    @Test
     fun `driving all the way around the track completes exactly one lap`() {
         val engine = newEngine(totalLaps = 5)
         driveLaps(engine, RaceTrack.OVAL, ticks = ticksForLaps(RaceTrack.OVAL, 1))

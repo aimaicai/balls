@@ -120,4 +120,29 @@ class RaceTrackTest {
             }
         }
     }
+
+    @Test
+    fun `crossesFinishLineForward is true only for a genuine forward crossing of the drawn line`() {
+        for (track in RaceTrack.values()) {
+            val forward = track.finishLineForward
+            val perpendicular = Vector2(-forward.y, forward.x)
+            val start = track.checkpoints[0]
+            val beforeLine = Vector2(start.x - forward.x * 50f, start.y - forward.y * 50f)
+            val afterLine = Vector2(start.x + forward.x * 50f, start.y + forward.y * 50f)
+
+            assertTrue(
+                "${track.name}: driving forward across the line should count",
+                track.crossesFinishLineForward(beforeLine, afterLine)
+            )
+            assertTrue(
+                "${track.name}: crossing backward must not count as a forward crossing",
+                !track.crossesFinishLineForward(afterLine, beforeLine)
+            )
+            val stillBefore = Vector2(beforeLine.x + perpendicular.x * 20f, beforeLine.y + perpendicular.y * 20f)
+            assertTrue(
+                "${track.name}: moving without ever reaching the line should not count",
+                !track.crossesFinishLineForward(beforeLine, stillBefore)
+            )
+        }
+    }
 }

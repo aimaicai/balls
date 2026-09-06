@@ -49,6 +49,13 @@ object RaceConfig {
     // gentle curve rather than the track's own straight-segment polyline.
     const val ARC_PROGRESS_SLACK_FACTOR = 2f
 
+    // A finish-line crossing (see RaceTrack.crossesFinishLineForward) only actually counts as
+    // completing a lap once lapDistanceTraveled has grown by at least this fraction of
+    // totalLength since the last one that counted - otherwise briefly crossing back and
+    // forth right at the line (or the very first crossing at race start, driving forward off
+    // the starting grid) would rack up laps without genuinely having covered one.
+    const val MIN_LAP_FRACTION_FOR_FINISH_CROSS = 0.5f
+
     const val BOOST_DRAIN_RATE_PER_SECOND = 0.25f
     const val BOOST_SPEED_MULTIPLIER = 1.6f
     const val BOOST_MAX_SPEED_MULTIPLIER = 2.6f
@@ -76,14 +83,10 @@ object RaceConfig {
     const val PERMANENT_TURN_RATE_MAX_MULTIPLIER = 3f
     const val PERMANENT_POTENCY_MAX_MULTIPLIER = 1.8f
 
-    // A little starting-size variance breaks the "everyone's identical, nobody can absorb
-    // anybody" opening stalemate, same reasoning as classic mode - the player still starts
-    // at a fair baseRadius, only bots get this.
-    const val BOT_START_SIZE_MIN_FACTOR = 0.8f
-    const val BOT_START_SIZE_MAX_FACTOR = 1.25f
-
-    // Comfortably bigger than two max-size spawning bots' radii combined so nobody starts
-    // touching, let alone overlapping - same idea as GameConfig.MIN_SPAWN_SEPARATION.
+    // Comfortably bigger than two max-size blobs' radii combined so nobody starts touching,
+    // let alone overlapping - same idea as GameConfig.MIN_SPAWN_SEPARATION. Every racer
+    // starts at exactly BASE_RADIUS (no starting-size variance, unlike classic mode's bots),
+    // so "max-size" here just means BASE_RADIUS itself.
     const val MIN_SPAWN_SEPARATION = BASE_RADIUS * 3f
     const val SPAWN_PLACEMENT_MAX_ATTEMPTS = 20
 

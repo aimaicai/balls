@@ -73,16 +73,16 @@ class RaceEngine(
     private var raceOver = false
 
     init {
+        // Every racer starts at exactly RaceConfig.BASE_RADIUS - unlike classic mode, a race
+        // isn't about breaking an "everyone's identical, nobody can absorb anybody" opening
+        // stalemate, so bots get no starting-size variance (see RaceBlob's own baseRadius
+        // default) - a fair, equal-size grid is the point.
         val palette = BotPersonality.PALETTE
         repeat(botCount) { index ->
             val color = palette[index % palette.size].first
             val bot = RaceBotBlob(id = index + 1, position = startGridPosition(index + 1), color = color)
             bot.facingDirection = startForward
             bot.trackArcPosition = track.closestArcLength(bot.position)
-            bot.radius = RaceConfig.BASE_RADIUS * (
-                RaceConfig.BOT_START_SIZE_MIN_FACTOR +
-                    Random.nextFloat() * (RaceConfig.BOT_START_SIZE_MAX_FACTOR - RaceConfig.BOT_START_SIZE_MIN_FACTOR)
-                )
             blobs.add(bot)
         }
         spawnInitialPowerUps()
@@ -217,14 +217,18 @@ class RaceEngine(
         b.clampToWorld()
     }
 
-    // Free-roaming lap progress: no waypoint has to be touched, in order or otherwise - a
-    // blob's lapDistanceTraveled simply tracks how far it's covered along the track's own
-    // path (see RaceTrack.closestArcLength), and a lap completes once that reaches
-    // totalLength. The only guard against cutting across the infield to skip ahead is
-    // bounding how much of a tick's raw arc-length change can be credited to how far the
-    // blob actually, physically moved that same tick (see RaceConfig.ARC_PROGRESS_SLACK_
-    // FACTOR) - a real shortcut only ever earns what it geometrically saved, never a free
-    // jump just because the nearest point on the track's path happens to sit far along it.
+    // Free-roaming lap progress: no waypoint has to be touched, in order or otherwise. Two
+    // separate things happen here: lapDistanceTraveled tracks how far a blob has covered
+    // along the track's own path (see RaceTrack.closestArcLength) - simply driving normally
+    // advances it, bounded each tick to how far the blob actually, physically moved that
+    // same tick (see RaceConfig.ARC_PROGRESS_SLACK_FACTOR) so cutting across the infield only
+    // ever earns what it geometrically saved. A lap is only actually counted, though, on a
+    // genuine crossing of the drawn start/finish line itself (see
+    // RaceTrack.crossesFinishLineForward) - using lapDistanceTraveled's own wraparound for
+    // that instead used to drift away from the visible line depending on how far to one side
+    // of the (wide) corridor a blob happened to be. The MIN_LAP_FRACTION_FOR_FINISH_CROSS
+    // check guards that crossing against not having driven anywhere yet (the very first
+    // crossing, off the starting grid) or briefly bouncing back and forth right at the line.
     private fun updateRaceProgress(positionsBeforeMove: Map<Int, Vector2>) {
         val totalLength = track.totalLength
         for (blob in blobs) {
@@ -243,9 +247,11 @@ class RaceEngine(
             blob.trackArcPosition = currentArc
             blob.lapDistanceTraveled = (blob.lapDistanceTraveled + delta).coerceAtLeast(0f)
 
-            val newLapsCompleted = (blob.lapDistanceTraveled / totalLength).toInt()
-            if (newLapsCompleted > blob.lapsCompleted) {
-                blob.lapsCompleted = newLapsCompleted
+            val crossedForward = track.crossesFinishLineForward(previousPosition, blob.position)
+            val progressSinceLastLap = blob.lapDistanceTraveled - blob.distanceAtLastLapBoundary
+            if (crossedForward && progressSinceLastLap >= totalLength * RaceConfig.MIN_LAP_FRACTION_FOR_FINISH_CROSS) {
+                blob.distanceAtLastLapBoundary = blob.lapDistanceTraveled
+                blob.lapsCompleted++
                 listener.onLapCompleted(blob === player, blob.lapsCompleted, totalLaps)
                 if (blob.lapsCompleted >= totalLaps) {
                     finishRace(blob)

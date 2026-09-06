@@ -55,6 +55,26 @@ enum class RaceTrack(val checkpoints: List<Vector2>, val halfWidth: Float) {
         total
     }
 
+    // The track's own local direction at checkpoints[0] (the average of the incoming and
+    // outgoing segment directions there) - which way "forward" points through the
+    // start/finish line. Shared by the actual lap-crossing check below and the line RaceView
+    // draws, so the two always agree on exactly where and which way the line runs.
+    val finishLineForward: Vector2 = run {
+        val incoming = (checkpoints[0] - checkpoints[checkpoints.size - 1]).normalized()
+        val outgoing = (checkpoints[1] - checkpoints[0]).normalized()
+        Vector2(incoming.x + outgoing.x, incoming.y + outgoing.y).normalized()
+    }
+
+    private val finishLineA: Vector2
+    private val finishLineB: Vector2
+
+    init {
+        val perpendicular = Vector2(-finishLineForward.y, finishLineForward.x)
+        val start = checkpoints[0]
+        finishLineA = Vector2(start.x + perpendicular.x * halfWidth, start.y + perpendicular.y * halfWidth)
+        finishLineB = Vector2(start.x - perpendicular.x * halfWidth, start.y - perpendicular.y * halfWidth)
+    }
+
     // How far beyond the track's own half-width a position sits - zero or negative means on
     // the track surface itself, positive means that far off it. Checked against every
     // segment of the loop (not just whichever part of it a blob is currently near) so it
@@ -113,6 +133,31 @@ enum class RaceTrack(val checkpoints: List<Vector2>, val halfWidth: Float) {
             cumulative += segmentLength
         }
         return checkpoints[0]
+    }
+
+    // True if the straight segment from `previous` to `current` (one tick's worth of actual
+    // movement) crosses the start/finish line - the exact same segment RaceView draws,
+    // halfWidth to each side of checkpoints[0] - while moving in the track's own forward
+    // direction there. A proper geometric crossing test rather than "nearest point on the
+    // whole polyline" (see closestArcLength): that one can only report which segment a wide
+    // corridor's position happens to be closer to, which drifts away from the drawn line
+    // depending on how far to one side of it a blob is - this fires exactly at the line
+    // every time, regardless.
+    fun crossesFinishLineForward(previous: Vector2, current: Vector2): Boolean {
+        if (!segmentsIntersect(previous, current, finishLineA, finishLineB)) return false
+        val movement = current - previous
+        return movement.dot(finishLineForward) > 0f
+    }
+
+    private fun segmentsIntersect(p1: Vector2, p2: Vector2, p3: Vector2, p4: Vector2): Boolean {
+        fun orientation(o: Vector2, a: Vector2, b: Vector2): Float =
+            (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x)
+        val d1 = orientation(p3, p4, p1)
+        val d2 = orientation(p3, p4, p2)
+        val d3 = orientation(p1, p2, p3)
+        val d4 = orientation(p1, p2, p4)
+        return ((d1 > 0f && d2 < 0f) || (d1 < 0f && d2 > 0f)) &&
+            ((d3 > 0f && d4 < 0f) || (d3 < 0f && d4 > 0f))
     }
 
     private fun projectionT(p: Vector2, a: Vector2, b: Vector2): Float {

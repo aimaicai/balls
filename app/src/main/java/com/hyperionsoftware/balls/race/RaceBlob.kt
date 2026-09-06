@@ -67,6 +67,12 @@ abstract class RaceBlob(
     var lapDistanceTraveled: Float = 0f
     var lapsCompleted: Int = 0
 
+    // The lapDistanceTraveled value as of the last time a lap was actually counted (see
+    // RaceEngine.updateRaceProgress) - what an actual finish-line crossing is checked
+    // against, so briefly crossing back and forth right at the line can't rack up laps
+    // without genuinely having covered one first.
+    var distanceAtLastLapBoundary: Float = 0f
+
     abstract fun decideDirection(engine: RaceEngine, dt: Float): Vector2
 
     open fun update(dt: Float, engine: RaceEngine, baseSpeed: Float) {

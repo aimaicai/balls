@@ -509,18 +509,15 @@ class RaceView @JvmOverloads constructor(
         drawStartFinishLine(canvas, offsetX, offsetY)
     }
 
-    // Drawn perpendicular to the track's own local direction at checkpoints[0] - the average
-    // of the incoming and outgoing segment directions there, not a fixed axis - so the line
-    // actually cuts across the corridor the way a real finish line would, matching exactly
-    // where RaceTrack.closestArcLength's 0/totalLength seam sits, rather than an
-    // approximation that only happened to look right for a particular track layout.
+    // Uses the exact same finishLineForward RaceEngine checks crossings against (see
+    // RaceTrack.crossesFinishLineForward), so the drawn line and the real lap boundary can
+    // never drift apart - drawn perpendicular to the track's own local direction at
+    // checkpoints[0], not a fixed axis, so it actually cuts across the corridor the way a
+    // real finish line would.
     private fun drawStartFinishLine(canvas: Canvas, offsetX: Float, offsetY: Float) {
         val track = engine.track
-        val checkpoints = track.checkpoints
-        val start = checkpoints[0]
-        val incoming = (checkpoints[0] - checkpoints[checkpoints.size - 1]).normalized()
-        val outgoing = (checkpoints[1] - checkpoints[0]).normalized()
-        val forward = Vector2(incoming.x + outgoing.x, incoming.y + outgoing.y).normalized()
+        val start = track.checkpoints[0]
+        val forward = track.finishLineForward
         val perpendicular = Vector2(-forward.y, forward.x)
         canvas.drawLine(
             start.x + offsetX + perpendicular.x * track.halfWidth,

@@ -17,7 +17,9 @@ class RaceSpawnPlacementTest {
                 totalLaps = 3,
                 listener = TestRaceListener()
             )
-            val maxPossibleRadiusSum = RaceConfig.BASE_RADIUS * RaceConfig.BOT_START_SIZE_MAX_FACTOR * 2f
+            // Every racer starts at exactly BASE_RADIUS - no starting-size variance, unlike
+            // classic mode's bots.
+            val maxPossibleRadiusSum = RaceConfig.BASE_RADIUS * 2f
             for (i in engine.blobs.indices) {
                 for (j in i + 1 until engine.blobs.size) {
                     val a = engine.blobs[i]
