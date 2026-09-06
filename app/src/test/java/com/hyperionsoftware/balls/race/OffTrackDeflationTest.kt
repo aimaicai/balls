@@ -17,9 +17,15 @@ class OffTrackDeflationTest {
         listener = TestRaceListener()
     ).also { engine ->
         // Freeze the one bot somewhere it can't collide with or otherwise disturb the player
-        // being tracked below.
+        // being tracked below - far enough from BOTH pinned test positions (checkpoints[0]
+        // and the world corner the off-track scenario's player clamps to) that the bot's own
+        // randomized starting radius (see BOT_START_SIZE_MIN/MAX_FACTOR) can never put it
+        // within collision range of either. A closer spot here was an intermittent flake:
+        // an unlucky large random radius could bounce the off-track player away from the
+        // exact corner it's pinned to every tick, occasionally breaking the strict
+        // less-than assertion below.
         val bot = engine.blobs[1]
-        bot.position = Vector2(50f, 50f)
+        bot.position = Vector2(-50000f, -50000f)
         bot.applyFreeze(9999f)
     }
 
