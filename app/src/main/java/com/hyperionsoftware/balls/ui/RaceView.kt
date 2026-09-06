@@ -1,8 +1,11 @@
 package com.hyperionsoftware.balls.ui
 
 import android.content.Context
+import android.graphics.BlurMaskFilter
 import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.DashPathEffect
+import android.graphics.Matrix
 import android.graphics.Paint
 import android.graphics.Path
 import android.util.AttributeSet
@@ -10,6 +13,9 @@ import android.view.SurfaceHolder
 import android.view.SurfaceView
 import androidx.core.content.ContextCompat
 import com.hyperionsoftware.balls.R
+import com.hyperionsoftware.balls.cosmetics.BalloonCord
+import com.hyperionsoftware.balls.cosmetics.BalloonSticker
+import com.hyperionsoftware.balls.cosmetics.ExhaustStyle
 import com.hyperionsoftware.balls.game.PowerUp
 import com.hyperionsoftware.balls.game.PowerUpType
 import com.hyperionsoftware.balls.game.Vector2
@@ -19,15 +25,18 @@ import com.hyperionsoftware.balls.race.RaceEndReason
 import com.hyperionsoftware.balls.race.RaceEngine
 import com.hyperionsoftware.balls.race.RaceListener
 import com.hyperionsoftware.balls.race.RaceTrack
+import com.hyperionsoftware.balls.settings.CosmeticsSettings
+import kotlin.math.atan2
 import kotlin.math.ceil
 import kotlin.math.min
 import kotlin.math.sin
 
-// Grand Prix mode's own SurfaceView, deliberately a much lighter port of GameView: no
-// cosmetics, achievements, personal records, daily challenges or helium integration - a
-// first-iteration rendering layer for an experimental mode (see RaceEngine), not a full match
-// of the classic mode's polish. Same threaded render-loop/camera-follow structure as GameView,
-// just simplified throughout.
+// Grand Prix mode's own SurfaceView, a lighter port of GameView: no achievements, personal
+// records, daily challenges or helium integration - a first-iteration rendering layer for an
+// experimental mode (see RaceEngine), not a full match of the classic mode's polish. Racers
+// are drawn with the exact same balloon look (egg body, knot, string, exhaust) and the
+// player's own cosmetics (see CosmeticsSettings) as classic mode, though, since a Grand Prix
+// racer that doesn't even look like the same balloon would be a strange first impression.
 class RaceView @JvmOverloads constructor(
     context: Context,
     attrs: AttributeSet? = null
@@ -64,6 +73,14 @@ class RaceView @JvmOverloads constructor(
     private var lastDirection = Vector2(0f, 0f)
     private var beaconPhase = 0f
 
+    // Read once per race start, same as the player's chosen color - purely cosmetic, drawn
+    // only on the player's own balloon (see drawSticker/drawString/drawExhaust), never
+    // threaded through RaceEngine.
+    private var selectedSticker: BalloonSticker = BalloonSticker.NONE
+    private var selectedCord: BalloonCord = BalloonCord.CLASSIC_GREY
+    private var selectedExhaustStyle: ExhaustStyle = ExhaustStyle.CLASSIC
+    private val exhaustPuffCount = 4
+
     private data class FloatingText(
         val x: Float,
         val y: Float,
@@ -75,40 +92,80 @@ class RaceView @JvmOverloads constructor(
 
     private val floatingTexts = mutableListOf<FloatingText>()
 
-    private val trackFillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.parseColor("#26323F")
+    // The track corridor is drawn as three concentric thick strokes of the same closed-loop
+    // path (see buildTrackPath): a faint outer shoulder showing the tolerated off-track
+    // margin, a bright curb border, and the actual asphalt surface on top of it - narrower
+    // than the curb, so only a thin ring of it peeks out as a clearly visible edge. A dashed
+    // racing line on top reinforces the path itself. Colors are chosen for strong contrast
+    // against the dark floor - the flat, low-contrast surface this used to be was barely
+    // readable at a glance.
+    private val trackShoulderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.parseColor("#332F3B45")
         style = Paint.Style.STROKE
         strokeCap = Paint.Cap.ROUND
         strokeJoin = Paint.Join.ROUND
     }
-    private val trackMarginPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.parseColor("#1AFFFFFF")
+    private val trackCurbPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.parseColor("#ECEFF1")
         style = Paint.Style.STROKE
         strokeCap = Paint.Cap.ROUND
         strokeJoin = Paint.Join.ROUND
+    }
+    private val trackSurfacePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.parseColor("#4A5A6A")
+        style = Paint.Style.STROKE
+        strokeCap = Paint.Cap.ROUND
+        strokeJoin = Paint.Join.ROUND
+    }
+    private val trackCenterLinePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.parseColor("#FFD54F")
+        style = Paint.Style.STROKE
+        strokeCap = Paint.Cap.ROUND
+        strokeWidth = 6f
+        pathEffect = DashPathEffect(floatArrayOf(46f, 34f), 0f)
     }
     private val checkpointPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.parseColor("#55FFFFFF")
+        color = Color.parseColor("#CCFFFFFF")
         style = Paint.Style.STROKE
         strokeWidth = 5f
     }
     private val nextCheckpointPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.parseColor("#FFD54F")
+        color = Color.parseColor("#00E5FF")
         style = Paint.Style.STROKE
-        strokeWidth = 7f
+        strokeWidth = 8f
     }
     private val startLinePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = Color.WHITE
         style = Paint.Style.STROKE
-        strokeWidth = 8f
+        strokeWidth = 10f
     }
+
+    // Balloon rendering below mirrors GameView's exactly (same fields/technique), so a Grand
+    // Prix racer - player or bot - reads as the same balloon as classic mode, not a different,
+    // simplified stand-in.
     private val bodyPaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val shadePaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val highlightPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.WHITE }
-    private val headingPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.parseColor("#CCFFFFFF")
+    private val knotPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val stringPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
-        strokeWidth = 5f
+        strokeWidth = 2f
+        color = Color.parseColor("#CFD8DC")
+    }
+    private val stickerInkPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.parseColor("#F5F5F5")
+        alpha = 235
+    }
+    private val stickerDetailPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.parseColor("#212121")
+        alpha = 200
+    }
+    private val speedBadgePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.parseColor("#FFEB3B") }
+    // Soft-edged via BlurMaskFilter instead of a hard shape - safe here because SurfaceView's
+    // canvas is a plain software bitmap canvas, and BlurMaskFilter only renders on those.
+    private val exhaustPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.parseColor("#B3E5FC")
+        maskFilter = BlurMaskFilter(10f, BlurMaskFilter.Blur.NORMAL)
     }
     private val shieldAuraPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = Color.parseColor("#804FC3F7")
@@ -138,7 +195,45 @@ class RaceView @JvmOverloads constructor(
         isFakeBoldText = true
     }
 
+    private val balloonStretch = 1.12f
+    private val balloonSquash = 0.94f
+    private val balloonMatrix = Matrix()
+    private val balloonLocalOutlinePath = Path()
+    private val balloonWorldOutlinePath = Path()
+    private val knotPath = Path()
+    private val stringPath = Path()
+
     private val trackPath = Path()
+
+    // A small always-on-screen overview of the whole circuit, top-center (the one corner
+    // free of HUD text/buttons) - just the track shape and every blob's live position, no
+    // camera-viewport indicator or per-checkpoint detail, to keep this a "simple" minimap as
+    // asked rather than a second full HUD.
+    private val minimapWidth = 160f
+    private val minimapHeight = minimapWidth * (RaceConfig.WORLD_HEIGHT / RaceConfig.WORLD_WIDTH)
+    private val minimapScale = minimapWidth / RaceConfig.WORLD_WIDTH
+    private val minimapTop = 112f
+    private val minimapPadding = 10f
+    private val minimapDotRadius = 7f / minimapScale
+    private val minimapBackgroundPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.argb(175, 10, 16, 22) }
+    private val minimapBorderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.parseColor("#66FFFFFF")
+        style = Paint.Style.STROKE
+        strokeWidth = 3f
+    }
+    private val minimapTrackPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.parseColor("#4A5A6A")
+        style = Paint.Style.STROKE
+        strokeCap = Paint.Cap.ROUND
+        strokeJoin = Paint.Join.ROUND
+        strokeWidth = 5f / minimapScale
+    }
+    private val minimapDotPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val minimapPlayerRingPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.WHITE
+        style = Paint.Style.STROKE
+        strokeWidth = 3f / minimapScale
+    }
 
     init {
         holder.addCallback(this)
@@ -152,12 +247,16 @@ class RaceView @JvmOverloads constructor(
         countdownRemaining = RaceConfig.COUNTDOWN_SECONDS
         lastBoostAvailable = false
         lastCarriedItemType = null
+        selectedSticker = CosmeticsSettings.getSelectedSticker(context)
+        selectedCord = CosmeticsSettings.getSelectedCord(context)
+        selectedExhaustStyle = CosmeticsSettings.getSelectedExhaustStyle(context)
         buildTrackPath(track)
 
         engine = RaceEngine(
             botCount = botCount,
             track = track,
             totalLaps = laps,
+            playerColor = CosmeticsSettings.getSelectedColor(context).colorInt,
             listener = object : RaceListener {
                 override fun onVibrate() = Unit
 
@@ -379,6 +478,7 @@ class RaceView @JvmOverloads constructor(
 
         drawFloatingTexts(canvas, offsetX, offsetY, dt)
         drawHud(canvas)
+        drawMinimap(canvas)
         drawCountdown(canvas)
     }
 
@@ -398,15 +498,19 @@ class RaceView @JvmOverloads constructor(
             trackPath.lineTo(checkpoints[i].x, checkpoints[i].y)
         }
         trackPath.close()
-        trackFillPaint.strokeWidth = track.halfWidth * 2f
-        trackMarginPaint.strokeWidth = (track.halfWidth + RaceConfig.OFF_TRACK_MARGIN) * 2f
+        trackShoulderPaint.strokeWidth = (track.halfWidth + RaceConfig.OFF_TRACK_MARGIN) * 2f
+        // Wider than the surface stroke drawn on top of it, so only a curb-width ring shows.
+        trackCurbPaint.strokeWidth = track.halfWidth * 2f + CURB_THICKNESS * 2f
+        trackSurfacePaint.strokeWidth = track.halfWidth * 2f
     }
 
     private fun drawTrack(canvas: Canvas, offsetX: Float, offsetY: Float) {
         canvas.save()
         canvas.translate(offsetX, offsetY)
-        canvas.drawPath(trackPath, trackMarginPaint)
-        canvas.drawPath(trackPath, trackFillPaint)
+        canvas.drawPath(trackPath, trackShoulderPaint)
+        canvas.drawPath(trackPath, trackCurbPaint)
+        canvas.drawPath(trackPath, trackSurfacePaint)
+        canvas.drawPath(trackPath, trackCenterLinePaint)
         canvas.restore()
 
         val track = engine.track
@@ -423,8 +527,8 @@ class RaceView @JvmOverloads constructor(
         )
 
         // The player's own next waypoint, highlighted distinctly from every other checkpoint
-        // marker - there's no minimap yet (see RaceView's deferred-features list), so this is
-        // the only on-screen guidance toward where to go next.
+        // marker - there's no camera-viewport indicator on the minimap yet, so this is the
+        // main on-screen guidance toward where to go next.
         val target = track.checkpoints[engine.player.nextCheckpointIndex]
         val pulse = RaceConfig.CHECKPOINT_RADIUS * (0.4f + 0.08f * sin(beaconPhase * 4f))
         canvas.drawCircle(target.x + offsetX, target.y + offsetY, pulse, nextCheckpointPaint)
@@ -435,29 +539,9 @@ class RaceView @JvmOverloads constructor(
         val cy = blob.position.y + offsetY
         val alpha = if (blob.isInvisible) 70 else 255
 
-        bodyPaint.color = blob.color
-        bodyPaint.alpha = alpha
-        canvas.drawCircle(cx, cy, blob.radius, bodyPaint)
-
-        shadePaint.color = darken(blob.color, 0.6f)
-        shadePaint.alpha = (alpha * 0.45f).toInt()
-        canvas.save()
-        canvas.clipPath(Path().apply { addCircle(cx, cy, blob.radius, Path.Direction.CW) })
-        canvas.drawCircle(cx + blob.radius * 0.22f, cy + blob.radius * 0.28f, blob.radius * 0.95f, shadePaint)
-        highlightPaint.alpha = (alpha * 0.5f).toInt()
-        canvas.drawOval(
-            cx - blob.radius * 0.55f, cy - blob.radius * 0.65f,
-            cx - blob.radius * 0.05f, cy - blob.radius * 0.15f,
-            highlightPaint
-        )
-        canvas.restore()
-
-        headingPaint.alpha = alpha
-        val heading = blob.facingDirection
-        canvas.drawLine(
-            cx, cy, cx + heading.x * blob.radius * 0.9f, cy + heading.y * blob.radius * 0.9f, headingPaint
-        )
-
+        drawExhaust(canvas, blob, cx, cy, alpha)
+        drawBalloonBody(canvas, blob, cx, cy, alpha)
+        drawSticker(canvas, blob, cx, cy, alpha)
         if (blob.isFrozen) {
             frozenOverlayPaint.alpha = (alpha * 0.4f).toInt().coerceIn(0, 255)
             canvas.drawCircle(cx, cy, blob.radius * 1.05f, frozenOverlayPaint)
@@ -466,6 +550,152 @@ class RaceView @JvmOverloads constructor(
             val pulse = 0.6f + 0.4f * sin(blob.exhaustPhase * 3f)
             shieldAuraPaint.alpha = (alpha * 0.5f * pulse).toInt().coerceIn(0, 255)
             canvas.drawCircle(cx, cy, blob.radius * 1.18f, shieldAuraPaint)
+        }
+        drawSpeedBadge(canvas, blob, cx, cy, alpha)
+        drawKnot(canvas, blob, cx, cy, alpha)
+        drawString(canvas, blob, cx, cy, alpha)
+    }
+
+    // The true silhouette is an egg shape stretched along the facing axis, built as a
+    // world-space path via a rotation matrix - exactly GameView's technique, so a Grand Prix
+    // balloon reads as the same balloon as classic mode, not a plain circle standing in for it.
+    private fun drawBalloonBody(canvas: Canvas, blob: RaceBlob, cx: Float, cy: Float, alpha: Int) {
+        bodyPaint.color = blob.color
+        bodyPaint.alpha = alpha
+
+        val angleDeg = facingAngleDeg(blob)
+        balloonMatrix.reset()
+        balloonMatrix.postScale(balloonSquash, balloonStretch)
+        balloonMatrix.postRotate(angleDeg)
+        balloonMatrix.postTranslate(cx, cy)
+
+        balloonLocalOutlinePath.reset()
+        balloonLocalOutlinePath.addCircle(0f, 0f, blob.radius, Path.Direction.CW)
+        balloonWorldOutlinePath.reset()
+        balloonLocalOutlinePath.transform(balloonMatrix, balloonWorldOutlinePath)
+
+        canvas.drawPath(balloonWorldOutlinePath, bodyPaint)
+
+        canvas.save()
+        canvas.clipPath(balloonWorldOutlinePath)
+        shadePaint.color = darken(blob.color, 0.6f)
+        shadePaint.alpha = (alpha * 0.45f).toInt()
+        canvas.drawCircle(cx + blob.radius * 0.22f, cy + blob.radius * 0.28f, blob.radius * 0.95f, shadePaint)
+        highlightPaint.alpha = (alpha * 0.5f).toInt()
+        canvas.drawOval(
+            cx - blob.radius * 0.55f, cy - blob.radius * 0.65f,
+            cx - blob.radius * 0.05f, cy - blob.radius * 0.15f,
+            highlightPaint
+        )
+        canvas.restore()
+    }
+
+    // Only ever drawn on the player's own balloon (see BalloonSticker) - bots always keep
+    // their plain look, exactly like classic mode.
+    private fun drawSticker(canvas: Canvas, blob: RaceBlob, cx: Float, cy: Float, alpha: Int) {
+        if (selectedSticker == BalloonSticker.NONE || blob !== engine.player) return
+        stickerInkPaint.alpha = (235 * (alpha / 255f)).toInt().coerceIn(0, 255)
+        stickerDetailPaint.alpha = (200 * (alpha / 255f)).toInt().coerceIn(0, 255)
+        canvas.save()
+        canvas.translate(cx, cy)
+        canvas.rotate(facingAngleDeg(blob))
+        canvas.scale(balloonSquash, balloonStretch)
+        selectedSticker.drawInto(canvas, stickerInkPaint, stickerDetailPaint, blob.radius * 0.5f)
+        canvas.restore()
+    }
+
+    private fun facingAngleDeg(blob: RaceBlob): Float =
+        Math.toDegrees(atan2(blob.facingDirection.y, blob.facingDirection.x).toDouble()).toFloat() + 90f
+
+    private fun drawSpeedBadge(canvas: Canvas, blob: RaceBlob, cx: Float, cy: Float, alpha: Int) {
+        if (!blob.isSpeedBoosted) return
+        val size = blob.radius * 0.55f
+        speedBadgePaint.alpha = alpha
+        canvas.save()
+        canvas.translate(cx, cy)
+        val bolt = Path().apply {
+            moveTo(size * 0.15f, -size * 0.6f)
+            lineTo(-size * 0.35f, size * 0.05f)
+            lineTo(size * 0.05f, size * 0.05f)
+            lineTo(-size * 0.15f, size * 0.6f)
+            lineTo(size * 0.45f, -size * 0.05f)
+            lineTo(size * 0.05f, -size * 0.05f)
+            close()
+        }
+        canvas.drawPath(bolt, speedBadgePaint)
+        canvas.restore()
+    }
+
+    private fun drawKnot(canvas: Canvas, blob: RaceBlob, cx: Float, cy: Float, alpha: Int) {
+        val backX = -blob.facingDirection.x
+        val backY = -blob.facingDirection.y
+        val edgeRadius = blob.radius * balloonStretch
+        val knotSize = blob.radius * 0.22f
+        val baseX = cx + backX * edgeRadius * 0.85f
+        val baseY = cy + backY * edgeRadius * 0.85f
+        val tipX = cx + backX * (edgeRadius + knotSize)
+        val tipY = cy + backY * (edgeRadius + knotSize)
+        val perpX = -backY * knotSize * 0.5f
+        val perpY = backX * knotSize * 0.5f
+
+        knotPaint.color = darken(blob.color, 0.55f)
+        knotPaint.alpha = alpha
+        knotPath.reset()
+        knotPath.moveTo(baseX + perpX, baseY + perpY)
+        knotPath.lineTo(baseX - perpX, baseY - perpY)
+        knotPath.lineTo(tipX, tipY)
+        knotPath.close()
+        canvas.drawPath(knotPath, knotPaint)
+    }
+
+    private fun drawString(canvas: Canvas, blob: RaceBlob, cx: Float, cy: Float, alpha: Int) {
+        val backX = -blob.facingDirection.x
+        val backY = -blob.facingDirection.y
+        val edgeRadius = blob.radius * balloonStretch
+        val knotSize = blob.radius * 0.22f
+        val startX = cx + backX * (edgeRadius + knotSize)
+        val startY = cy + backY * (edgeRadius + knotSize)
+        val length = blob.radius * 0.9f
+        val sway = sin(blob.exhaustPhase * 2.3f) * blob.radius * 0.15f
+
+        stringPaint.color = if (blob === engine.player) selectedCord.colorInt else BalloonCord.CLASSIC_GREY.colorInt
+        stringPaint.alpha = (alpha * 0.6f).toInt()
+        stringPath.reset()
+        stringPath.moveTo(startX, startY)
+        stringPath.quadTo(
+            startX + backX * length * 0.5f + sway, startY + backY * length * 0.5f,
+            startX + backX * length + sway * 0.6f, startY + backY * length
+        )
+        canvas.drawPath(stringPath, stringPaint)
+    }
+
+    // A trail of soft, shrinking puffs, same technique as classic mode - only the player's
+    // own puffs ever use a non-default ExhaustStyle.
+    private fun drawExhaust(canvas: Canvas, blob: RaceBlob, cx: Float, cy: Float, alpha: Int) {
+        if (!blob.isThrusting && !blob.isBoosting) return
+
+        val boosting = blob.isBoosting
+        val backX = -blob.facingDirection.x
+        val backY = -blob.facingDirection.y
+        val perpX = -backY
+        val perpY = backX
+        val pulse = 0.7f + 0.3f * sin(blob.exhaustPhase * (if (boosting) 22f else 14f))
+        val intensity = if (boosting) 1.7f else 1f
+        val edgeRadius = blob.radius * balloonStretch
+        val trailLength = blob.radius * (1.4f + 0.5f * pulse) * intensity
+        val baseAlphaFraction = if (boosting) 0.75f else 0.5f
+        val style = if (blob === engine.player) selectedExhaustStyle else ExhaustStyle.CLASSIC
+
+        exhaustPaint.color = if (boosting) Color.parseColor("#FF7043") else Color.parseColor("#B3E5FC")
+        for (i in 0 until exhaustPuffCount) {
+            val fraction = i / (exhaustPuffCount - 1).toFloat()
+            val distance = edgeRadius + trailLength * fraction
+            val wobble = sin(blob.exhaustPhase * (5f + i * 2.1f) + i * 1.9f) * blob.radius * 0.22f * fraction
+            val puffX = cx + backX * distance + perpX * wobble
+            val puffY = cy + backY * distance + perpY * wobble
+            val puffRadius = (blob.radius * (0.21f + fraction * 0.24f) * intensity).coerceAtLeast(1f)
+            exhaustPaint.alpha = (alpha * baseAlphaFraction * pulse * (1f - fraction * 0.7f)).toInt().coerceIn(0, 255)
+            style.drawPuff(canvas, exhaustPaint, puffX, puffY, puffRadius)
         }
     }
 
@@ -544,10 +774,47 @@ class RaceView @JvmOverloads constructor(
         canvas.drawText(timeText, width - timeWidth - 24f, 56f, hudTextPaint)
     }
 
+    // A simple always-visible overview: the track's shape scaled down to fit a small panel,
+    // plus a dot per live blob (the player's own ringed in white to stand out) - no
+    // camera-viewport rectangle or checkpoint detail, deliberately kept minimal.
+    private fun drawMinimap(canvas: Canvas) {
+        val left = (width - minimapWidth) / 2f
+        val top = minimapTop
+
+        canvas.drawRect(
+            left - minimapPadding, top - minimapPadding,
+            left + minimapWidth + minimapPadding, top + minimapHeight + minimapPadding,
+            minimapBackgroundPaint
+        )
+        canvas.drawRect(
+            left - minimapPadding, top - minimapPadding,
+            left + minimapWidth + minimapPadding, top + minimapHeight + minimapPadding,
+            minimapBorderPaint
+        )
+
+        canvas.save()
+        canvas.translate(left, top)
+        canvas.scale(minimapScale, minimapScale)
+        canvas.drawPath(trackPath, minimapTrackPaint)
+        for (blob in engine.blobs) {
+            if (!blob.alive) continue
+            minimapDotPaint.color = blob.color
+            canvas.drawCircle(blob.position.x, blob.position.y, minimapDotRadius, minimapDotPaint)
+            if (blob === engine.player) {
+                canvas.drawCircle(blob.position.x, blob.position.y, minimapDotRadius * 1.7f, minimapPlayerRingPaint)
+            }
+        }
+        canvas.restore()
+    }
+
     private fun drawCountdown(canvas: Canvas) {
         if (!countdownActive) return
         canvas.drawColor(Color.argb(120, 0, 0, 0))
         val secondsLeft = ceil(countdownRemaining).toInt().coerceAtLeast(1)
         canvas.drawText(secondsLeft.toString(), width / 2f, height / 2f + 60f, countdownPaint)
+    }
+
+    companion object {
+        private const val CURB_THICKNESS = 14f
     }
 }
