@@ -34,9 +34,25 @@ object RaceConfig {
     // should cost something.
     const val OFF_TRACK_MARGIN = 90f
 
-    // How close to a checkpoint's own waypoint counts as having reached it. Generous enough
-    // that clipping past at speed on a wide part of the track still registers.
+    // Purely a rendering size now (the pulsing lookahead marker - see RaceView) - lap
+    // progress itself is continuous along the track's own path (see RaceEngine.
+    // updateRaceProgress), not a waypoint radius to reach.
     const val CHECKPOINT_RADIUS = 260f
+
+    // How far ahead along the track's own path a bot (and the player's lookahead marker)
+    // aims, as a sliding target that keeps sliding forward with the blob instead of a fixed
+    // next-checkpoint waypoint - see RaceTrack.pointAtArcLength.
+    const val LOOKAHEAD_DISTANCE = 400f
+
+    // Caps how much of a raw arc-length jump (see RaceTrack.closestArcLength) counts toward
+    // a lap each tick, relative to how far the blob actually, physically moved that same
+    // tick - the free-roaming replacement for the old sequential-checkpoint gate. A shortcut
+    // across the infield only ever earns what it geometrically saved (bounded by real
+    // distance covered), never a free jump ahead just because the nearest point on the
+    // track's path happens to sit far along it. 1.0 would be exactly "arc length gained is
+    // capped at physical distance moved"; a little slack above that accounts for driving a
+    // gentle curve rather than the track's own straight-segment polyline.
+    const val ARC_PROGRESS_SLACK_FACTOR = 2f
 
     const val BOOST_DRAIN_RATE_PER_SECOND = 0.25f
     const val BOOST_SPEED_MULTIPLIER = 1.6f

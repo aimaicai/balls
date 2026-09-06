@@ -59,7 +59,10 @@ class RaceEngine(
         id = 0,
         position = startGridPosition(0),
         color = playerColor
-    ).also { it.facingDirection = startForward }
+    ).also {
+        it.facingDirection = startForward
+        it.trackArcPosition = track.closestArcLength(it.position)
+    }
 
     val blobs: MutableList<RaceBlob> = mutableListOf(player)
     val powerUps: MutableList<PowerUp> = mutableListOf()
@@ -75,6 +78,7 @@ class RaceEngine(
             val color = palette[index % palette.size].first
             val bot = RaceBotBlob(id = index + 1, position = startGridPosition(index + 1), color = color)
             bot.facingDirection = startForward
+            bot.trackArcPosition = track.closestArcLength(bot.position)
             bot.radius = RaceConfig.BASE_RADIUS * (
                 RaceConfig.BOT_START_SIZE_MIN_FACTOR +
                     Random.nextFloat() * (RaceConfig.BOT_START_SIZE_MAX_FACTOR - RaceConfig.BOT_START_SIZE_MIN_FACTOR)
@@ -110,6 +114,11 @@ class RaceEngine(
         if (raceOver) return
         matchElapsed += dt
 
+        // Snapshotted before anyone moves this tick - updateRaceProgress needs to know how
+        // far each blob actually, physically travelled, to bound how much lap progress a
+        // shortcut across the infield can ever earn (see its own comment).
+        val positionsBeforeMove = blobs.associate { it.id to Vector2(it.position.x, it.position.y) }
+
         for (blob in blobs) {
             val baseSpeed = if (blob is RacePlayerBlob) RaceConfig.PLAYER_BASE_SPEED else RaceConfig.BOT_BASE_SPEED
             blob.update(dt, this, baseSpeed)
@@ -118,7 +127,7 @@ class RaceEngine(
         applyBoostEffects(dt)
         applyAmbientDeflation(dt)
         resolveCollisions()
-        updateRaceProgress()
+        updateRaceProgress(positionsBeforeMove)
         updatePowerUps(dt)
         checkRaceOver()
     }
@@ -208,27 +217,41 @@ class RaceEngine(
         b.clampToWorld()
     }
 
-    // Advances each alive blob's next-checkpoint target once it's close enough, in strict
-    // index order - reaching a checkpoint out of sequence simply doesn't count, which is what
-    // keeps a blob from cutting across the infield to skip ahead (see RaceTrack). Checkpoint
-    // 0 doubles as the finish line: reaching it completes a lap, then the target wraps back to
-    // checkpoint 1 for the next one.
-    private fun updateRaceProgress() {
+    // Free-roaming lap progress: no waypoint has to be touched, in order or otherwise - a
+    // blob's lapDistanceTraveled simply tracks how far it's covered along the track's own
+    // path (see RaceTrack.closestArcLength), and a lap completes once that reaches
+    // totalLength. The only guard against cutting across the infield to skip ahead is
+    // bounding how much of a tick's raw arc-length change can be credited to how far the
+    // blob actually, physically moved that same tick (see RaceConfig.ARC_PROGRESS_SLACK_
+    // FACTOR) - a real shortcut only ever earns what it geometrically saved, never a free
+    // jump just because the nearest point on the track's path happens to sit far along it.
+    private fun updateRaceProgress(positionsBeforeMove: Map<Int, Vector2>) {
+        val totalLength = track.totalLength
         for (blob in blobs) {
             if (!blob.alive) continue
-            val targetIndex = blob.nextCheckpointIndex
-            val target = track.checkpoints[targetIndex]
-            if (blob.position.distanceTo(target) > RaceConfig.CHECKPOINT_RADIUS) continue
+            val previousPosition = positionsBeforeMove.getValue(blob.id)
+            val movedDistance = blob.position.distanceTo(previousPosition)
 
-            if (targetIndex == 0) {
-                blob.lapsCompleted++
+            val currentArc = track.closestArcLength(blob.position)
+            var delta = currentArc - blob.trackArcPosition
+            if (delta > totalLength / 2f) delta -= totalLength
+            else if (delta < -totalLength / 2f) delta += totalLength
+
+            val maxCredit = movedDistance * RaceConfig.ARC_PROGRESS_SLACK_FACTOR
+            delta = delta.coerceIn(-maxCredit, maxCredit)
+
+            blob.trackArcPosition = currentArc
+            blob.lapDistanceTraveled = (blob.lapDistanceTraveled + delta).coerceAtLeast(0f)
+
+            val newLapsCompleted = (blob.lapDistanceTraveled / totalLength).toInt()
+            if (newLapsCompleted > blob.lapsCompleted) {
+                blob.lapsCompleted = newLapsCompleted
                 listener.onLapCompleted(blob === player, blob.lapsCompleted, totalLaps)
                 if (blob.lapsCompleted >= totalLaps) {
                     finishRace(blob)
                     return
                 }
             }
-            blob.nextCheckpointIndex = (targetIndex + 1) % track.checkpoints.size
         }
     }
 

@@ -54,11 +54,17 @@ abstract class RaceBlob(
     var permanentPotencyMultiplier: Float = 1f
         private set
 
-    // Race progress: which checkpoint this blob needs next (index into
-    // RaceTrack.checkpoints), and how many full laps it's completed so far - see
-    // RaceEngine.updateRaceProgress. Every blob starts at checkpoint 0 (the start/finish
-    // line), so the next one it needs is index 1.
-    var nextCheckpointIndex: Int = 1
+    // Continuous race progress along the track's own path (see RaceTrack.closestArcLength),
+    // rather than a sequential per-checkpoint gate - simply driving the track normally, a
+    // little off to either side included, advances lapDistanceTraveled; RaceEngine.
+    // updateRaceProgress bounds how much of a tick's raw arc-length change can be credited to
+    // whatever the blob actually, physically travelled that same tick, so cutting across the
+    // infield only ever earns what it geometrically saved, never a free jump ahead. Both are
+    // set to this blob's actual starting position by RaceEngine right after it's placed on
+    // the grid - trackArcPosition also doubles as the anchor for RaceBotBlob's sliding
+    // lookahead steering target (see RaceTrack.pointAtArcLength).
+    var trackArcPosition: Float = 0f
+    var lapDistanceTraveled: Float = 0f
     var lapsCompleted: Int = 0
 
     abstract fun decideDirection(engine: RaceEngine, dt: Float): Vector2

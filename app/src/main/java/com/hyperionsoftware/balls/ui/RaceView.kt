@@ -124,11 +124,6 @@ class RaceView @JvmOverloads constructor(
         strokeWidth = 6f
         pathEffect = DashPathEffect(floatArrayOf(46f, 34f), 0f)
     }
-    private val checkpointPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.parseColor("#CCFFFFFF")
-        style = Paint.Style.STROKE
-        strokeWidth = 5f
-    }
     private val nextCheckpointPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = Color.parseColor("#00E5FF")
         style = Paint.Style.STROKE
@@ -519,11 +514,6 @@ class RaceView @JvmOverloads constructor(
         canvas.restore()
 
         val track = engine.track
-        for (checkpoint in track.checkpoints) {
-            canvas.drawCircle(
-                checkpoint.x + offsetX, checkpoint.y + offsetY, RaceConfig.CHECKPOINT_RADIUS * 0.3f, checkpointPaint
-            )
-        }
         val start = track.checkpoints[0]
         canvas.drawLine(
             start.x + offsetX, start.y + offsetY - track.halfWidth,
@@ -531,10 +521,11 @@ class RaceView @JvmOverloads constructor(
             startLinePaint
         )
 
-        // The player's own next waypoint, highlighted distinctly from every other checkpoint
-        // marker - there's no camera-viewport indicator on the minimap yet, so this is the
-        // main on-screen guidance toward where to go next.
-        val target = track.checkpoints[engine.player.nextCheckpointIndex]
+        // A sliding lookahead point some distance ahead of the player along the track's own
+        // path (see RaceTrack.pointAtArcLength) - not a waypoint that has to be reached, just
+        // a "keep heading this way" cue, since there's no camera-viewport indicator on the
+        // minimap yet.
+        val target = track.pointAtArcLength(engine.player.trackArcPosition + RaceConfig.LOOKAHEAD_DISTANCE)
         val pulse = RaceConfig.CHECKPOINT_RADIUS * (0.4f + 0.08f * sin(beaconPhase * 4f))
         canvas.drawCircle(target.x + offsetX, target.y + offsetY, pulse, nextCheckpointPaint)
     }

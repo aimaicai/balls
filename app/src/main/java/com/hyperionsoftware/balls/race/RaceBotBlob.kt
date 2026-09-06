@@ -3,12 +3,13 @@ package com.hyperionsoftware.balls.race
 import com.hyperionsoftware.balls.game.PowerUpType
 import com.hyperionsoftware.balls.game.Vector2
 
-// Waypoint-following race AI: mostly just chases the next checkpoint at all times - there's
-// no shrinking safe zone forcing survivors together like classic mode, so racing forward IS
-// the survival strategy - but still reacts to immediate threats/prey/power-ups along the
-// way. A race win and an elimination win (see RaceEngine) are both valid, so absorbing a
-// rival that's conveniently in the way is always worth it, though never worth detouring far
-// for - unlike classic mode's bots, these aren't hunting.
+// Free-roaming race AI: mostly just chases a lookahead point sliding along the track ahead of
+// it at all times (see towardLookaheadPoint) - there's no shrinking safe zone forcing
+// survivors together like classic mode, so racing forward IS the survival strategy - but
+// still reacts to immediate threats/prey/power-ups along the way. A race win and an
+// elimination win (see RaceEngine) are both valid, so absorbing a rival that's conveniently
+// in the way is always worth it, though never worth detouring far for - unlike classic mode's
+// bots, these aren't hunting.
 class RaceBotBlob(
     id: Int,
     position: Vector2,
@@ -43,9 +44,9 @@ class RaceBotBlob(
         // packed starting grid (or a tight pack mid-race) puts same-size rivals within a
         // generous multiplier constantly. At 1.5x, bots spent most of a race dodging
         // sideways away from whoever was merely racing alongside them instead of actually
-        // chasing the next checkpoint - which read as barely ever facing the direction of
+        // chasing the lookahead point - which read as barely ever facing the direction of
         // travel. Reserving panic for a genuinely imminent touch lets racing-forward (see
-        // towardNextCheckpoint) be the default the vast majority of the time, only broken by
+        // towardLookaheadPoint) be the default the vast majority of the time, only broken by
         // a real last-moment dodge.
         val nearThreat = threat
         if (nearThreat != null && threatDistance < (radius + nearThreat.radius) * 1.1f) {
@@ -56,12 +57,12 @@ class RaceBotBlob(
             return (position - nearThreat.position).normalized()
         }
 
-        // Off-track by more than a comfortable margin: heading back toward the next
-        // checkpoint (which is always on the track by definition) wins over anything else,
-        // since the off-track deflation is punishing.
+        // Off-track by more than a comfortable margin: heading back toward the lookahead
+        // point (which is always on the track by definition) wins over anything else, since
+        // the off-track deflation is punishing.
         if (engine.track.distanceOffTrack(position) > RaceConfig.OFF_TRACK_MARGIN * 0.5f) {
             isBoosting = false
-            return towardNextCheckpoint(engine)
+            return towardLookaheadPoint(engine)
         }
 
         isBoosting = false
@@ -78,11 +79,11 @@ class RaceBotBlob(
             return (nearbyPowerUp.position - position).normalized()
         }
 
-        return towardNextCheckpoint(engine)
+        return towardLookaheadPoint(engine)
     }
 
-    private fun towardNextCheckpoint(engine: RaceEngine): Vector2 {
-        val target = engine.track.checkpoints[nextCheckpointIndex]
+    private fun towardLookaheadPoint(engine: RaceEngine): Vector2 {
+        val target = engine.track.pointAtArcLength(trackArcPosition + RaceConfig.LOOKAHEAD_DISTANCE)
         return (target - position).normalized()
     }
 }
