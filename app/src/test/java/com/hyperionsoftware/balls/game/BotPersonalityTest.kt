@@ -56,6 +56,10 @@ class BotPersonalityTest {
         val bots = engine.blobs.filterIsInstance<BotBlob>()
         val bot = bots.first { it.personality == BotPersonality.BALANCED }
         val prey = bots.first { it.personality == BotPersonality.HUNTER } // just borrowed as the prey target
+        // Parked out of the way so their random spawn radius/position can't occasionally
+        // register as an unplanned threat or prey within vision alongside the deliberately
+        // placed prey above - a rare, hard-to-reproduce flake otherwise.
+        val bystanders = bots.filter { it.personality == BotPersonality.CAUTIOUS || it.personality == BotPersonality.COLLECTOR }
 
         val cx = engine.safeZoneCenterX
         val cy = engine.safeZoneCenterY
@@ -63,6 +67,7 @@ class BotPersonalityTest {
         prey.radius = 20f // qualifies as prey (ratio >= ABSORB_RATIO)
         bot.position = Vector2(cx, cy)
         prey.position = Vector2(cx, cy + 150f) // straight down
+        bystanders.forEachIndexed { index, bystander -> bystander.position = Vector2(cx + 50_000f, cy + 50_000f + index * 500f) }
         engine.powerUps.clear()
         engine.powerUps.add(PowerUp(PowerUpType.POTENCY_UP, Vector2(cx + 50f, cy))) // straight right, much closer than the prey
 
@@ -79,6 +84,7 @@ class BotPersonalityTest {
         val hunter = bots.first { it.personality == BotPersonality.HUNTER }
         val collector = bots.first { it.personality == BotPersonality.COLLECTOR }
         val prey = bots.first { it.personality == BotPersonality.CAUTIOUS } // just borrowed as the prey target
+        val bystander = bots.first { it.personality == BotPersonality.BALANCED }
 
         val cx = engine.safeZoneCenterX
         val cy = engine.safeZoneCenterY
@@ -86,6 +92,10 @@ class BotPersonalityTest {
         prey.position = Vector2(cx, cy + 150f) // straight down from the shared subject position
         engine.powerUps.clear()
         engine.powerUps.add(PowerUp(PowerUpType.GROWTH, Vector2(cx + 120f, cy))) // straight right, closer but not by much
+        // Otherwise its random spawn radius could occasionally land far enough from the
+        // subject's own to register as an unplanned threat or prey within vision, on top of
+        // (or instead of) the deliberately placed prey above - a rare, hard-to-reproduce flake.
+        bystander.position = Vector2(cx + 50_000f, cy + 50_000f)
 
         hunter.radius = 40f
         hunter.position = Vector2(cx, cy)
@@ -110,10 +120,15 @@ class BotPersonalityTest {
         val balanced = bots.first { it.personality == BotPersonality.BALANCED }
         val cautious = bots.first { it.personality == BotPersonality.CAUTIOUS }
         val threat = bots.first { it.personality == BotPersonality.HUNTER } // just borrowed as the shared threat
+        // Parked out of the way so its random spawn radius/position can't occasionally
+        // register as an unplanned threat or prey within vision - a rare, hard-to-reproduce
+        // flake otherwise.
+        val bystander = bots.first { it.personality == BotPersonality.COLLECTOR }
         engine.powerUps.clear()
 
         val cx = engine.safeZoneCenterX
         val cy = engine.safeZoneCenterY
+        bystander.position = Vector2(cx + 50_000f, cy + 50_000f)
         threat.radius = 100f
         threat.position = Vector2(cx + 240f, cy)
 

@@ -59,6 +59,9 @@ class GrowthAndComboTest {
         val engine = GameEngine(botCount = 1, powerUpFrequencyLevel = 1, listener = listener)
         val player = engine.player
         val bot = engine.blobs.first { it.id != player.id }
+        // A stray GROWTH spawned right where the player ends up (rare, but possible) would
+        // throw off the exact radius this test checks below.
+        engine.powerUps.clear()
 
         player.radius = 200f
         bot.radius = 20f
@@ -81,6 +84,9 @@ class GrowthAndComboTest {
         val engine = GameEngine(botCount = 2, powerUpFrequencyLevel = 1, listener = listener)
         val player = engine.player
         val bots = engine.blobs.filter { it.id != player.id }
+        // A stray GROWTH spawned right where the player ends up (rare, but possible) would
+        // throw off the exact radius this test checks below.
+        engine.powerUps.clear()
 
         player.radius = 200f
         bots.forEach {

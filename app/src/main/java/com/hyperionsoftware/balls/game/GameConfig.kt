@@ -135,6 +135,17 @@ object GameConfig {
     const val BOT_START_SIZE_MIN_FACTOR = 0.8f
     const val BOT_START_SIZE_MAX_FACTOR = 1.25f
 
+    // Purely random placement could still land two blobs (bots, or a bot right on top of
+    // the player's fixed center-of-map start) close enough to absorb each other or bounce
+    // before the match has even properly begun. Comfortably bigger than two max-size
+    // spawning bots' radii combined (BASE_RADIUS * BOT_START_SIZE_MAX_FACTOR * 2 = 100) so
+    // nobody starts touching, let alone overlapping.
+    const val MIN_SPAWN_SEPARATION = BASE_RADIUS * 3f
+    // Giving up after this many tries and placing the blob anyway (rather than looping
+    // forever) protects against a pathological combination of a tiny arena and a huge bot
+    // count where fully separated placement genuinely isn't possible.
+    const val SPAWN_PLACEMENT_MAX_ATTEMPTS = 20
+
     // How far off-screen the danger/prey edge indicator can still "see".
     const val AWARENESS_RADIUS = 2500f
 

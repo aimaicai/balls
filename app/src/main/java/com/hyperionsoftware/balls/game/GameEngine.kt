@@ -207,11 +207,7 @@ class GameEngine(
     init {
         val palette = BotPersonality.PALETTE
         repeat(botCount) { index ->
-            val margin = GameConfig.BASE_RADIUS * 2f
-            val position = Vector2(
-                Random.nextFloat() * (GameConfig.WORLD_WIDTH - margin * 2f) + margin,
-                Random.nextFloat() * (GameConfig.WORLD_HEIGHT - margin * 2f) + margin
-            )
+            val position = randomSpawnPosition()
             // Color and personality come from the same palette entry (see BotPersonality) -
             // a bot's color always means the same character, cycling through the palette by
             // spawn order so the same few "characters" repeat once there are more bots than
@@ -228,6 +224,26 @@ class GameEngine(
             blobs.add(bot)
         }
         if (skipToFinalRound) triggerFinalRound() else spawnInitialPowerUps()
+    }
+
+    // Plain uniform-random placement could still land a bot right on top of another bot,
+    // or of the player's fixed center-of-map start, close enough to bounce or even absorb
+    // before the match has properly begun. Re-rolls against every blob already placed
+    // (checked incrementally as blobs are added, starting from just the player) until one
+    // lands far enough from all of them, or gives up after enough tries - see
+    // GameConfig.MIN_SPAWN_SEPARATION/SPAWN_PLACEMENT_MAX_ATTEMPTS.
+    private fun randomSpawnPosition(): Vector2 {
+        val margin = GameConfig.BASE_RADIUS * 2f
+        var candidate = Vector2(0f, 0f)
+        for (attempt in 0 until GameConfig.SPAWN_PLACEMENT_MAX_ATTEMPTS) {
+            candidate = Vector2(
+                Random.nextFloat() * (GameConfig.WORLD_WIDTH - margin * 2f) + margin,
+                Random.nextFloat() * (GameConfig.WORLD_HEIGHT - margin * 2f) + margin
+            )
+            val tooClose = blobs.any { candidate.distanceTo(it.position) < GameConfig.MIN_SPAWN_SEPARATION }
+            if (!tooClose) break
+        }
+        return candidate
     }
 
     // Filling in a chunk of the cap immediately, instead of waiting for the usual
