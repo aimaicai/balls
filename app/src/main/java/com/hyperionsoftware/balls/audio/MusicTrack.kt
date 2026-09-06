@@ -8,5 +8,6 @@ import com.hyperionsoftware.balls.R
 // nothing else about the selection/playback code needs to change when that happens.
 enum class MusicTrack(val labelResId: Int, val rawResId: Int) {
     CIELI_DI_ZUCCHERO(R.string.music_track_cieli_di_zucchero, R.raw.cieli_di_zucchero),
-    SENZA_PIETA(R.string.music_track_senza_pieta, R.raw.senza_pieta)
+    SENZA_PIETA(R.string.music_track_senza_pieta, R.raw.senza_pieta),
+    DANZA_NEI_CIELI(R.string.music_track_danza_nei_cieli, R.raw.danza_nei_cieli)
 }

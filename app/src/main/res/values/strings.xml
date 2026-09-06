@@ -20,6 +20,7 @@
     <string name="menu_vibration_label">Vibration</string>
     <string name="music_track_cieli_di_zucchero">Cieli di zucchero</string>
     <string name="music_track_senza_pieta">Senza pietà</string>
+    <string name="music_track_danza_nei_cieli">Danza nei cieli</string>
     <string name="menu_arena_label">Arena size: %1$s</string>
     <string name="menu_safe_zone_shrink_speed_label">Safe zone shrink speed: %1$d</string>
     <string name="arena_size_small">Small</string>
