@@ -27,9 +27,8 @@ class BackgroundMusicPlayer(private val context: Context) {
                     .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
                     .build()
             )
-            // Turned down from full volume so sound effects (absorbs, power-ups, the boost
-            // hiss) still cut through instead of getting buried under the music.
-            setVolume(MUSIC_VOLUME, MUSIC_VOLUME)
+            val volume = currentVolumeFraction()
+            setVolume(volume, volume)
             isLooping = true
             start()
         }
@@ -44,7 +43,13 @@ class BackgroundMusicPlayer(private val context: Context) {
         currentTrack = null
     }
 
-    private companion object {
-        const val MUSIC_VOLUME = 0.5f
+    // Re-reads MusicSettings' current volume and applies it to whatever's already playing -
+    // called on every slider move in Options/the pause menu so dragging it gives immediate
+    // feedback, without needing to restart the track.
+    fun applyVolumeSetting() {
+        val volume = currentVolumeFraction()
+        mediaPlayer?.setVolume(volume, volume)
     }
+
+    private fun currentVolumeFraction(): Float = MusicSettings.getVolume(context) / 100f
 }

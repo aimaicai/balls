@@ -12,7 +12,10 @@ import androidx.appcompat.app.AppCompatActivity
 import com.hyperionsoftware.balls.audio.BackgroundMusicPlayer
 import com.hyperionsoftware.balls.audio.MusicSettings
 import com.hyperionsoftware.balls.audio.MusicTrack
+import com.hyperionsoftware.balls.audio.SoundEffectPlayer
+import com.hyperionsoftware.balls.audio.SoundSettingsBinder
 import com.hyperionsoftware.balls.databinding.ActivityGameBinding
+import com.hyperionsoftware.balls.databinding.SoundSettingsPanelBinding
 import com.hyperionsoftware.balls.economy.HeliumRewards
 import com.hyperionsoftware.balls.economy.Wallet
 import com.hyperionsoftware.balls.game.GameConfig
@@ -30,6 +33,10 @@ class GameActivity : AppCompatActivity(), GameView.Callback {
     private var botAggressivenessLevel = GameConfig.BOT_AGGRESSIVENESS_DEFAULT_LEVEL
     private var safeZoneShrinkSpeedLevel = GameConfig.SAFE_ZONE_SHRINK_SPEED_DEFAULT_LEVEL
     private val musicPlayer = BackgroundMusicPlayer(this)
+    // Only used for the pause dialog's sound-settings panel (see showPauseDialog) - a
+    // separate instance from GameView's own so the paused match's audio state stays fully
+    // untouched by adjusting settings while paused.
+    private val sfxPlayer = SoundEffectPlayer(this)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -89,11 +96,22 @@ class GameActivity : AppCompatActivity(), GameView.Callback {
         musicPlayer.stop()
     }
 
+    override fun onDestroy() {
+        super.onDestroy()
+        sfxPlayer.release()
+    }
+
     private fun showPauseDialog() {
         binding.gameView.setBoosting(false)
         binding.gameView.pauseGame()
+        // The same sound-settings panel Options uses (see SoundSettingsBinder), reachable
+        // here too so pausing mid-match is enough to fix an annoying volume level without
+        // backing all the way out to the main menu.
+        val soundSettings = SoundSettingsPanelBinding.inflate(layoutInflater)
+        SoundSettingsBinder.bind(this, soundSettings, musicPlayer, sfxPlayer)
         AlertDialog.Builder(this)
             .setTitle(getString(R.string.pause_title))
+            .setView(soundSettings.root)
             .setCancelable(false)
             .setPositiveButton(getString(R.string.pause_resume)) { _, _ -> binding.gameView.resumeGame() }
             .setNeutralButton(getString(R.string.pause_restart)) { _, _ ->

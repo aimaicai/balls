@@ -2,14 +2,12 @@ package com.hyperionsoftware.balls
 
 import android.content.Intent
 import android.os.Bundle
-import android.view.View
-import android.widget.AdapterView
-import android.widget.ArrayAdapter
 import android.widget.SeekBar
 import androidx.appcompat.app.AppCompatActivity
 import com.hyperionsoftware.balls.audio.BackgroundMusicPlayer
 import com.hyperionsoftware.balls.audio.MusicSettings
-import com.hyperionsoftware.balls.audio.MusicTrack
+import com.hyperionsoftware.balls.audio.SoundEffectPlayer
+import com.hyperionsoftware.balls.audio.SoundSettingsBinder
 import com.hyperionsoftware.balls.databinding.ActivityOptionsBinding
 import com.hyperionsoftware.balls.game.GameConfig
 import com.hyperionsoftware.balls.settings.GameSettings
@@ -26,6 +24,7 @@ class OptionsActivity : AppCompatActivity() {
     private var botAggressivenessLevel = GameConfig.BOT_AGGRESSIVENESS_DEFAULT_LEVEL
     private var safeZoneShrinkSpeedLevel = GameConfig.SAFE_ZONE_SHRINK_SPEED_DEFAULT_LEVEL
     private val musicPlayer = BackgroundMusicPlayer(this)
+    private val sfxPlayer = SoundEffectPlayer(this)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -106,28 +105,7 @@ class OptionsActivity : AppCompatActivity() {
             override fun onStopTrackingTouch(seekBar: SeekBar) = Unit
         })
 
-        binding.musicSwitch.isChecked = MusicSettings.isEnabled(this)
-        binding.musicSwitch.setOnCheckedChangeListener { _, isEnabled ->
-            MusicSettings.setEnabled(this, isEnabled)
-            if (isEnabled) musicPlayer.start(MusicSettings.getSelectedTrack(this)) else musicPlayer.stop()
-        }
-
-        val tracks = MusicTrack.entries.toList()
-        binding.musicTrackSpinner.adapter = ArrayAdapter(
-            this,
-            android.R.layout.simple_spinner_dropdown_item,
-            tracks.map { getString(it.labelResId) }
-        )
-        binding.musicTrackSpinner.setSelection(tracks.indexOf(MusicSettings.getSelectedTrack(this)))
-        binding.musicTrackSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
-            override fun onItemSelected(parent: AdapterView<*>, view: View?, position: Int, id: Long) {
-                val track = tracks[position]
-                MusicSettings.setSelectedTrack(this@OptionsActivity, track)
-                if (MusicSettings.isEnabled(this@OptionsActivity)) musicPlayer.start(track)
-            }
-
-            override fun onNothingSelected(parent: AdapterView<*>) = Unit
-        }
+        SoundSettingsBinder.bind(this, binding.soundSettingsPanel, musicPlayer, sfxPlayer)
 
         binding.customizeButton.setOnClickListener {
             startActivity(Intent(this, CustomizeActivity::class.java))
@@ -146,6 +124,11 @@ class OptionsActivity : AppCompatActivity() {
     override fun onPause() {
         super.onPause()
         musicPlayer.stop()
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        sfxPlayer.release()
     }
 
     private fun updateBotCountLabel() {

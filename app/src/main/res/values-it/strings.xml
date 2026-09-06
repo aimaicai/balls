@@ -12,7 +12,11 @@
     <string name="menu_tutorial">Tutorial</string>
     <string name="menu_customize">Personalizza</string>
     <string name="menu_music_label">Musica di sottofondo</string>
+    <string name="menu_music_volume_label">Volume musica</string>
     <string name="menu_music_track_label">Traccia musicale</string>
+    <string name="menu_sfx_label">Effetti sonori</string>
+    <string name="menu_sfx_volume_label">Volume effetti sonori</string>
+    <string name="menu_vibration_label">Vibrazione</string>
     <string name="music_track_cieli_di_zucchero">Cieli di zucchero</string>
     <string name="music_track_senza_pieta">Senza pietà</string>
     <string name="menu_arena_label">Dimensione arena: %1$s</string>

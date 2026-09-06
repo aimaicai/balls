@@ -8,6 +8,11 @@ object MusicSettings {
     private const val PREFS_NAME = "settings"
     private const val KEY_MUSIC_ENABLED = "music_enabled"
     private const val KEY_SELECTED_TRACK = "selected_track"
+    private const val KEY_MUSIC_VOLUME = "music_volume"
+
+    // 50, not 100: matches the level the music was hardcoded to before this was adjustable,
+    // so nobody's existing experience changes just because volume control now exists.
+    const val DEFAULT_VOLUME = 50
 
     fun isEnabled(context: Context): Boolean =
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -17,6 +22,18 @@ object MusicSettings {
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             .edit()
             .putBoolean(KEY_MUSIC_ENABLED, enabled)
+            .apply()
+    }
+
+    // 0-100, matching the SeekBar it's driven by directly.
+    fun getVolume(context: Context): Int =
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getInt(KEY_MUSIC_VOLUME, DEFAULT_VOLUME)
+
+    fun setVolume(context: Context, volume: Int) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putInt(KEY_MUSIC_VOLUME, volume.coerceIn(0, 100))
             .apply()
     }
 

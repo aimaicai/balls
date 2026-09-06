@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Shared by activity_options.xml and GameActivity's pause dialog (dialog_pause.xml) so
+     both places wire up the exact same controls the exact same way - see
+     OptionsActivity.bindSoundSettings, which both call. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:gravity="center_horizontal">
+
+    <com.google.android.material.switchmaterial.SwitchMaterial
+        android:id="@+id/musicSwitch"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/menu_music_label"
+        android:textColor="@color/hud_text" />
+
+    <TextView
+        android:id="@+id/musicVolumeLabel"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:text="@string/menu_music_volume_label"
+        android:textColor="@color/hud_text"
+        android:textSize="14sp" />
+
+    <SeekBar
+        android:id="@+id/musicVolumeSeekBar"
+        android:layout_width="220dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:max="100"
+        android:min="0" />
+
+    <TextView
+        android:id="@+id/musicTrackLabel"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:text="@string/menu_music_track_label"
+        android:textColor="@color/hud_text"
+        android:textSize="14sp" />
+
+    <Spinner
+        android:id="@+id/musicTrackSpinner"
+        android:layout_width="200dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp" />
+
+    <com.google.android.material.switchmaterial.SwitchMaterial
+        android:id="@+id/sfxSwitch"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="24dp"
+        android:text="@string/menu_sfx_label"
+        android:textColor="@color/hud_text" />
+
+    <TextView
+        android:id="@+id/sfxVolumeLabel"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:text="@string/menu_sfx_volume_label"
+        android:textColor="@color/hud_text"
+        android:textSize="14sp" />
+
+    <SeekBar
+        android:id="@+id/sfxVolumeSeekBar"
+        android:layout_width="220dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:max="100"
+        android:min="0" />
+
+    <com.google.android.material.switchmaterial.SwitchMaterial
+        android:id="@+id/vibrationSwitch"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="24dp"
+        android:text="@string/menu_vibration_label"
+        android:textColor="@color/hud_text" />
+
+</LinearLayout>

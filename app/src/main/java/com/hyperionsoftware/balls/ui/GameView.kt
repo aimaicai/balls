@@ -11,9 +11,7 @@ import android.graphics.Path
 import android.graphics.Region
 import android.media.AudioAttributes
 import android.media.AudioFormat
-import android.media.AudioManager
 import android.media.AudioTrack
-import android.media.ToneGenerator
 import android.os.Build
 import android.os.VibrationEffect
 import android.os.Vibrator
@@ -24,6 +22,9 @@ import android.view.SurfaceView
 import com.hyperionsoftware.balls.R
 import com.hyperionsoftware.balls.achievements.Achievement
 import com.hyperionsoftware.balls.achievements.Achievements
+import com.hyperionsoftware.balls.audio.SfxSettings
+import com.hyperionsoftware.balls.audio.SoundEffectPlayer
+import com.hyperionsoftware.balls.audio.VibrationSettings
 import com.hyperionsoftware.balls.challenges.DailyChallenges
 import com.hyperionsoftware.balls.challenges.MatchResult
 import com.hyperionsoftware.balls.cosmetics.BalloonCord
@@ -197,7 +198,7 @@ class GameView @JvmOverloads constructor(
         }
     }
 
-    private val toneGenerator: ToneGenerator by lazy { ToneGenerator(AudioManager.STREAM_MUSIC, 70) }
+    private val soundEffectPlayer: SoundEffectPlayer by lazy { SoundEffectPlayer(context) }
     private var hissTrack: AudioTrack? = null
 
     private val floorCellSize = 200f
@@ -435,7 +436,7 @@ class GameView @JvmOverloads constructor(
                     floatingTexts.add(FloatingText(x, y, "+$sizeGain", color, 1.2f))
                     if (byPlayer) {
                         vibrateAbsorb()
-                        toneGenerator.startTone(ToneGenerator.TONE_PROP_ACK, 150)
+                        soundEffectPlayer.play(SoundEffectPlayer.Effect.ABSORB)
                         unlockAchievement(Achievement.FIRST_ABSORB)
                         checkLiveRecord(RecordType.ABSORPTIONS, engine.playerOpponentsAbsorbed)
                     }
@@ -457,7 +458,7 @@ class GameView @JvmOverloads constructor(
                     )
                     if (byPlayer) {
                         vibrateAbsorb()
-                        toneGenerator.startTone(ToneGenerator.TONE_PROP_BEEP2, 200)
+                        soundEffectPlayer.play(SoundEffectPlayer.Effect.COMBO)
                         if (comboCount >= 3) unlockAchievement(Achievement.COMBO_MASTER)
                         matchBestCombo = maxOf(matchBestCombo, comboCount)
                         checkLiveRecord(RecordType.COMBO, matchBestCombo)
@@ -480,7 +481,7 @@ class GameView @JvmOverloads constructor(
                     floatingTexts.add(FloatingText(x, y, label, Color.parseColor("#FFD54F"), 1.4f))
                     if (byPlayer) {
                         vibratePowerUp()
-                        toneGenerator.startTone(ToneGenerator.TONE_PROP_BEEP, 120)
+                        soundEffectPlayer.play(SoundEffectPlayer.Effect.POWERUP)
                         when (type) {
                             // SHIELD is never a regular spawn, only ever a supply drop (see
                             // PowerUp.radius) - so collecting one always means this.
@@ -541,7 +542,7 @@ class GameView @JvmOverloads constructor(
                     }
                     if (byPlayer) {
                         vibratePowerUp()
-                        toneGenerator.startTone(ToneGenerator.TONE_PROP_BEEP2, 150)
+                        soundEffectPlayer.play(SoundEffectPlayer.Effect.ACTIVE_ITEM)
                         when (type) {
                             PowerUpType.SPEED -> unlockAchievement(Achievement.USE_SPEED)
                             PowerUpType.INVISIBILITY -> unlockAchievement(Achievement.USE_INVISIBILITY)
@@ -574,9 +575,8 @@ class GameView @JvmOverloads constructor(
                     reachedFinalRound: Boolean
                 ) {
                     loopThread?.running = false
-                    toneGenerator.startTone(
-                        if (playerWon) ToneGenerator.TONE_PROP_ACK else ToneGenerator.TONE_PROP_NACK,
-                        400
+                    soundEffectPlayer.play(
+                        if (playerWon) SoundEffectPlayer.Effect.GAME_OVER_WIN else SoundEffectPlayer.Effect.GAME_OVER_LOSE
                     )
                     if (playerWon) unlockAchievement(Achievement.FIRST_WIN)
                     if (playerWon && opponentsAbsorbed == 0) unlockAchievement(Achievement.PACIFIST_VICTORY)
@@ -618,7 +618,7 @@ class GameView @JvmOverloads constructor(
                     finalRoundTransitionActive = true
                     finalRoundTransitionElapsed = 0f
                     vibrateFinalRoundAlert()
-                    toneGenerator.startTone(ToneGenerator.TONE_PROP_BEEP2, 300)
+                    soundEffectPlayer.play(SoundEffectPlayer.Effect.FINAL_ROUND_ALERT)
                     unlockAchievement(Achievement.FINAL_ROUND)
                     post { callback?.onFinalRoundStarted() }
                 }
@@ -657,9 +657,10 @@ class GameView @JvmOverloads constructor(
         if (started) {
             engine.player.isBoosting = active
         }
-        if (active) {
+        if (active && SfxSettings.isEnabled(context)) {
             try {
                 val track = hissTrack ?: createHissTrack().also { hissTrack = it }
+                track.setVolume(SfxSettings.getVolume(context) / 100f)
                 track.setPlaybackHeadPosition(0)
                 track.play()
             } catch (_: Exception) {
@@ -823,6 +824,7 @@ class GameView @JvmOverloads constructor(
         super.onDetachedFromWindow()
         hissTrack?.release()
         hissTrack = null
+        soundEffectPlayer.release()
     }
 
     private fun launchLoop() {
@@ -831,28 +833,28 @@ class GameView @JvmOverloads constructor(
         loopThread = GameThread().also { it.start() }
     }
 
-    private fun vibrateBounce() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            vibrator.vibrate(VibrationEffect.createOneShot(120, VibrationEffect.DEFAULT_AMPLITUDE))
+    // Shared gate for all four effects below: respects both the vibration on/off setting and
+    // the platform version VibrationEffect needs.
+    private fun vibrate(effect: VibrationEffect) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && VibrationSettings.isEnabled(context)) {
+            vibrator.vibrate(effect)
         }
+    }
+
+    private fun vibrateBounce() {
+        vibrate(VibrationEffect.createOneShot(120, VibrationEffect.DEFAULT_AMPLITUDE))
     }
 
     private fun vibrateAbsorb() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            vibrator.vibrate(VibrationEffect.createWaveform(longArrayOf(0, 40, 40, 60), -1))
-        }
+        vibrate(VibrationEffect.createWaveform(longArrayOf(0, 40, 40, 60), -1))
     }
 
     private fun vibratePowerUp() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            vibrator.vibrate(VibrationEffect.createOneShot(35, 90))
-        }
+        vibrate(VibrationEffect.createOneShot(35, 90))
     }
 
     private fun vibrateFinalRoundAlert() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            vibrator.vibrate(VibrationEffect.createWaveform(longArrayOf(0, 120, 80, 120, 80, 200), -1))
-        }
+        vibrate(VibrationEffect.createWaveform(longArrayOf(0, 120, 80, 120, 80, 200), -1))
     }
 
     private inner class GameThread : Thread("GameLoop") {
