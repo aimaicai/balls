@@ -33,6 +33,9 @@ class MainMenuActivity : AppCompatActivity() {
                     .putExtra(GameActivity.EXTRA_SAFE_ZONE_SHRINK_SPEED, GameSettings.getSafeZoneShrinkSpeed(this))
             )
         }
+        binding.grandPrixButton.setOnClickListener {
+            startActivity(Intent(this, RaceSetupActivity::class.java))
+        }
         binding.testFinaleButton.setOnClickListener {
             startActivity(
                 Intent(this, GameActivity::class.java)

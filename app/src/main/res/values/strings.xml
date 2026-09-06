@@ -3,6 +3,7 @@
     <string name="game_full_name">Balloony Arena: Grow &amp; Pop</string>
 
     <string name="menu_play">Play</string>
+    <string name="menu_grand_prix">Grand Prix</string>
     <string name="menu_test_finale">Test Final Round</string>
     <string name="menu_bots_label">Opponents: %1$d</string>
     <string name="menu_bot_aggressiveness_label">Bot aggressiveness: %1$d</string>
@@ -38,6 +39,23 @@
     <string name="pause_resume">Resume</string>
     <string name="pause_restart">Restart</string>
     <string name="pause_menu">Main menu</string>
+
+    <string name="race_setup_title">Grand Prix Setup</string>
+    <string name="race_setup_track_label">Track: %1$s</string>
+    <string name="race_setup_laps_label">Laps: %1$d</string>
+    <string name="race_setup_bots_label">Opponents: %1$d</string>
+    <string name="race_setup_start">Start Race</string>
+    <string name="race_setup_back">Back</string>
+    <string name="race_track_oval">Oval</string>
+    <string name="race_track_figure_eight">Figure Eight</string>
+    <string name="race_hud_lap_format">Lap %1$d/%2$d</string>
+    <string name="race_hud_racers_format">Racers: %1$d</string>
+    <string name="race_feed_lap_completed_format">Lap %1$d/%2$d!</string>
+    <string name="race_result_win_finish">You won the Grand Prix!</string>
+    <string name="race_result_win_elimination">You won — last balloon standing!</string>
+    <string name="race_result_lose">You were eliminated.</string>
+    <string name="race_result_stats_format">%1$d laps · %2$ds</string>
+    <string name="race_result_play_again">Play again</string>
 
     <string name="menu_high_scores">High Scores</string>
     <string name="high_scores_title">HIGH SCORES</string>

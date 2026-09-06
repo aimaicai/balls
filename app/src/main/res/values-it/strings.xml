@@ -3,6 +3,7 @@
     <string name="game_full_name">Balloony Arena: Grow &amp; Pop</string>
 
     <string name="menu_play">Gioca</string>
+    <string name="menu_grand_prix">Grand Prix</string>
     <string name="menu_test_finale">Testa il finale</string>
     <string name="menu_bots_label">Avversari: %1$d</string>
     <string name="menu_bot_aggressiveness_label">Aggressività bot: %1$d</string>
@@ -38,6 +39,23 @@
     <string name="pause_resume">Riprendi</string>
     <string name="pause_restart">Ricomincia</string>
     <string name="pause_menu">Menu principale</string>
+
+    <string name="race_setup_title">Impostazioni Grand Prix</string>
+    <string name="race_setup_track_label">Circuito: %1$s</string>
+    <string name="race_setup_laps_label">Giri: %1$d</string>
+    <string name="race_setup_bots_label">Avversari: %1$d</string>
+    <string name="race_setup_start">Avvia la gara</string>
+    <string name="race_setup_back">Indietro</string>
+    <string name="race_track_oval">Ovale</string>
+    <string name="race_track_figure_eight">Otto</string>
+    <string name="race_hud_lap_format">Giro %1$d/%2$d</string>
+    <string name="race_hud_racers_format">Piloti: %1$d</string>
+    <string name="race_feed_lap_completed_format">Giro %1$d/%2$d!</string>
+    <string name="race_result_win_finish">Hai vinto il Grand Prix!</string>
+    <string name="race_result_win_elimination">Hai vinto — sei rimasto l\'ultimo palloncino!</string>
+    <string name="race_result_lose">Sei stato eliminato.</string>
+    <string name="race_result_stats_format">%1$d giri · %2$ds</string>
+    <string name="race_result_play_again">Rigioca</string>
 
     <string name="menu_high_scores">Classifica</string>
     <string name="high_scores_title">HIGH SCORES</string>
