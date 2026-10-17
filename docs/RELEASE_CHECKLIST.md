@@ -16,6 +16,8 @@ immagini reali).
       servita da GitHub Pages.
 - [x] Chiave di firma release generata (RSA 2048, PKCS12, valida 30 anni) e inviata come
       file separati in chat - **non è nel repo**.
+- [x] `scripts/bump_version.sh` - incrementa `versionCode`/`versionName` in
+      `app/build.gradle.kts` con un comando solo (vedi punto 4).
 
 ## Da fare tu
 
@@ -37,9 +39,10 @@ Repo → Settings → Secrets and variables → Actions → New repository secre
 - [ ] Rileggi il testo e correggi eventuali dati societari/contatto se necessario
 
 ### 4. Generare il primo `.aab`
-- [ ] Prima di lanciare la build, aggiorna se serve `versionCode`/`versionName` in
-      `app/build.gradle.kts`
-- [ ] GitHub → Actions → "Release AAB" → Run workflow (oppure `git tag v1.0.0 && git push --tags`)
+- [ ] Prima di lanciare la build, aggiorna se serve `versionCode`/`versionName` con
+      `scripts/bump_version.sh <nuova-versione>` (es. `scripts/bump_version.sh 1.0.0`),
+      poi segui le istruzioni che stampa (commit, tag, push)
+- [ ] GitHub → Actions → "Release AAB" → Run workflow (oppure pushando il tag `v*` creato sopra)
 - [ ] Scarica l'artifact `release-aab` prodotto dal workflow
 
 ### 5. Asset grafici (fuori dalla mia portata: serve un vero emulatore/dispositivo)
