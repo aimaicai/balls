@@ -5,6 +5,9 @@
     <string name="menu_play">Play</string>
     <string name="menu_grand_prix">Grand Prix</string>
     <string name="menu_test_finale">Test Final Round</string>
+    <string name="menu_match_settings">Match Settings</string>
+    <string name="developer_mode_enabled">Developer mode enabled</string>
+    <string name="developer_mode_disabled">Developer mode disabled</string>
     <string name="menu_bots_label">Opponents: %1$d</string>
     <string name="menu_bot_aggressiveness_label">Bot aggressiveness: %1$d</string>
     <string name="menu_powerup_label">Power-up frequency: %1$d</string>

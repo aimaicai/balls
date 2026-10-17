@@ -5,6 +5,9 @@
     <string name="menu_play">Gioca</string>
     <string name="menu_grand_prix">Grand Prix</string>
     <string name="menu_test_finale">Testa il finale</string>
+    <string name="menu_match_settings">Impostazioni partita</string>
+    <string name="developer_mode_enabled">Modalità sviluppatore attivata</string>
+    <string name="developer_mode_disabled">Modalità sviluppatore disattivata</string>
     <string name="menu_bots_label">Avversari: %1$d</string>
     <string name="menu_bot_aggressiveness_label">Aggressività bot: %1$d</string>
     <string name="menu_powerup_label">Frequenza power-up: %1$d</string>

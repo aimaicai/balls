@@ -6,15 +6,15 @@
     android:background="@color/background_dark"
     android:padding="32dp">
 
-    <!-- Wrapped in a ScrollView now that a second button (Tutorial) sits below the match
-         setup controls - the fixed, unscrolled layout this used to be was already tight on
-         smaller screens even before that addition. -->
+    <!-- Wrapped in a ScrollView now that several buttons sit below the sound settings - the
+         fixed, unscrolled layout this used to be was already tight on smaller screens even
+         before that addition. -->
     <ScrollView
         android:id="@+id/optionsScroll"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintBottom_toTopOf="@id/customizeButton"
+        app:layout_constraintBottom_toTopOf="@id/matchSettingsButton"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
 
@@ -34,86 +34,6 @@
                 android:textSize="28sp"
                 android:textStyle="bold" />
 
-            <TextView
-                android:id="@+id/botsCountText"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="32dp"
-                android:textColor="@color/hud_text"
-                android:textSize="18sp" />
-
-            <SeekBar
-                android:id="@+id/botsSeekBar"
-                android:layout_width="280dp"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="4dp"
-                android:max="200"
-                android:min="2" />
-
-            <TextView
-                android:id="@+id/botAggressivenessText"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="20dp"
-                android:textColor="@color/hud_text"
-                android:textSize="18sp" />
-
-            <SeekBar
-                android:id="@+id/botAggressivenessSeekBar"
-                android:layout_width="280dp"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="4dp"
-                android:max="10"
-                android:min="1" />
-
-            <TextView
-                android:id="@+id/powerUpCountText"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="20dp"
-                android:textColor="@color/hud_text"
-                android:textSize="18sp" />
-
-            <SeekBar
-                android:id="@+id/powerUpSeekBar"
-                android:layout_width="280dp"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="4dp"
-                android:max="30"
-                android:min="1" />
-
-            <TextView
-                android:id="@+id/arenaSizeText"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="20dp"
-                android:textColor="@color/hud_text"
-                android:textSize="18sp" />
-
-            <SeekBar
-                android:id="@+id/arenaSizeSeekBar"
-                android:layout_width="280dp"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="4dp"
-                android:max="3"
-                android:min="0" />
-
-            <TextView
-                android:id="@+id/safeZoneShrinkSpeedText"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="20dp"
-                android:textColor="@color/hud_text"
-                android:textSize="18sp" />
-
-            <SeekBar
-                android:id="@+id/safeZoneShrinkSpeedSeekBar"
-                android:layout_width="280dp"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="4dp"
-                android:max="10"
-                android:min="1" />
-
             <include
                 android:id="@+id/soundSettingsPanel"
                 layout="@layout/sound_settings_panel"
@@ -124,6 +44,21 @@
 
         </LinearLayout>
     </ScrollView>
+
+    <!-- Hidden unless developer mode is enabled (see DeveloperSettings) - the match setup
+         controls it leads to (bot count, power-up frequency, arena size, etc.) are now tucked
+         away in MatchSettingsActivity rather than cluttering this screen. -->
+    <Button
+        android:id="@+id/matchSettingsButton"
+        style="?attr/materialButtonOutlinedStyle"
+        android:layout_width="240dp"
+        android:layout_height="56dp"
+        android:layout_marginBottom="12dp"
+        android:text="@string/menu_match_settings"
+        android:visibility="gone"
+        app:layout_constraintBottom_toTopOf="@id/customizeButton"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
 
     <Button
         android:id="@+id/customizeButton"
