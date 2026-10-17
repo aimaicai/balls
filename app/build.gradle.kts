@@ -14,8 +14,8 @@ android {
         // Bump versionCode by 1 and versionName to the new version for every build that
         // gets uploaded to Play Console - Play Store rejects a re-upload that doesn't
         // increase versionCode over the last one it has, even for the very first release.
-        versionCode = 3
-        versionName = "1.0.1"
+        versionCode = 4
+        versionName = "1.0.2"
     }
 
     signingConfigs {
