@@ -16,6 +16,12 @@ immagini reali).
       servita da GitHub Pages.
 - [x] Chiave di firma release generata (RSA 2048, PKCS12, valida 30 anni) e inviata come
       file separati in chat - **non è nel repo**.
+- [x] `targetSdk`/`compileSdk` 36 (richiesto da Play per nuove app e aggiornamenti dal
+      31/08/2026), AGP 8.13.2 / Gradle 8.13. Tutte le activity gestiscono l'edge-to-edge
+      obbligatorio (`ui/SystemBarInsets.kt`). Nota: da API 36 il blocco in verticale
+      (`screenOrientation="portrait"`) è ignorato su schermi ≥600dp (tablet, pieghevoli aperti).
+- [x] Il workflow "Release AAB" si ferma subito con un errore esplicito se manca uno dei
+      4 secrets.
 - [x] `scripts/bump_version.sh` - incrementa `versionCode`/`versionName` in
       `app/build.gradle.kts` con un comando solo (vedi punto 4).
 
