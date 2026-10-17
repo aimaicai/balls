@@ -13,6 +13,9 @@ captures/
 # ci-debug.keystore (tracked deliberately, see app/build.gradle.kts) is meant to live in
 # the repo. Anything matching these names is assumed to be the real thing.
 release.keystore
+release.keystore.*
+*.keystore.base64*
 release-keystore.*
 *.jks
 !ci-debug.keystore
+/secrets/
