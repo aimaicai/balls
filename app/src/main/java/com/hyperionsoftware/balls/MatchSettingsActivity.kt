@@ -6,6 +6,7 @@ import androidx.appcompat.app.AppCompatActivity
 import com.hyperionsoftware.balls.databinding.ActivityMatchSettingsBinding
 import com.hyperionsoftware.balls.game.GameConfig
 import com.hyperionsoftware.balls.settings.GameSettings
+import com.hyperionsoftware.balls.ui.fitContentInsideSystemBars
 
 // The five match-setup controls split off OptionsActivity - hidden behind developer mode (see
 // DeveloperSettings), since in practice almost nobody needs to tune these away from their
@@ -23,6 +24,7 @@ class MatchSettingsActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         binding = ActivityMatchSettingsBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        fitContentInsideSystemBars(binding.root)
 
         botCount = GameSettings.getBotCount(this)
         powerUpFrequencyLevel = GameSettings.getPowerUpFrequency(this)

@@ -5,6 +5,7 @@ import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
 import com.hyperionsoftware.balls.databinding.ActivitySplashBinding
 import com.hyperionsoftware.balls.settings.TutorialSettings
+import com.hyperionsoftware.balls.ui.fitContentInsideSystemBars
 
 // A brief animated title card shown once at launch, ahead of the main menu: a Street-
 // Fighter-style clash between two Canvas-drawn balloons (see SplashFightView), which hands
@@ -18,6 +19,7 @@ class SplashActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         binding = ActivitySplashBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        fitContentInsideSystemBars(binding.root)
 
         binding.splashView.start {
             if (TutorialSettings.hasSeenTutorial(this)) {

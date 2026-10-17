@@ -11,6 +11,7 @@ import com.hyperionsoftware.balls.challenges.DailyChallenges
 import com.hyperionsoftware.balls.databinding.ActivityMainMenuBinding
 import com.hyperionsoftware.balls.settings.DeveloperSettings
 import com.hyperionsoftware.balls.settings.GameSettings
+import com.hyperionsoftware.balls.ui.fitContentInsideSystemBars
 
 // Deliberately just one primary action (Play) plus a short stack of secondary buttons -
 // match setup and audio settings live on OptionsActivity now instead of competing with
@@ -31,6 +32,7 @@ class MainMenuActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         binding = ActivityMainMenuBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        fitContentInsideSystemBars(binding.root)
 
         binding.titleText.setOnClickListener { onTitleTapped() }
 

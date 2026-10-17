@@ -10,6 +10,7 @@ import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import com.hyperionsoftware.balls.databinding.ActivityTutorialBinding
 import com.hyperionsoftware.balls.game.BotPersonality
+import com.hyperionsoftware.balls.ui.fitContentInsideSystemBars
 
 // A rundown of the core mechanics, shown automatically the first time the app ever launches
 // (see SplashActivity/TutorialSettings) and reachable afterwards any time from Options - same
@@ -24,6 +25,7 @@ class TutorialActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         binding = ActivityTutorialBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        fitContentInsideSystemBars(binding.root)
 
         SECTIONS.forEach { (titleResId, bodyResId) ->
             binding.tutorialContainer.addView(sectionView(titleResId, bodyResId))

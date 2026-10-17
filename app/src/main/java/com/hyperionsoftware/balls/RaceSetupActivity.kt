@@ -8,6 +8,7 @@ import com.hyperionsoftware.balls.databinding.ActivityRaceSetupBinding
 import com.hyperionsoftware.balls.race.RaceConfig
 import com.hyperionsoftware.balls.race.RaceTrack
 import com.hyperionsoftware.balls.settings.RaceSettings
+import com.hyperionsoftware.balls.ui.fitContentInsideSystemBars
 
 // Grand Prix's match setup screen - track, lap count and opponent count, reached from the main
 // menu's "Grand Prix" button (see MainMenuActivity) as the entry point into RaceActivity. A
@@ -25,6 +26,7 @@ class RaceSetupActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         binding = ActivityRaceSetupBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        fitContentInsideSystemBars(binding.root)
 
         track = RaceSettings.getTrack(this)
         laps = RaceSettings.getLaps(this).coerceIn(RaceConfig.MIN_LAPS, RaceConfig.MAX_LAPS)

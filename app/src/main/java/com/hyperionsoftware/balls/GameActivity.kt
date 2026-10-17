@@ -22,6 +22,7 @@ import com.hyperionsoftware.balls.game.GameConfig
 import com.hyperionsoftware.balls.game.PowerUpType
 import com.hyperionsoftware.balls.score.HighScores
 import com.hyperionsoftware.balls.ui.GameView
+import com.hyperionsoftware.balls.ui.fitContentInsideSystemBars
 
 class GameActivity : AppCompatActivity(), GameView.Callback {
 
@@ -42,6 +43,7 @@ class GameActivity : AppCompatActivity(), GameView.Callback {
         super.onCreate(savedInstanceState)
         binding = ActivityGameBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        fitContentInsideSystemBars(binding.root)
 
         botCount = intent.getIntExtra(EXTRA_BOT_COUNT, DEFAULT_BOTS)
         powerUpFrequencyLevel = intent.getIntExtra(

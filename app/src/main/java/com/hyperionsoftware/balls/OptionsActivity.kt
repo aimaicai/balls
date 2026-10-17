@@ -10,6 +10,7 @@ import com.hyperionsoftware.balls.audio.SoundEffectPlayer
 import com.hyperionsoftware.balls.audio.SoundSettingsBinder
 import com.hyperionsoftware.balls.databinding.ActivityOptionsBinding
 import com.hyperionsoftware.balls.settings.DeveloperSettings
+import com.hyperionsoftware.balls.ui.fitContentInsideSystemBars
 
 // Audio settings plus secondary destinations, split off the main menu so that screen can stay
 // focused on its one primary action (Play) with everything else demoted to a secondary
@@ -25,6 +26,7 @@ class OptionsActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         binding = ActivityOptionsBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        fitContentInsideSystemBars(binding.root)
 
         SoundSettingsBinder.bind(this, binding.soundSettingsPanel, musicPlayer, sfxPlayer)
 

@@ -16,6 +16,7 @@ import com.hyperionsoftware.balls.race.RaceConfig
 import com.hyperionsoftware.balls.race.RaceEndReason
 import com.hyperionsoftware.balls.race.RaceTrack
 import com.hyperionsoftware.balls.ui.RaceView
+import com.hyperionsoftware.balls.ui.fitContentInsideSystemBars
 
 // Grand Prix mode's Activity - a lighter sibling of GameActivity (see RaceView): the same
 // pause/boost/active-item control wiring, but no high scores/achievements/helium integration
@@ -33,6 +34,7 @@ class RaceActivity : AppCompatActivity(), RaceView.Callback {
         super.onCreate(savedInstanceState)
         binding = ActivityRaceBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        fitContentInsideSystemBars(binding.root)
 
         botCount = intent.getIntExtra(EXTRA_BOT_COUNT, RaceConfig.DEFAULT_BOT_COUNT)
         track = intent.getStringExtra(EXTRA_TRACK)?.let {

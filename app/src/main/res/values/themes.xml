@@ -3,5 +3,12 @@
         <item name="colorPrimary">@color/accent</item>
         <item name="android:statusBarColor">@color/background_dark</item>
         <item name="android:windowBackground">@color/background_dark</item>
+        <!-- Every screen is dark, so system bar icons must stay light even in system light
+             mode (Material3's light variant would otherwise make them dark on dark). The bar
+             colors only matter below API 35; from there the window is edge-to-edge and the
+             root view's background shows through (see ui/SystemBarInsets.kt). -->
+        <item name="android:navigationBarColor">@color/background_dark</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar" tools:targetApi="27">false</item>
     </style>
 </resources>

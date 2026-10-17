@@ -8,6 +8,7 @@ import androidx.appcompat.app.AppCompatActivity
 import com.hyperionsoftware.balls.achievements.Achievement
 import com.hyperionsoftware.balls.achievements.Achievements
 import com.hyperionsoftware.balls.databinding.ActivityAchievementsBinding
+import com.hyperionsoftware.balls.ui.fitContentInsideSystemBars
 
 // Lists every achievement, locked or not - descriptions stay hidden ("???") until unlocked so
 // they read as things to discover through play rather than a checklist handed out up front.
@@ -19,6 +20,7 @@ class AchievementsActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         binding = ActivityAchievementsBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        fitContentInsideSystemBars(binding.root)
 
         binding.backButton.setOnClickListener { finish() }
 

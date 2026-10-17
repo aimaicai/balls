@@ -21,6 +21,7 @@ import com.hyperionsoftware.balls.databinding.ActivityCustomizeBinding
 import com.hyperionsoftware.balls.economy.PurchasedCosmetics
 import com.hyperionsoftware.balls.economy.Wallet
 import com.hyperionsoftware.balls.settings.CosmeticsSettings
+import com.hyperionsoftware.balls.ui.fitContentInsideSystemBars
 import kotlin.math.min
 
 // Lets the player pick their own balloon's color, sticker, string color and exhaust style -
@@ -36,6 +37,7 @@ class CustomizeActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         binding = ActivityCustomizeBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        fitContentInsideSystemBars(binding.root)
 
         binding.backButton.setOnClickListener { finish() }
         refreshGrid()

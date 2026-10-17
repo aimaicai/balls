@@ -10,6 +10,7 @@ import androidx.appcompat.app.AppCompatActivity
 import com.hyperionsoftware.balls.databinding.ActivityHighScoresBinding
 import com.hyperionsoftware.balls.game.GameConfig
 import com.hyperionsoftware.balls.score.HighScores
+import com.hyperionsoftware.balls.ui.fitContentInsideSystemBars
 
 // Old-school arcade cabinet style on purpose: just rank, three-letter initials and score,
 // monospace on the app's own dark/amber palette. Shown directly at the end of a match (see
@@ -24,6 +25,7 @@ class HighScoresActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         binding = ActivityHighScoresBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        fitContentInsideSystemBars(binding.root)
 
         if (intent.hasExtra(EXTRA_MATCH_WON)) {
             showMatchResult()

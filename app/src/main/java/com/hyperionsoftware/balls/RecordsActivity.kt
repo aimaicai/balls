@@ -8,6 +8,7 @@ import androidx.appcompat.app.AppCompatActivity
 import com.hyperionsoftware.balls.databinding.ActivityRecordsBinding
 import com.hyperionsoftware.balls.records.PersonalRecords
 import com.hyperionsoftware.balls.records.RecordType
+import com.hyperionsoftware.balls.ui.fitContentInsideSystemBars
 
 // A little "career" leaderboard against yourself - lists every RecordType with whatever
 // personal best has been set for it so far (0 if never), refreshed on every visit rather than
@@ -20,6 +21,7 @@ class RecordsActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         binding = ActivityRecordsBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        fitContentInsideSystemBars(binding.root)
 
         binding.backButton.setOnClickListener { finish() }
     }

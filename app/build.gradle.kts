@@ -5,12 +5,12 @@ plugins {
 
 android {
     namespace = "com.hyperionsoftware.balls"
-    compileSdk = 34
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.hyperionsoftware.balls"
         minSdk = 26
-        targetSdk = 34
+        targetSdk = 36
         // Bump versionCode by 1 and versionName to the new version for every build that
         // gets uploaded to Play Console - Play Store rejects a re-upload that doesn't
         // increase versionCode over the last one it has, even for the very first release.
