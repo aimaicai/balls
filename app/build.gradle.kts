@@ -8,7 +8,10 @@ android {
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.hyperionsoftware.balls"
+        // The Play Store identity - permanent once the app exists on Play Console. Deliberately
+        // decoupled from `namespace` above, which is only the Kotlin/R package and never shown
+        // to anyone; this one is public (it's in the store URL), so it follows the app's name.
+        applicationId = "io.github.aimaicai.balloonsarena"
         minSdk = 26
         targetSdk = 36
         // Bump versionCode by 1 and versionName to the new version for every build that
