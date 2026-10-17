@@ -726,7 +726,7 @@ class GameView @JvmOverloads constructor(
 
     private fun addFeedEntry(text: String) {
         feedEntries.add(FeedEntry(text, 3.5f))
-        if (feedEntries.size > 5) feedEntries.removeAt(0)
+        if (feedEntries.size > MAX_FEED_ENTRIES) feedEntries.removeAt(0)
     }
 
     private fun showPopup(text: String) {
@@ -1478,7 +1478,7 @@ class GameView @JvmOverloads constructor(
                 continue
             }
             feedTextPaint.alpha = (255 * (entry.ttl / entry.maxTtl)).toInt().coerceIn(0, 255)
-            canvas.drawText(entry.text, 24f, 132f + row * 34f, feedTextPaint)
+            canvas.drawText(entry.text, 24f, FEED_TOP + row * FEED_ROW_HEIGHT, feedTextPaint)
             row++
         }
     }
@@ -1494,7 +1494,7 @@ class GameView @JvmOverloads constructor(
                 continue
             }
             achievementPaint.alpha = (255 * (popup.ttl / popup.maxTtl).coerceAtMost(1f)).toInt().coerceIn(0, 255)
-            canvas.drawText(popup.text, width / 2f, 160f + row * 44f, achievementPaint)
+            canvas.drawText(popup.text, width / 2f, ACHIEVEMENT_POPUP_TOP + row * 44f, achievementPaint)
             row++
         }
     }
@@ -1508,9 +1508,11 @@ class GameView @JvmOverloads constructor(
             context.getString(R.string.game_hud_absorptions_format, engine.playerOpponentsAbsorbed), 24f, 90f, hudTextPaint
         )
 
-        val playersText = context.getString(R.string.game_hud_players_format, engine.aliveCount())
-        val textWidth = hudTextPaint.measureText(playersText)
-        canvas.drawText(playersText, width - textWidth - 24f, 56f, hudTextPaint)
+        // Third row of the left column rather than right-aligned in the top corner, where it
+        // sat underneath the pause button.
+        canvas.drawText(
+            context.getString(R.string.game_hud_players_format, engine.aliveCount()), 24f, 124f, hudTextPaint
+        )
 
         val zonePercent = (engine.safeZoneProgress * 100f).toInt()
         canvas.drawText(
@@ -1641,5 +1643,16 @@ class GameView @JvmOverloads constructor(
         canvas.scale(punch, punch, width / 2f, height / 2f - 70f)
         canvas.drawText(secondsLeft.toString(), width / 2f, height / 2f - 70f, finalRoundWarningCountdownPaint)
         canvas.restore()
+    }
+
+    companion object {
+        // Top-of-screen layout, in px like the rest of the HUD: the three-row left column
+        // (size / absorptions / players) ends at y=124, the elimination feed stacks below it,
+        // and achievement/record popups start only below the feed's last possible row, so
+        // the three never draw over each other.
+        private const val MAX_FEED_ENTRIES = 5
+        private const val FEED_TOP = 172f
+        private const val FEED_ROW_HEIGHT = 34f
+        private const val ACHIEVEMENT_POPUP_TOP = FEED_TOP + MAX_FEED_ENTRIES * FEED_ROW_HEIGHT + 18f
     }
 }
