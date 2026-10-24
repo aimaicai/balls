@@ -1,6 +1,7 @@
 package com.hyperionsoftware.balls.ui
 
 import android.content.Context
+import android.graphics.Bitmap
 import android.graphics.BlurMaskFilter
 import android.graphics.Canvas
 import android.graphics.Color
@@ -8,6 +9,7 @@ import android.graphics.DashPathEffect
 import android.graphics.Matrix
 import android.graphics.Paint
 import android.graphics.Path
+import android.os.Build
 import android.util.AttributeSet
 import android.view.SurfaceHolder
 import android.view.SurfaceView
@@ -154,8 +156,8 @@ class RaceView @JvmOverloads constructor(
         alpha = 200
     }
     private val speedBadgePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.parseColor("#FFEB3B") }
-    // Soft-edged via BlurMaskFilter instead of a hard shape - safe here because SurfaceView's
-    // canvas is a plain software bitmap canvas, and BlurMaskFilter only renders on those.
+    // Soft-edged via BlurMaskFilter instead of a hard shape - supported on both canvases
+    // drawFrame can hand out (the hardware one only from API 28 on, where it supports this too).
     private val exhaustPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = Color.parseColor("#B3E5FC")
         maskFilter = BlurMaskFilter(10f, BlurMaskFilter.Blur.NORMAL)
@@ -199,6 +201,34 @@ class RaceView @JvmOverloads constructor(
     private val stringPath = Path()
 
     private val trackPath = Path()
+
+    // The four track strokes above, already turned into plain filled outlines once per race
+    // (see buildTrackPath). Stroking a corridor hundreds of pixels wide with round joins,
+    // around the whole circuit, plus dashing the racing line, used to be recomputed from
+    // scratch for every single frame - by far the most expensive thing on screen.
+    private val trackLayers = mutableListOf<Pair<Path, Paint>>()
+
+    // The minimap's background, border and track never change mid-race either, so they're
+    // drawn once into this small bitmap (see buildMinimapBitmap) and only the dots go on top
+    // each frame.
+    private var minimapBitmap: Bitmap? = null
+
+    private var useHardwareCanvas = Build.VERSION.SDK_INT >= Build.VERSION_CODES.P
+
+    // Pre-parsed once instead of Color.parseColor() inside the render loop - see GameView.
+    private val backgroundColor = Color.parseColor("#0F1620")
+    private val exhaustCruiseColor = Color.parseColor("#B3E5FC")
+    private val exhaustBoostColor = Color.parseColor("#FF7043")
+    private val powerUpColors = PowerUpType.values().map { powerUpColor(it) }.toIntArray()
+    private val speedBadgePath = Path()
+
+    // The HUD text only changes when its underlying number does - see GameView.drawHud.
+    private var hudLapValue = Int.MIN_VALUE
+    private var hudLapText = ""
+    private var hudRacersValue = Int.MIN_VALUE
+    private var hudRacersText = ""
+    private var hudTimeValue = Int.MIN_VALUE
+    private var hudTimeText = ""
 
     // A small always-on-screen overview of the whole circuit - just the track shape and every
     // blob's live position, no camera-viewport indicator or per-checkpoint detail, to keep
@@ -250,6 +280,10 @@ class RaceView @JvmOverloads constructor(
         selectedCord = CosmeticsSettings.getSelectedCord(context)
         selectedExhaustStyle = CosmeticsSettings.getSelectedExhaustStyle(context)
         buildTrackPath(track)
+        buildMinimapBitmap()
+        hudLapValue = Int.MIN_VALUE
+        hudRacersValue = Int.MIN_VALUE
+        hudTimeValue = Int.MIN_VALUE
 
         engine = RaceEngine(
             botCount = botCount,
@@ -417,10 +451,16 @@ class RaceView @JvmOverloads constructor(
     }
 
     private fun drawFrame(dt: Float) {
+        // Same GPU-backed canvas as GameView.drawFrame from API 28 on, with the same fallback.
         val canvas = try {
-            holder.lockCanvas()
+            if (useHardwareCanvas) holder.lockHardwareCanvas() else holder.lockCanvas()
         } catch (_: Exception) {
-            null
+            useHardwareCanvas = false
+            try {
+                holder.lockCanvas()
+            } catch (_: Exception) {
+                null
+            }
         } ?: return
         try {
             render(canvas, dt)
@@ -434,7 +474,7 @@ class RaceView @JvmOverloads constructor(
     }
 
     private fun render(canvas: Canvas, dt: Float) {
-        canvas.drawColor(Color.parseColor("#0F1620"))
+        canvas.drawColor(backgroundColor)
 
         val player = engine.player
         val camX = cameraCoord(player.position.x, width, RaceConfig.WORLD_WIDTH)
@@ -444,11 +484,18 @@ class RaceView @JvmOverloads constructor(
 
         drawTrack(canvas, offsetX, offsetY)
 
+        // Only what's actually on screen gets drawn - same reasoning and extents as
+        // GameView.render.
         for (powerUp in engine.powerUps) {
-            drawPowerUp(canvas, powerUp, offsetX, offsetY)
+            if (isOnScreen(powerUp.position.x + offsetX, powerUp.position.y + offsetY, powerUp.radius)) {
+                drawPowerUp(canvas, powerUp, offsetX, offsetY)
+            }
         }
         for (blob in engine.blobs) {
-            if (blob.alive) drawBlob(canvas, blob, offsetX, offsetY)
+            if (!blob.alive) continue
+            if (isOnScreen(blob.position.x + offsetX, blob.position.y + offsetY, blob.radius * 5f)) {
+                drawBlob(canvas, blob, offsetX, offsetY)
+            }
         }
 
         drawFloatingTexts(canvas, offsetX, offsetY, dt)
@@ -457,6 +504,10 @@ class RaceView @JvmOverloads constructor(
         drawCountdown(canvas)
         if (showFps) fpsCounter.draw(canvas)
     }
+
+    private fun isOnScreen(screenX: Float, screenY: Float, extent: Float): Boolean =
+        screenX + extent >= 0f && screenX - extent <= width &&
+            screenY + extent >= 0f && screenY - extent <= height
 
     private fun cameraCoord(playerCoord: Float, viewportSize: Int, worldSize: Float): Float {
         val halfViewport = viewportSize / 2f
@@ -478,15 +529,43 @@ class RaceView @JvmOverloads constructor(
         // Wider than the surface stroke drawn on top of it, so only a curb-width ring shows.
         trackCurbPaint.strokeWidth = track.halfWidth * 2f + CURB_THICKNESS * 2f
         trackSurfacePaint.strokeWidth = track.halfWidth * 2f
+
+        trackLayers.clear()
+        for (strokePaint in listOf(trackShoulderPaint, trackCurbPaint, trackSurfacePaint, trackCenterLinePaint)) {
+            val outline = Path()
+            strokePaint.getFillPath(trackPath, outline)
+            val fillPaint = Paint(strokePaint).apply {
+                style = Paint.Style.FILL
+                pathEffect = null
+            }
+            trackLayers.add(outline to fillPaint)
+        }
+    }
+
+    private fun buildMinimapBitmap() {
+        // Room for the border's own stroke, half of which sits outside the panel's rect.
+        val inset = minimapBorderPaint.strokeWidth
+        val panelWidth = minimapWidth + minimapPadding * 2f
+        val panelHeight = minimapHeight + minimapPadding * 2f
+        val bitmap = Bitmap.createBitmap(
+            (panelWidth + inset * 2f).toInt() + 1, (panelHeight + inset * 2f).toInt() + 1, Bitmap.Config.ARGB_8888
+        )
+        val canvas = Canvas(bitmap)
+        canvas.drawRect(inset, inset, inset + panelWidth, inset + panelHeight, minimapBackgroundPaint)
+        canvas.drawRect(inset, inset, inset + panelWidth, inset + panelHeight, minimapBorderPaint)
+        canvas.translate(inset + minimapPadding, inset + minimapPadding)
+        canvas.scale(minimapScale, minimapScale)
+        canvas.drawPath(trackPath, minimapTrackPaint)
+        minimapBitmap?.recycle()
+        minimapBitmap = bitmap
     }
 
     private fun drawTrack(canvas: Canvas, offsetX: Float, offsetY: Float) {
         canvas.save()
         canvas.translate(offsetX, offsetY)
-        canvas.drawPath(trackPath, trackShoulderPaint)
-        canvas.drawPath(trackPath, trackCurbPaint)
-        canvas.drawPath(trackPath, trackSurfacePaint)
-        canvas.drawPath(trackPath, trackCenterLinePaint)
+        for ((outline, paint) in trackLayers) {
+            canvas.drawPath(outline, paint)
+        }
         canvas.restore()
 
         drawStartFinishLine(canvas, offsetX, offsetY)
@@ -590,16 +669,15 @@ class RaceView @JvmOverloads constructor(
         speedBadgePaint.alpha = alpha
         canvas.save()
         canvas.translate(cx, cy)
-        val bolt = Path().apply {
-            moveTo(size * 0.15f, -size * 0.6f)
-            lineTo(-size * 0.35f, size * 0.05f)
-            lineTo(size * 0.05f, size * 0.05f)
-            lineTo(-size * 0.15f, size * 0.6f)
-            lineTo(size * 0.45f, -size * 0.05f)
-            lineTo(size * 0.05f, -size * 0.05f)
-            close()
-        }
-        canvas.drawPath(bolt, speedBadgePaint)
+        speedBadgePath.reset()
+        speedBadgePath.moveTo(size * 0.15f, -size * 0.6f)
+        speedBadgePath.lineTo(-size * 0.35f, size * 0.05f)
+        speedBadgePath.lineTo(size * 0.05f, size * 0.05f)
+        speedBadgePath.lineTo(-size * 0.15f, size * 0.6f)
+        speedBadgePath.lineTo(size * 0.45f, -size * 0.05f)
+        speedBadgePath.lineTo(size * 0.05f, -size * 0.05f)
+        speedBadgePath.close()
+        canvas.drawPath(speedBadgePath, speedBadgePaint)
         canvas.restore()
     }
 
@@ -663,7 +741,7 @@ class RaceView @JvmOverloads constructor(
         val baseAlphaFraction = if (boosting) 0.75f else 0.5f
         val style = if (blob === engine.player) selectedExhaustStyle else ExhaustStyle.CLASSIC
 
-        exhaustPaint.color = if (boosting) Color.parseColor("#FF7043") else Color.parseColor("#B3E5FC")
+        exhaustPaint.color = if (boosting) exhaustBoostColor else exhaustCruiseColor
         for (i in 0 until exhaustPuffCount) {
             val fraction = i / (exhaustPuffCount - 1).toFloat()
             val distance = edgeRadius + trailLength * fraction
@@ -712,7 +790,7 @@ class RaceView @JvmOverloads constructor(
     private fun drawPowerUp(canvas: Canvas, powerUp: PowerUp, offsetX: Float, offsetY: Float) {
         val cx = powerUp.position.x + offsetX
         val cy = powerUp.position.y + offsetY
-        powerUpPaint.color = powerUpColor(powerUp.type)
+        powerUpPaint.color = powerUpColors[powerUp.type.ordinal]
         canvas.drawCircle(cx, cy, powerUp.radius, powerUpPaint)
         powerUpIconPaint.textSize = powerUp.radius
         canvas.drawText(powerUpIcon(powerUp.type), cx, cy + powerUp.radius * 0.35f, powerUpIconPaint)
@@ -739,16 +817,24 @@ class RaceView @JvmOverloads constructor(
     private fun drawHud(canvas: Canvas) {
         val player = engine.player
         val currentLap = (player.lapsCompleted + 1).coerceAtMost(engine.totalLaps)
-        canvas.drawText(
-            context.getString(R.string.race_hud_lap_format, currentLap, engine.totalLaps), 24f, 56f, hudTextPaint
-        )
-        canvas.drawText(
-            context.getString(R.string.race_hud_racers_format, engine.aliveCount()), 24f, 96f, hudTextPaint
-        )
+        if (currentLap != hudLapValue) {
+            hudLapValue = currentLap
+            hudLapText = context.getString(R.string.race_hud_lap_format, currentLap, engine.totalLaps)
+        }
+        canvas.drawText(hudLapText, 24f, 56f, hudTextPaint)
+        val racers = engine.aliveCount()
+        if (racers != hudRacersValue) {
+            hudRacersValue = racers
+            hudRacersText = context.getString(R.string.race_hud_racers_format, racers)
+        }
+        canvas.drawText(hudRacersText, 24f, 96f, hudTextPaint)
         val elapsedSeconds = engine.matchElapsed.toInt()
-        val timeText = "%02d:%02d".format(elapsedSeconds / 60, elapsedSeconds % 60)
-        val timeWidth = hudTextPaint.measureText(timeText)
-        canvas.drawText(timeText, width - timeWidth - 24f, 56f, hudTextPaint)
+        if (elapsedSeconds != hudTimeValue) {
+            hudTimeValue = elapsedSeconds
+            hudTimeText = "%02d:%02d".format(elapsedSeconds / 60, elapsedSeconds % 60)
+        }
+        val timeWidth = hudTextPaint.measureText(hudTimeText)
+        canvas.drawText(hudTimeText, width - timeWidth - 24f, 56f, hudTextPaint)
     }
 
     // A simple always-visible overview: the track's shape scaled down to fit a small panel,
@@ -758,21 +844,14 @@ class RaceView @JvmOverloads constructor(
         val left = width - minimapMarginRight - minimapWidth
         val top = minimapTop
 
-        canvas.drawRect(
-            left - minimapPadding, top - minimapPadding,
-            left + minimapWidth + minimapPadding, top + minimapHeight + minimapPadding,
-            minimapBackgroundPaint
-        )
-        canvas.drawRect(
-            left - minimapPadding, top - minimapPadding,
-            left + minimapWidth + minimapPadding, top + minimapHeight + minimapPadding,
-            minimapBorderPaint
-        )
+        minimapBitmap?.let {
+            val inset = minimapBorderPaint.strokeWidth
+            canvas.drawBitmap(it, left - minimapPadding - inset, top - minimapPadding - inset, null)
+        }
 
         canvas.save()
         canvas.translate(left, top)
         canvas.scale(minimapScale, minimapScale)
-        canvas.drawPath(trackPath, minimapTrackPaint)
         for (blob in engine.blobs) {
             if (!blob.alive) continue
             minimapDotPaint.color = blob.color
