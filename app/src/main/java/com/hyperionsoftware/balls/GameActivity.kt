@@ -9,6 +9,7 @@ import android.view.MotionEvent
 import android.widget.EditText
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import com.badlogic.gdx.backends.android.AndroidFragmentApplication
 import com.hyperionsoftware.balls.audio.BackgroundMusicPlayer
 import com.hyperionsoftware.balls.audio.MusicSettings
 import com.hyperionsoftware.balls.audio.MusicTrack
@@ -24,7 +25,7 @@ import com.hyperionsoftware.balls.score.HighScores
 import com.hyperionsoftware.balls.ui.GameView
 import com.hyperionsoftware.balls.ui.fitContentInsideSystemBars
 
-class GameActivity : AppCompatActivity(), GameView.Callback {
+class GameActivity : AppCompatActivity(), GameView.Callback, AndroidFragmentApplication.Callbacks {
 
     private lateinit var binding: ActivityGameBinding
     private var botCount = DEFAULT_BOTS
@@ -247,6 +248,10 @@ class GameActivity : AppCompatActivity(), GameView.Callback {
         startActivity(Intent(this, MainMenuActivity::class.java))
         finish()
     }
+
+    // Required by the libGDX surface hosted inside the game view (see GdxHostFragment); the game
+    // never asks libGDX to quit on its own - leaving always goes through this activity.
+    override fun exit() = Unit
 
     companion object {
         const val EXTRA_BOT_COUNT = "extra_bot_count"

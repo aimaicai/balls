@@ -5,6 +5,7 @@ import android.os.Bundle
 import android.view.MotionEvent
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import com.badlogic.gdx.backends.android.AndroidFragmentApplication
 import com.hyperionsoftware.balls.audio.BackgroundMusicPlayer
 import com.hyperionsoftware.balls.audio.MusicSettings
 import com.hyperionsoftware.balls.audio.SoundEffectPlayer
@@ -21,7 +22,7 @@ import com.hyperionsoftware.balls.ui.fitContentInsideSystemBars
 // Grand Prix mode's Activity - a lighter sibling of GameActivity (see RaceView): the same
 // pause/boost/active-item control wiring, but no high scores/achievements/helium integration
 // yet, deliberately deferred for this first iteration (see the race package's design notes).
-class RaceActivity : AppCompatActivity(), RaceView.Callback {
+class RaceActivity : AppCompatActivity(), RaceView.Callback, AndroidFragmentApplication.Callbacks {
 
     private lateinit var binding: ActivityRaceBinding
     private var botCount = RaceConfig.DEFAULT_BOT_COUNT
@@ -163,6 +164,10 @@ class RaceActivity : AppCompatActivity(), RaceView.Callback {
         startActivity(Intent(this, MainMenuActivity::class.java))
         finish()
     }
+
+    // Required by the libGDX surface hosted inside the game view (see GdxHostFragment); the game
+    // never asks libGDX to quit on its own - leaving always goes through this activity.
+    override fun exit() = Unit
 
     companion object {
         const val EXTRA_BOT_COUNT = "extra_race_bot_count"

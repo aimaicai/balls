@@ -71,7 +71,50 @@ android {
     }
 }
 
+// libGDX ships its Android native libraries (.so) inside per-ABI jars rather than an AAR, so
+// they're pulled through this separate configuration and unpacked into a build directory that
+// is then added as a jniLibs source - the same thing libGDX's own project generator sets up,
+// just kept out of src/ so nothing generated ends up committed.
+val gdxVersion = "1.14.2"
+val natives: Configuration by configurations.creating
+val gdxNativesDir = layout.buildDirectory.dir("gdx-natives")
+
+val copyGdxNatives by tasks.registering {
+    val nativeJars = natives
+    inputs.files(nativeJars)
+    outputs.dir(gdxNativesDir)
+    doLast {
+        val outRoot = gdxNativesDir.get().asFile
+        outRoot.deleteRecursively()
+        nativeJars.files.forEach { jar ->
+            val abi = when {
+                jar.name.endsWith("natives-armeabi-v7a.jar") -> "armeabi-v7a"
+                jar.name.endsWith("natives-arm64-v8a.jar") -> "arm64-v8a"
+                jar.name.endsWith("natives-x86_64.jar") -> "x86_64"
+                jar.name.endsWith("natives-x86.jar") -> "x86"
+                else -> return@forEach
+            }
+            copy {
+                from(zipTree(jar))
+                into(File(outRoot, abi))
+                include("*.so")
+            }
+        }
+    }
+}
+
+android.sourceSets.getByName("main").jniLibs.srcDir(gdxNativesDir)
+tasks.matching { it.name.startsWith("merge") && it.name.endsWith("JniLibFolders") }.configureEach {
+    dependsOn(copyGdxNatives)
+}
+
 dependencies {
+    implementation("com.badlogicgames.gdx:gdx:$gdxVersion")
+    implementation("com.badlogicgames.gdx:gdx-backend-android:$gdxVersion")
+    natives("com.badlogicgames.gdx:gdx-platform:$gdxVersion:natives-armeabi-v7a")
+    natives("com.badlogicgames.gdx:gdx-platform:$gdxVersion:natives-arm64-v8a")
+    natives("com.badlogicgames.gdx:gdx-platform:$gdxVersion:natives-x86")
+    natives("com.badlogicgames.gdx:gdx-platform:$gdxVersion:natives-x86_64")
     implementation("androidx.core:core-ktx:1.13.1")
     implementation("androidx.appcompat:appcompat:1.7.0")
     implementation("com.google.android.material:material:1.12.0")
