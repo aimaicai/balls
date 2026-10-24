@@ -36,8 +36,8 @@ class Atlas {
         setFilter(Texture.TextureFilter.MipMapLinearNearest, Texture.TextureFilter.Linear)
     }
 
-    // A plain white disc of radius DISC_RADIUS_FRACTION of the region's size - draw a circle of
-    // radius r with a sprite DISC_SPRITE_SCALE * r on each side.
+    // A plain white disc whose radius is DISC_RADIUS_FRACTION of the region's full side - so a
+    // circle of radius r takes a sprite DISC_SPRITE_SCALE * r on each side.
     val disc = region(slot(0), CELL)
     // Soft round falloff, white at the center to transparent at the edge (gaussian-ish) - smoke,
     // exhaust puffs, glows and drop shadows.
@@ -61,9 +61,16 @@ class Atlas {
     private val stickerRegions: Array<TextureRegion?> = arrayOfNulls(BalloonSticker.values().size)
     // A four-pointed sparkle, for glints and pop particles.
     val sparkle = region(slot(18), CELL)
+    // A balloon's glossy highlights - drawn on their own, unrotated (see BalloonPainter.drawBody).
+    // Centered on the balloon, only HIGHLIGHT_EXTENT radii to each side: just what they cover.
+    val highlight = region(slot(19), CELL)
+    // A balloon's white silhouette - the real-balloon teardrop with its neck and tied knot,
+    // pointing "up" (its front, the way it travels), centered on the balloon's center and
+    // spanning BALLOON_EXTENT radii to each side. See balloonPath.
+    val balloon = region(slot(20), CELL)
 
-    // Balloon shading + highlight, pre-rotated for LIGHTING_VARIANTS facing angles - see
-    // drawLightingVariant for why it can't just be one texture.
+    // Balloon shading, pre-rotated for LIGHTING_VARIANTS facing angles and cut to the balloon
+    // silhouette - see drawLightingVariant for why it can't just be one texture.
     val lighting: Array<TextureRegion> = Array(LIGHTING_VARIANTS) { index ->
         val slotIndex = 10 + index / 4
         val sub = index % 4
@@ -128,8 +135,8 @@ class Atlas {
         const val THIN_LINE_HEIGHT = 32
         const val LIGHTING_VARIANTS = 32
 
-        // A disc fills this fraction of its region's half-size, leaving transparent padding so
-        // mipmapped neighbours never bleed into each other.
+        // A disc's radius is this fraction of its region's full side, leaving transparent
+        // padding so mipmapped neighbours never bleed into each other.
         const val DISC_RADIUS_FRACTION = 0.4375f
         const val DISC_SPRITE_SCALE = 1f / DISC_RADIUS_FRACTION
 
@@ -224,63 +231,88 @@ class Atlas {
             }
 
             at(18) { drawSparkle(it, center) }
+            at(19) { drawHighlight(it) }
+            at(20) {
+                it.translate(center, center)
+                it.drawPath(balloonPath(center / BALLOON_EXTENT), paint.reset(Color.WHITE))
+            }
         }
 
-        // Balloons are egg-shaped and rotate to face their direction of travel, but their light
-        // comes from a fixed direction (upper left) no matter which way they face - the old
-        // renderer clipped world-aligned shading to the rotated silhouette every frame, which a
-        // sprite can't do. Instead this bakes the world-aligned shading as seen from inside a
-        // balloon rotated by `angleDeg` (and squashed/stretched like the body), so the lighting
-        // sprite can simply share the body's own transform and still match its outline exactly.
-        // With variants every 11.25 degrees, snapping to the nearest one never visibly steps.
+        // The outline of a real party balloon, in balloon radii, front (direction of travel) up:
+        // round and widest a little above the middle, tapering into a short neck at the back,
+        // closed by the little rolled knot ("tortellino") of tied-off latex. Its width matches
+        // the round body the physics uses (radius 1); only the neck and knot extend past it.
+        fun balloonPath(unit: Float): Path = Path().apply {
+            moveTo(0f, -1.06f * unit)
+            cubicTo(0.56f * unit, -1.06f * unit, 0.98f * unit, -0.66f * unit, 0.98f * unit, -0.14f * unit)
+            cubicTo(0.98f * unit, 0.42f * unit, 0.5f * unit, 0.9f * unit, 0.09f * unit, NECK_Y * unit)
+            lineTo(-0.09f * unit, NECK_Y * unit)
+            cubicTo(-0.5f * unit, 0.9f * unit, -0.98f * unit, 0.42f * unit, -0.98f * unit, -0.14f * unit)
+            cubicTo(-0.98f * unit, -0.66f * unit, -0.56f * unit, -1.06f * unit, 0f, -1.06f * unit)
+            close()
+            // The knot: a small pinched bulb right under the neck, and its rolled lip.
+            addOval(-0.085f * unit, (NECK_Y - 0.03f) * unit, 0.085f * unit, (KNOT_END_Y - 0.035f) * unit, Path.Direction.CW)
+            addRoundRect(
+                -0.11f * unit, (KNOT_END_Y - 0.05f) * unit, 0.11f * unit, KNOT_END_Y * unit,
+                0.03f * unit, 0.03f * unit, Path.Direction.CW
+            )
+        }
+
+        // Balloons rotate to face their direction of travel, but their light comes from a fixed
+        // direction (upper left) no matter which way they face - the old renderer clipped
+        // world-aligned shading to the rotated silhouette every frame, which a sprite can't do.
+        // Instead this bakes the world-aligned shading as seen from inside a balloon rotated by
+        // `angleDeg`, cut to the balloon's silhouette, so the shading sprite can simply share
+        // the body's own transform and still match its outline exactly. It's a soft,
+        // low-contrast gradient, so snapping to the nearest of variants 11.25 degrees apart
+        // never visibly steps; the sharp highlights, which would, are drawn separately (see
+        // drawHighlight).
         private fun drawLightingVariant(canvas: Canvas, angleDeg: Float) {
             val size = HALF_CELL
             val layer = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
             val layerCanvas = Canvas(layer)
             val center = size / 2f
-            val radius = center * DISC_RADIUS_FRACTION * 2f
+            val unit = center / BALLOON_EXTENT
 
             layerCanvas.save()
             layerCanvas.translate(center, center)
-            layerCanvas.scale(radius, radius)
-            layerCanvas.scale(1f / BALLOON_SQUASH, 1f / BALLOON_STRETCH)
+            layerCanvas.scale(unit, unit)
             layerCanvas.rotate(-angleDeg)
-            // From here on, units are "balloon radii" in world orientation (y down).
+            // From here on, units are balloon radii in world orientation (y down): darker away
+            // from the light at the upper left.
             val shade = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 shader = RadialGradient(
-                    -0.32f, -0.38f, 1.65f,
-                    intArrayOf(Color.TRANSPARENT, Color.argb(20, 0, 0, 0), Color.argb(120, 0, 0, 0)),
+                    -0.35f, -0.42f, 1.75f,
+                    intArrayOf(Color.TRANSPARENT, Color.argb(24, 0, 0, 0), Color.argb(125, 0, 0, 0)),
                     floatArrayOf(0f, 0.4f, 1f),
                     Shader.TileMode.CLAMP
                 )
             }
             layerCanvas.drawRect(-2f, -2f, 2f, 2f, shade)
-            val highlight = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                shader = RadialGradient(
-                    -0.3f, -0.4f, 0.36f,
-                    intArrayOf(Color.argb(150, 255, 255, 255), Color.argb(70, 255, 255, 255), Color.TRANSPARENT),
-                    floatArrayOf(0f, 0.45f, 1f),
-                    Shader.TileMode.CLAMP
-                )
-            }
-            layerCanvas.drawCircle(-0.3f, -0.4f, 0.36f, highlight)
-            // A small, sharper specular glint - reads as glossy latex rather than matte.
-            val glint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                shader = RadialGradient(
-                    -0.36f, -0.47f, 0.1f,
-                    intArrayOf(Color.argb(210, 255, 255, 255), Color.TRANSPARENT),
-                    null,
-                    Shader.TileMode.CLAMP
-                )
-            }
-            layerCanvas.drawCircle(-0.36f, -0.47f, 0.1f, glint)
             layerCanvas.restore()
 
-            // Cut it to the body's silhouette (in sprite space that's just the disc) with an
-            // antialiased edge, rather than a hard clip: clear everything outside the circle. An
-            // xfermode only touches the pixels its shape covers, hence the inverse-filled path.
-            val outside = Path().apply {
-                addCircle(center, center, radius, Path.Direction.CW)
+            // Latex is a little translucent: light passes through the middle, while the edge,
+            // seen at a grazing angle through more rubber, reads deeper. This one follows the
+            // balloon itself, so it's drawn in the sprite's own (unrotated) space.
+            layerCanvas.save()
+            layerCanvas.translate(center, center)
+            layerCanvas.scale(unit, unit)
+            val rim = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                shader = RadialGradient(
+                    0f, -0.08f, 1.2f,
+                    intArrayOf(Color.TRANSPARENT, Color.TRANSPARENT, Color.argb(70, 0, 0, 0)),
+                    floatArrayOf(0f, 0.68f, 1f),
+                    Shader.TileMode.CLAMP
+                )
+            }
+            layerCanvas.drawRect(-2f, -2f, 2f, 2f, rim)
+            layerCanvas.restore()
+
+            // Cut it to the silhouette with an antialiased edge, rather than a hard clip: clear
+            // everything outside it. An xfermode only touches the pixels its shape covers, hence
+            // the inverse-filled path.
+            val outside = balloonPath(unit).apply {
+                offset(center, center)
                 fillType = Path.FillType.INVERSE_WINDING
             }
             val clear = Paint(Paint.ANTI_ALIAS_FLAG).apply { xfermode = PorterDuffXfermode(PorterDuff.Mode.CLEAR) }
@@ -288,6 +320,47 @@ class Atlas {
 
             canvas.drawBitmap(layer, 0f, 0f, null)
             layer.recycle()
+        }
+
+        // The glossy highlights of a lit balloon: a long soft streak on the upper left following
+        // the curve of the latex, a small bright glint at its top, and a fainter streak on the
+        // right where the light wraps around. Unlike the shading they don't depend on which way
+        // the balloon faces, so they're drawn unrotated and glide smoothly as it turns - all of
+        // them stay within 0.8 radii of the center, which is inside the outline at any angle.
+        private fun drawHighlight(canvas: Canvas) {
+            val center = CELL / 2f
+            val unit = center / HIGHLIGHT_EXTENT
+            canvas.translate(center, center)
+            canvas.scale(unit, unit)
+            drawStreak(canvas, -0.4f, -0.34f, 0.13f, 0.27f, 22f, 170)
+            drawStreak(canvas, 0.6f, -0.06f, 0.06f, 0.2f, -12f, 70)
+            val glint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                shader = RadialGradient(
+                    -0.33f, -0.55f, 0.08f,
+                    intArrayOf(Color.argb(230, 255, 255, 255), Color.TRANSPARENT),
+                    null,
+                    Shader.TileMode.CLAMP
+                )
+            }
+            canvas.drawCircle(-0.33f, -0.55f, 0.08f, glint)
+        }
+
+        // A soft-edged elliptical streak of light, centered at (x, y), tilted by `angle`.
+        private fun drawStreak(canvas: Canvas, x: Float, y: Float, halfWidth: Float, halfLength: Float, angle: Float, alpha: Int) {
+            canvas.save()
+            canvas.translate(x, y)
+            canvas.rotate(angle)
+            canvas.scale(halfWidth, halfLength)
+            val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                shader = RadialGradient(
+                    0f, 0f, 1f,
+                    intArrayOf(Color.argb(alpha, 255, 255, 255), Color.argb(alpha / 2, 255, 255, 255), Color.TRANSPARENT),
+                    floatArrayOf(0f, 0.5f, 1f),
+                    Shader.TileMode.CLAMP
+                )
+            }
+            canvas.drawCircle(0f, 0f, 1f, paint)
+            canvas.restore()
         }
 
         // Fully opaque in the middle, ramping to transparent over `ramp` pixels at the top and
@@ -446,8 +519,15 @@ class Atlas {
             maskFilter = null
         }
 
-        const val BALLOON_SQUASH = 0.94f
-        const val BALLOON_STRETCH = 1.12f
+        // Balloon sprites (silhouette, shading, highlights) span this many balloon radii on
+        // each side of the balloon's center - enough for the neck and knot.
+        const val BALLOON_EXTENT = 1.42f
+        const val BALLOON_SPRITE_SCALE = BALLOON_EXTENT * 2f
+        const val HIGHLIGHT_EXTENT = 0.85f
+        // Along the balloon's back, in radii from its center: where the neck closes, and the far
+        // end of the knot, where the string is tied on.
+        const val NECK_Y = 1.1f
+        const val KNOT_END_Y = 1.32f
 
         // Triangle geometry inside its 256px cell - Painter.triangle maps it onto any base/tip.
         const val TRIANGLE_APEX_Y = 24f

@@ -2,8 +2,12 @@ package com.hyperionsoftware.balls.ui.gdx
 
 import android.content.Context
 import android.content.ContextWrapper
+import android.os.Build
 import android.os.Bundle
 import android.view.LayoutInflater
+import android.view.Surface
+import android.view.SurfaceHolder
+import android.view.SurfaceView
 import android.view.View
 import android.view.ViewGroup
 import androidx.fragment.app.FragmentActivity
@@ -44,7 +48,41 @@ class GdxHostFragment : AndroidFragmentApplication() {
             useImmersiveMode = false
             useWakelock = false
         }
-        return initializeForView(listener, config)
+        val view = initializeForView(listener, config)
+        requestHighestRefreshRate(view)
+        return view
+    }
+
+    // Asks for the display's fastest refresh rate while the game is on screen. The old Canvas
+    // renderer drew from Choreographer callbacks, which Android already treats as active
+    // animation worth a high refresh rate; libGDX renders from its own GL thread, and without
+    // an explicit request the system was free to keep the screen at 60 Hz (exactly what
+    // happened on a 144 Hz phone). Both the window's preferred display mode and, from
+    // Android 11, the surface's own frame rate are set - the user's display settings can still
+    // cap either.
+    private fun requestHighestRefreshRate(view: View) {
+        val activity = requireActivity()
+        val display = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            activity.display
+        } else {
+            @Suppress("DEPRECATION")
+            activity.windowManager.defaultDisplay
+        } ?: return
+        val current = display.mode
+        val fastest = display.supportedModes
+            .filter { it.physicalWidth == current.physicalWidth && it.physicalHeight == current.physicalHeight }
+            .maxByOrNull { it.refreshRate } ?: return
+        activity.window.attributes = activity.window.attributes.apply { preferredDisplayModeId = fastest.modeId }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && view is SurfaceView) {
+            view.holder.addCallback(object : SurfaceHolder.Callback {
+                override fun surfaceCreated(holder: SurfaceHolder) {
+                    holder.surface.setFrameRate(fastest.refreshRate, Surface.FRAME_RATE_COMPATIBILITY_DEFAULT)
+                }
+
+                override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) = Unit
+                override fun surfaceDestroyed(holder: SurfaceHolder) = Unit
+            })
+        }
     }
 
     // libGDX only releases its static registries of managed textures/meshes/shaders (keyed by

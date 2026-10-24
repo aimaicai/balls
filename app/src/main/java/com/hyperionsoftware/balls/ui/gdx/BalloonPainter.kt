@@ -10,9 +10,9 @@ import kotlin.math.sin
 // Everything a single balloon looks like, shared by GameRenderer and RaceRenderer so a Grand
 // Prix racer is always exactly the same balloon as a classic-mode one. Takes plain values
 // rather than a Blob/RaceBlob, since those two class hierarchies are deliberately separate.
-// The geometry (egg squash/stretch, knot, string sway, the four-puff exhaust trail) is the old
-// Canvas renderer's, unchanged; what's new is the lighting, the soft drop shadow, the smoke left
-// behind and a glow while sprinting.
+// The body is a real balloon's teardrop with its tied knot (see Atlas.balloonPath), lit from a
+// fixed direction, with a soft drop shadow, smoke left behind and a glow while sprinting; the
+// string sway and the four-puff exhaust trail are the old Canvas renderer's.
 class BalloonPainter(private val painter: Painter, private val particles: Particles) {
     class State {
         var x = 0f
@@ -52,7 +52,7 @@ class BalloonPainter(private val painter: Painter, private val particles: Partic
         var count = rate * dt
         val backX = -s.facingX
         val backY = -s.facingY
-        val tip = s.radius * (BALLOON_STRETCH + 0.3f)
+        val tip = s.radius * (Atlas.KNOT_END_Y + 0.1f)
         while (count > 0f) {
             if (count < 1f && MathUtils.random() > count) break
             count -= 1f
@@ -92,8 +92,10 @@ class BalloonPainter(private val painter: Painter, private val particles: Partic
         drawBody(s)
         drawSticker(s)
         if (s.isFrozen) {
+            // An icy coat over the whole balloon, its own silhouette slightly enlarged.
             painter.color(FROZEN_COLOR, 0.4f * s.alpha)
-            painter.disc(s.x, s.y, s.radius * 1.05f)
+            val size = s.radius * Atlas.BALLOON_SPRITE_SCALE * 1.05f
+            painter.region(atlas.balloon, s.x, s.y, size, size, facingAngleDeg(s.facingX, s.facingY))
             painter.color(Color.WHITE, 0.35f * s.alpha)
             painter.region(atlas.sparkle, s.x - s.radius * 0.35f, s.y - s.radius * 0.3f, s.radius * 0.7f, s.radius * 0.7f, 15f)
         }
@@ -111,7 +113,6 @@ class BalloonPainter(private val painter: Painter, private val particles: Partic
                 painter.region(bolt, s.x, s.y, size, size)
             }
         }
-        drawKnot(s)
         drawString(s)
     }
 
@@ -120,7 +121,7 @@ class BalloonPainter(private val painter: Painter, private val particles: Partic
     fun drawGlow(s: State) {
         if (s.isBoosting && s.isThrusting) {
             val pulse = 0.75f + 0.25f * sin(s.exhaustPhase * 22f)
-            val edge = s.radius * BALLOON_STRETCH
+            val edge = s.radius * Atlas.NECK_Y
             painter.color(BOOST_GLOW_COLOR, 0.7f * pulse * s.alpha)
             painter.glow(s.x - s.facingX * (edge + s.radius * 0.35f), s.y - s.facingY * (edge + s.radius * 0.35f), s.radius * 0.85f)
         }
@@ -130,49 +131,42 @@ class BalloonPainter(private val painter: Painter, private val particles: Partic
         }
     }
 
+    // A real balloon's teardrop shape (see Atlas.balloonPath), its front - the wide, round end -
+    // toward the direction of travel and its knot trailing behind.
     private fun drawBody(s: State) {
         val angle = facingAngleDeg(s.facingX, s.facingY)
-        val size = s.radius * 2f * Atlas.DISC_SPRITE_SCALE
+        val size = s.radius * Atlas.BALLOON_SPRITE_SCALE
         painter.color(s.color, s.alpha)
-        painter.transformed(atlas.disc, s.x, s.y, size, BALLOON_SQUASH, BALLOON_STRETCH, angle)
+        painter.region(atlas.balloon, s.x, s.y, size, size, angle)
 
-        // The pre-rotated lighting variant nearest this angle (see Atlas.drawLightingVariant), so
-        // the light stays put as the balloon turns.
+        // The pre-rotated shading variant nearest this angle (see Atlas.drawLightingVariant), so
+        // the light stays put as the balloon turns...
         val variants = Atlas.LIGHTING_VARIANTS
         val variant = Math.round(((angle % 360f + 360f) % 360f) / (360f / variants)) % variants
         painter.color(Color.WHITE, s.alpha)
-        painter.transformed(atlas.lighting[variant], s.x, s.y, size, BALLOON_SQUASH, BALLOON_STRETCH, angle)
+        painter.region(atlas.lighting[variant], s.x, s.y, size, size, angle)
+        // ...and the highlights on top, never rotated, so they glide along with no steps at all.
+        val highlightSize = s.radius * Atlas.HIGHLIGHT_EXTENT * 2f
+        painter.region(atlas.highlight, s.x, s.y, highlightSize, highlightSize)
     }
 
     private fun drawSticker(s: State) {
         val region = atlas.sticker(s.sticker) ?: return
-        // Printed on the balloon's own surface: rotates and squashes/stretches with the body,
-        // at the same size the old renderer used (radius * 0.5).
+        // Printed on the balloon's own surface: rotates with the body, at the same size the old
+        // renderer used (radius * 0.5), shifted a touch toward the wide front where a print
+        // naturally sits on a teardrop.
         val size = Atlas.HALF_CELL * (s.radius * 0.5f / Atlas.STICKER_BAKE_SIZE)
         painter.color(Color.WHITE, (235f / 255f) * s.alpha)
-        painter.transformed(region, s.x, s.y, size, BALLOON_SQUASH, BALLOON_STRETCH, facingAngleDeg(s.facingX, s.facingY))
-    }
-
-    private fun drawKnot(s: State) {
-        val backX = -s.facingX
-        val backY = -s.facingY
-        val edgeRadius = s.radius * BALLOON_STRETCH
-        val knotSize = s.radius * 0.22f
-        painter.color(darken(s.color, 0.55f), s.alpha)
-        painter.triangle(
-            s.x + backX * edgeRadius * 0.85f, s.y + backY * edgeRadius * 0.85f,
-            s.x + backX * (edgeRadius + knotSize), s.y + backY * (edgeRadius + knotSize),
-            knotSize
-        )
+        val offset = s.radius * 0.1f
+        painter.region(region, s.x + s.facingX * offset, s.y + s.facingY * offset, size, size, facingAngleDeg(s.facingX, s.facingY))
     }
 
     private fun drawString(s: State) {
+        // Tied on at the end of the knot.
         val backX = -s.facingX
         val backY = -s.facingY
-        val edgeRadius = s.radius * BALLOON_STRETCH
-        val knotSize = s.radius * 0.22f
-        val startX = s.x + backX * (edgeRadius + knotSize)
-        val startY = s.y + backY * (edgeRadius + knotSize)
+        val startX = s.x + backX * s.radius * Atlas.KNOT_END_Y
+        val startY = s.y + backY * s.radius * Atlas.KNOT_END_Y
         val length = s.radius * 0.9f
         val sway = sin(s.exhaustPhase * 2.3f) * s.radius * 0.15f
         val controlX = startX + backX * length * 0.5f + sway
@@ -207,7 +201,8 @@ class BalloonPainter(private val painter: Painter, private val particles: Partic
         val perpY = backX
         val pulse = 0.7f + 0.3f * sin(s.exhaustPhase * (if (boosting) 22f else 14f))
         val intensity = if (boosting) 1.7f else 1f
-        val edgeRadius = s.radius * BALLOON_STRETCH
+        // The air escapes from the neck.
+        val edgeRadius = s.radius * Atlas.NECK_Y
         val trailLength = s.radius * (1.4f + 0.5f * pulse) * intensity
         val baseAlphaFraction = if (boosting) 0.75f else 0.5f
         val classic = s.exhaustStyle == ExhaustStyle.CLASSIC
@@ -236,9 +231,6 @@ class BalloonPainter(private val painter: Painter, private val particles: Partic
     }
 
     companion object {
-        const val BALLOON_SQUASH = Atlas.BALLOON_SQUASH
-        const val BALLOON_STRETCH = Atlas.BALLOON_STRETCH
-
         // How far a balloon's drawing reaches past its center, as a multiple of its radius:
         // the sprinting exhaust trail is the longest part (see drawExhaust), the shadow next.
         const val VISUAL_EXTENT = 5f

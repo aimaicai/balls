@@ -59,8 +59,7 @@ class Painter {
         batch.draw(region, cx - width / 2f, cy - height / 2f, width / 2f, height / 2f, width, height, 1f, 1f, rotation)
     }
 
-    // A region scaled by scaleX/scaleY around its center, then rotated - the transform a
-    // balloon's egg-shaped body uses.
+    // A region scaled by scaleX/scaleY around its center, then rotated - the tumbling confetti.
     fun transformed(
         region: TextureRegion,
         cx: Float,
@@ -74,7 +73,7 @@ class Painter {
     }
 
     fun disc(cx: Float, cy: Float, radius: Float) {
-        region(atlas.disc, cx, cy, radius * 2f * Atlas.DISC_SPRITE_SCALE, radius * 2f * Atlas.DISC_SPRITE_SCALE)
+        region(atlas.disc, cx, cy, radius * Atlas.DISC_SPRITE_SCALE, radius * Atlas.DISC_SPRITE_SCALE)
     }
 
     // A large solid circle in the current color, as exact geometry: a fan of triangles (plus,
