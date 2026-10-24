@@ -29,7 +29,6 @@ import com.hyperionsoftware.balls.settings.CosmeticsSettings
 import com.hyperionsoftware.balls.settings.DeveloperSettings
 import kotlin.math.atan2
 import kotlin.math.ceil
-import kotlin.math.min
 import kotlin.math.sin
 
 // Grand Prix mode's own SurfaceView, a lighter port of GameView: no achievements, personal
@@ -58,7 +57,7 @@ class RaceView @JvmOverloads constructor(
     var callback: Callback? = null
 
     private lateinit var engine: RaceEngine
-    private var loopThread: RaceThread? = null
+    private var loopThread: FrameLoop? = null
     // Developer mode only (see FpsCounter) - read once per match start, like the cosmetics.
     private val fpsCounter = FpsCounter(resources.displayMetrics.density)
     private var showFps = false
@@ -69,7 +68,7 @@ class RaceView @JvmOverloads constructor(
     private var lastCarriedItemType: PowerUpType? = null
 
     // Same cross-thread pattern as GameView.activeItemRequested - only ever set here from the
-    // UI thread, only ever consumed (and cleared) by RaceThread at the top of its next tick.
+    // UI thread, only ever consumed (and cleared) by the loop thread at the top of its next tick.
     @Volatile
     private var activeItemRequested = false
 
@@ -326,7 +325,7 @@ class RaceView @JvmOverloads constructor(
                     lapsCompleted: Int,
                     elapsedSeconds: Float
                 ) {
-                    loopThread?.running = false
+                    loopThread?.requestStop()
                     post {
                         callback?.onRaceOver(playerWon, reason, finalRadius.toInt(), lapsCompleted, elapsedSeconds.toInt())
                     }
@@ -337,18 +336,17 @@ class RaceView @JvmOverloads constructor(
     }
 
     fun pauseRace() {
-        loopThread?.running = false
+        loopThread?.requestStop()
     }
 
     fun resumeRace() {
-        if (started && surfaceReady && (loopThread == null || !loopThread!!.isAlive)) {
+        if (started && surfaceReady && loopThread?.isRunning != true) {
             launchLoop()
         }
     }
 
     fun restart(botCount: Int, track: RaceTrack, laps: Int) {
-        loopThread?.running = false
-        loopThread?.join(500)
+        loopThread?.stopAndJoin()
         started = false
         startRace(botCount, track, laps)
     }
@@ -391,54 +389,31 @@ class RaceView @JvmOverloads constructor(
 
     override fun surfaceDestroyed(holder: SurfaceHolder) {
         surfaceReady = false
-        loopThread?.running = false
-        loopThread?.join(500)
+        loopThread?.stopAndJoin()
     }
 
     private fun launchLoop() {
-        loopThread?.running = false
-        loopThread?.join(500)
+        loopThread?.stopAndJoin()
         fpsCounter.reset()
-        loopThread = RaceThread().also { it.start() }
+        loopThread = FrameLoop("RaceLoop", ::onFrame).also { it.start() }
     }
 
-    private inner class RaceThread : Thread("RaceLoop") {
-        @Volatile var running = true
-
-        override fun run() {
-            var lastTime = System.nanoTime()
-            while (running) {
-                val now = System.nanoTime()
-                var dt = (now - lastTime) / 1_000_000_000f
-                lastTime = now
-                dt = min(dt, 0.05f)
-
-                if (activeItemRequested) {
-                    activeItemRequested = false
-                    engine.activateCarriedItem(engine.player)
-                }
-
-                if (countdownActive) {
-                    countdownRemaining -= dt
-                    if (countdownRemaining <= 0f) countdownActive = false
-                } else {
-                    engine.update(dt)
-                    checkBoostAvailability()
-                    checkCarriedItemAvailability()
-                }
-                drawFrame(dt)
-
-                val frameTimeMs = (System.nanoTime() - now) / 1_000_000
-                val sleepTime = 16 - frameTimeMs
-                if (sleepTime > 0) {
-                    try {
-                        sleep(sleepTime)
-                    } catch (_: InterruptedException) {
-                        running = false
-                    }
-                }
-            }
+    // One frame of the loop, called by FrameLoop once per display refresh.
+    private fun onFrame(dt: Float) {
+        if (activeItemRequested) {
+            activeItemRequested = false
+            engine.activateCarriedItem(engine.player)
         }
+
+        if (countdownActive) {
+            countdownRemaining -= dt
+            if (countdownRemaining <= 0f) countdownActive = false
+        } else {
+            engine.update(dt)
+            checkBoostAvailability()
+            checkCarriedItemAvailability()
+        }
+        drawFrame(dt)
     }
 
     private fun drawFrame(dt: Float) {

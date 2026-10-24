@@ -75,17 +75,17 @@ class GameView @JvmOverloads constructor(
     var callback: Callback? = null
 
     private lateinit var engine: GameEngine
-    private var loopThread: GameThread? = null
+    private var loopThread: FrameLoop? = null
     private var surfaceReady = false
     private var started = false
     private var lastBoostAvailable = false
     private var lastCarriedItemType: PowerUpType? = null
 
     // Set from the UI thread when the active-item button is tapped, consumed only by
-    // GameThread at the top of its next tick. Calling engine.activateCarriedItem straight
+    // the loop thread at the top of its next tick. Calling engine.activateCarriedItem straight
     // from the click listener used to reach across threads into GameEngine's mutable
     // collections (blobs, powerUps) and this view's own render-side lists (floatingTexts,
-    // effectRipples) while GameThread could be iterating or mutating those same lists on its
+    // effectRipples) while the loop thread could be iterating or mutating those same lists on its
     // own loop, which showed up as a rare ConcurrentModificationException crash. Every other
     // player input (steering, boosting) already only ever writes a single field for the loop
     // to read next tick - this follows the same rule instead of calling into the engine directly.
@@ -617,7 +617,7 @@ class GameView @JvmOverloads constructor(
                     elapsedSeconds: Float,
                     reachedFinalRound: Boolean
                 ) {
-                    loopThread?.running = false
+                    loopThread?.requestStop()
                     soundEffectPlayer.play(
                         if (playerWon) SoundEffectPlayer.Effect.GAME_OVER_WIN else SoundEffectPlayer.Effect.GAME_OVER_LOSE
                     )
@@ -673,11 +673,11 @@ class GameView @JvmOverloads constructor(
     }
 
     fun pauseGame() {
-        loopThread?.running = false
+        loopThread?.requestStop()
     }
 
     fun resumeGame() {
-        if (started && surfaceReady && (loopThread == null || !loopThread!!.isAlive)) {
+        if (started && surfaceReady && loopThread?.isRunning != true) {
             launchLoop()
         }
     }
@@ -690,8 +690,7 @@ class GameView @JvmOverloads constructor(
         botAggressivenessLevel: Int = GameConfig.BOT_AGGRESSIVENESS_DEFAULT_LEVEL,
         safeZoneShrinkSpeedLevel: Int = GameConfig.SAFE_ZONE_SHRINK_SPEED_DEFAULT_LEVEL
     ) {
-        loopThread?.running = false
-        loopThread?.join(500)
+        loopThread?.stopAndJoin()
         started = false
         startGame(botCount, powerUpFrequencyLevel, arenaSize, skipToFinalRound, botAggressivenessLevel, safeZoneShrinkSpeedLevel)
     }
@@ -720,7 +719,7 @@ class GameView @JvmOverloads constructor(
     }
 
     // Spends whatever the player is currently carrying, if anything - a no-op if the slot is
-    // empty. Only records the request here; GameThread is the one that actually calls into
+    // empty. Only records the request here; the loop thread is the one that actually calls into
     // the engine, since this is invoked from the UI thread (the button's click listener).
     fun useActiveItem() {
         if (started) {
@@ -859,8 +858,7 @@ class GameView @JvmOverloads constructor(
 
     override fun surfaceDestroyed(holder: SurfaceHolder) {
         surfaceReady = false
-        loopThread?.running = false
-        loopThread?.join(500)
+        loopThread?.stopAndJoin()
     }
 
     override fun onDetachedFromWindow() {
@@ -871,10 +869,9 @@ class GameView @JvmOverloads constructor(
     }
 
     private fun launchLoop() {
-        loopThread?.running = false
-        loopThread?.join(500)
+        loopThread?.stopAndJoin()
         fpsCounter.reset()
-        loopThread = GameThread().also { it.start() }
+        loopThread = FrameLoop("GameLoop", ::onFrame).also { it.start() }
     }
 
     // Shared gate for all four effects below: respects both the vibration on/off setting and
@@ -901,48 +898,27 @@ class GameView @JvmOverloads constructor(
         vibrate(VibrationEffect.createWaveform(longArrayOf(0, 120, 80, 120, 80, 200), -1))
     }
 
-    private inner class GameThread : Thread("GameLoop") {
-        @Volatile var running = true
-
-        override fun run() {
-            var lastTime = System.nanoTime()
-            while (running) {
-                val now = System.nanoTime()
-                var dt = (now - lastTime) / 1_000_000_000f
-                lastTime = now
-                dt = min(dt, 0.05f)
-
-                if (activeItemRequested) {
-                    activeItemRequested = false
-                    engine.activateCarriedItem(engine.player)
-                }
-
-                if (countdownActive) {
-                    countdownRemaining -= dt
-                    if (countdownRemaining <= 0f) countdownActive = false
-                } else if (finalRoundTransitionActive) {
-                    finalRoundTransitionElapsed += dt
-                    if (finalRoundTransitionElapsed >= GameConfig.FINAL_ROUND_BANNER_SECONDS) {
-                        finalRoundTransitionActive = false
-                    }
-                } else {
-                    engine.update(dt)
-                    checkBoostAvailability()
-                    checkCarriedItemAvailability()
-                }
-                drawFrame(dt)
-
-                val frameTimeMs = (System.nanoTime() - now) / 1_000_000
-                val sleepTime = 16 - frameTimeMs
-                if (sleepTime > 0) {
-                    try {
-                        sleep(sleepTime)
-                    } catch (_: InterruptedException) {
-                        running = false
-                    }
-                }
-            }
+    // One frame of the loop, called by FrameLoop once per display refresh.
+    private fun onFrame(dt: Float) {
+        if (activeItemRequested) {
+            activeItemRequested = false
+            engine.activateCarriedItem(engine.player)
         }
+
+        if (countdownActive) {
+            countdownRemaining -= dt
+            if (countdownRemaining <= 0f) countdownActive = false
+        } else if (finalRoundTransitionActive) {
+            finalRoundTransitionElapsed += dt
+            if (finalRoundTransitionElapsed >= GameConfig.FINAL_ROUND_BANNER_SECONDS) {
+                finalRoundTransitionActive = false
+            }
+        } else {
+            engine.update(dt)
+            checkBoostAvailability()
+            checkCarriedItemAvailability()
+        }
+        drawFrame(dt)
     }
 
     private fun drawFrame(dt: Float) {
