@@ -262,10 +262,15 @@ class GameEngine(
             triggerFinalRound()
         }
 
+        // Every bot's decideDirection asks for aliveCount(), which made the whole movement
+        // pass O(botCount^2) just from recounting. Nobody can die during this loop (only
+        // movement and carried-item pushes happen here), so one count up front is exact.
+        tickAliveCount = blobs.count { it.alive }
         for (blob in blobs) {
             val baseSpeed = if (blob is PlayerBlob) GameConfig.PLAYER_BASE_SPEED else GameConfig.BOT_BASE_SPEED
             blob.update(dt, this, baseSpeed)
         }
+        tickAliveCount = -1
 
         applyThrustEffects(dt)
         applyBoostEffects(dt)
@@ -280,25 +285,35 @@ class GameEngine(
     // Every balloon that's actively thrusting blows a cone of air out its back, shoving any
     // other balloon caught in that cone further away - a side effect of moving, not an
     // ability anyone has to activate.
+    // Every pair of alive blobs, every tick - so plain floats instead of Vector2 math (which
+    // allocated three throwaway vectors per pair), and a squared-distance rejection first so
+    // the sqrt only runs for the few pairs actually within range.
     private fun applyThrustEffects(dt: Float) {
         for (source in blobs) {
             if (!source.alive || !source.isThrusting) continue
-            val exhaustDir = source.facingDirection * -1f
+            val exhaustX = -source.facingDirection.x
+            val exhaustY = -source.facingDirection.y
             val maxRange = source.radius * GameConfig.THRUST_RANGE_MULTIPLIER
+            val maxRangeSq = maxRange * maxRange
 
             for (target in blobs) {
                 if (target === source || !target.alive) continue
-                val offset = target.position - source.position
-                val distance = offset.length()
-                if (distance < 0.01f || distance > maxRange) continue
+                val offsetX = target.position.x - source.position.x
+                val offsetY = target.position.y - source.position.y
+                val distanceSq = offsetX * offsetX + offsetY * offsetY
+                if (distanceSq > maxRangeSq) continue
+                val distance = sqrt(distanceSq)
+                if (distance < 0.01f) continue
 
-                val towardTarget = offset * (1f / distance)
-                val alignment = exhaustDir.dot(towardTarget)
+                val towardX = offsetX / distance
+                val towardY = offsetY / distance
+                val alignment = exhaustX * towardX + exhaustY * towardY
                 if (alignment <= GameConfig.THRUST_CONE_MIN_ALIGNMENT) continue
 
                 val falloff = 1f - distance / maxRange
                 val strength = GameConfig.THRUST_FORCE_PER_SECOND * falloff * alignment * dt
-                target.position += towardTarget * strength
+                target.position.x += towardX * strength
+                target.position.y += towardY * strength
                 target.clampToWorld()
             }
         }
@@ -462,7 +477,10 @@ class GameEngine(
         target.clampToWorld()
     }
 
-    fun aliveCount(): Int = blobs.count { it.alive }
+    // Only >= 0 while update()'s movement pass is running - see there.
+    private var tickAliveCount = -1
+
+    fun aliveCount(): Int = if (tickAliveCount >= 0) tickAliveCount else blobs.count { it.alive }
 
     private fun resolveCollisions() {
         // Iterates blobs directly (skipping dead ones inline) rather than filtering into a
@@ -499,8 +517,14 @@ class GameEngine(
 
     private fun handlePair(a: Blob, b: Blob) {
         if (!a.alive || !b.alive) return
-        val distance = a.position.distanceTo(b.position)
-        if (distance >= a.radius + b.radius) return
+        // Squared check first: almost every pair is nowhere near touching, and this runs for
+        // every pair of alive blobs, every tick.
+        val dx = a.position.x - b.position.x
+        val dy = a.position.y - b.position.y
+        val touchDistance = a.radius + b.radius
+        val distanceSq = dx * dx + dy * dy
+        if (distanceSq >= touchDistance * touchDistance) return
+        val distance = sqrt(distanceSq)
 
         val bigger = if (a.radius >= b.radius) a else b
         val smaller = if (a.radius >= b.radius) b else a

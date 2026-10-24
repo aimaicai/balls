@@ -8,7 +8,6 @@ import android.graphics.DashPathEffect
 import android.graphics.Matrix
 import android.graphics.Paint
 import android.graphics.Path
-import android.graphics.Region
 import android.media.AudioAttributes
 import android.media.AudioFormat
 import android.media.AudioTrack
@@ -43,6 +42,7 @@ import com.hyperionsoftware.balls.records.PersonalRecords
 import com.hyperionsoftware.balls.records.RecordType
 import com.hyperionsoftware.balls.score.HighScores
 import com.hyperionsoftware.balls.settings.CosmeticsSettings
+import com.hyperionsoftware.balls.settings.DeveloperSettings
 import kotlin.math.abs
 import kotlin.math.atan2
 import kotlin.math.ceil
@@ -214,9 +214,9 @@ class GameView @JvmOverloads constructor(
     private val shadePaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val highlightPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.WHITE }
     private val knotPaint = Paint(Paint.ANTI_ALIAS_FLAG)
-    // Soft-edged via BlurMaskFilter instead of a hard shape - safe here because
-    // SurfaceView's canvas is a plain software bitmap canvas (see drawSafeZone), and
-    // BlurMaskFilter only renders on software canvases anyway.
+    // Soft-edged via BlurMaskFilter instead of a hard shape - supported on both canvases
+    // drawFrame can hand out: the software one, and the hardware one, which it only uses
+    // from API 28 on, where BlurMaskFilter is supported there too.
     private val exhaustPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = Color.parseColor("#B3E5FC")
         maskFilter = BlurMaskFilter(10f, BlurMaskFilter.Blur.NORMAL)
@@ -373,6 +373,39 @@ class GameView @JvmOverloads constructor(
         textAlign = Paint.Align.CENTER
     }
 
+    // Developer mode only (see FpsCounter) - read once per match start, like the cosmetics.
+    private val fpsCounter = FpsCounter(resources.displayMetrics.density)
+    private var showFps = false
+
+    private var useHardwareCanvas = Build.VERSION.SDK_INT >= Build.VERSION_CODES.P
+
+    // Pre-parsed once instead of Color.parseColor() inside the render loop - drawExhaust ran
+    // that string parse for every thrusting balloon, every frame.
+    private val backgroundColor = Color.parseColor("#0F1620")
+    private val exhaustCruiseColor = Color.parseColor("#B3E5FC")
+    private val exhaustBoostColor = Color.parseColor("#FF7043")
+    private val threatIndicatorColor = Color.parseColor("#EF5350")
+    private val preyIndicatorColor = Color.parseColor("#8BC34A")
+    private val safeZoneClipPath = Path()
+
+    // The HUD text only changes when its underlying number does, but formatting it through
+    // getString() every frame produced a handful of throwaway Strings per frame for the GC.
+    private var hudSizeValue = Int.MIN_VALUE
+    private var hudSizeText = ""
+    private var hudAbsorbedValue = Int.MIN_VALUE
+    private var hudAbsorbedText = ""
+    private var hudPlayersValue = Int.MIN_VALUE
+    private var hudPlayersText = ""
+    private var hudZoneValue = Int.MIN_VALUE
+    private var hudZoneText = ""
+    private var hudTimeValue = Int.MIN_VALUE
+    private var hudTimeText = ""
+    private var hudScoreValue = Int.MIN_VALUE
+    private var hudScoreText = ""
+    private var statSpeedLabel = ""
+    private var statAgilityLabel = ""
+    private var statPotencyLabel = ""
+
     private var lastDirection = Vector2(0f, 0f)
     private var beaconPhase = 0f
 
@@ -411,6 +444,16 @@ class GameView @JvmOverloads constructor(
         selectedSticker = CosmeticsSettings.getSelectedSticker(context)
         selectedCord = CosmeticsSettings.getSelectedCord(context)
         selectedExhaustStyle = CosmeticsSettings.getSelectedExhaustStyle(context)
+        showFps = DeveloperSettings.isEnabled(context)
+        hudSizeValue = Int.MIN_VALUE
+        hudAbsorbedValue = Int.MIN_VALUE
+        hudPlayersValue = Int.MIN_VALUE
+        hudZoneValue = Int.MIN_VALUE
+        hudTimeValue = Int.MIN_VALUE
+        hudScoreValue = Int.MIN_VALUE
+        statSpeedLabel = context.getString(R.string.stat_speed_label)
+        statAgilityLabel = context.getString(R.string.stat_agility_label)
+        statPotencyLabel = context.getString(R.string.stat_potency_label)
         engine = GameEngine(
             botCount = botCount,
             powerUpFrequencyLevel = powerUpFrequencyLevel,
@@ -830,6 +873,7 @@ class GameView @JvmOverloads constructor(
     private fun launchLoop() {
         loopThread?.running = false
         loopThread?.join(500)
+        fpsCounter.reset()
         loopThread = GameThread().also { it.start() }
     }
 
@@ -902,10 +946,20 @@ class GameView @JvmOverloads constructor(
     }
 
     private fun drawFrame(dt: Float) {
+        // A GPU-backed canvas from API 28 on, where it supports everything render() relies on
+        // (BlurMaskFilter for the exhaust puffs, DIFFERENCE clipping for the safe zone) - the
+        // plain lockCanvas() is a CPU-rasterized bitmap, and antialiased paths plus blurred
+        // puffs for every balloon on screen were most of the frame time on real devices.
+        // Older versions, or a device whose hardware canvas fails, keep the software path.
         val canvas = try {
-            holder.lockCanvas()
+            if (useHardwareCanvas) holder.lockHardwareCanvas() else holder.lockCanvas()
         } catch (_: Exception) {
-            null
+            useHardwareCanvas = false
+            try {
+                holder.lockCanvas()
+            } catch (_: Exception) {
+                null
+            }
         } ?: return
         try {
             render(canvas, dt)
@@ -919,7 +973,7 @@ class GameView @JvmOverloads constructor(
     }
 
     private fun render(canvas: Canvas, dt: Float) {
-        canvas.drawColor(Color.parseColor("#0F1620"))
+        canvas.drawColor(backgroundColor)
         beaconPhase += dt
 
         val player = engine.player
@@ -932,12 +986,27 @@ class GameView @JvmOverloads constructor(
         drawWorldBorder(canvas, offsetX, offsetY)
         drawSafeZone(canvas, offsetX, offsetY)
 
+        // Only what's actually on screen gets drawn - with 100 bots spread over the whole
+        // arena, the opening of a match used to rasterize every single balloon (body, shading
+        // clip, four blurred exhaust puffs, knot, string) and every power-up each frame even
+        // though only a handful are ever visible at once. That's why it lagged worst at the
+        // start, when the most blobs are still alive.
         for (powerUp in engine.powerUps) {
-            drawPowerUp(canvas, powerUp, offsetX, offsetY)
+            // Covers the supply drop beacon's widest ring too (see drawSupplyDropBeacon).
+            val extent = powerUp.radius + GameConfig.POWERUP_RADIUS * 4.6f
+            if (isOnScreen(powerUp.position.x + offsetX, powerUp.position.y + offsetY, extent)) {
+                drawPowerUp(canvas, powerUp, offsetX, offsetY)
+            }
         }
 
         for (blob in engine.blobs) {
-            if (blob.alive) drawBlob(canvas, blob, offsetX, offsetY)
+            if (!blob.alive) continue
+            // The exhaust trail is the farthest-reaching part of a balloon: up to about
+            // 4.5x its radius behind it while sprinting (see drawExhaust), plus the shield
+            // aura, string and frozen overlay all stay well within 5x.
+            if (isOnScreen(blob.position.x + offsetX, blob.position.y + offsetY, blob.radius * 5f)) {
+                drawBlob(canvas, blob, offsetX, offsetY)
+            }
         }
 
         drawAbsorbAnimations(canvas, offsetX, offsetY, dt)
@@ -951,7 +1020,12 @@ class GameView @JvmOverloads constructor(
         drawFinalRoundTransition(canvas)
         if (!countdownActive && !finalRoundTransitionActive) checkLiveAchievements(player)
         drawAchievementPopups(canvas, dt)
+        if (showFps) fpsCounter.draw(canvas)
     }
+
+    private fun isOnScreen(screenX: Float, screenY: Float, extent: Float): Boolean =
+        screenX + extent >= 0f && screenX - extent <= width &&
+            screenY + extent >= 0f && screenY - extent <= height
 
     private fun cameraCoord(playerCoord: Float, viewportSize: Int, worldSize: Float): Float {
         val halfViewport = viewportSize / 2f
@@ -994,13 +1068,12 @@ class GameView @JvmOverloads constructor(
         val r = engine.safeZoneRadius
 
         // Dim everything outside the shrinking safe circle so the danger area reads
-        // clearly, then stroke its edge. SurfaceView's canvas is a plain software
-        // bitmap canvas (not the accelerated View pipeline), so DIFFERENCE clipping
-        // is safe here.
+        // clearly, then stroke its edge. clipOutPath works on both the software and the
+        // hardware canvas (see drawFrame).
         canvas.save()
-        val path = Path().apply { addCircle(cx, cy, r, Path.Direction.CW) }
-        @Suppress("DEPRECATION")
-        canvas.clipPath(path, Region.Op.DIFFERENCE)
+        safeZoneClipPath.reset()
+        safeZoneClipPath.addCircle(cx, cy, r, Path.Direction.CW)
+        canvas.clipOutPath(safeZoneClipPath)
         canvas.drawColor(safeZoneFillColor)
         canvas.restore()
 
@@ -1245,7 +1318,7 @@ class GameView @JvmOverloads constructor(
         val baseAlphaFraction = if (boosting) 0.75f else 0.5f
         val style = if (blob === engine.player) selectedExhaustStyle else ExhaustStyle.CLASSIC
 
-        exhaustPaint.color = if (boosting) Color.parseColor("#FF7043") else Color.parseColor("#B3E5FC")
+        exhaustPaint.color = if (boosting) exhaustBoostColor else exhaustCruiseColor
         for (i in 0 until exhaustPuffCount) {
             val fraction = i / (exhaustPuffCount - 1).toFloat()
             val distance = edgeRadius + trailLength * fraction
@@ -1441,7 +1514,7 @@ class GameView @JvmOverloads constructor(
         val px = width / 2f + ndx * t
         val py = height / 2f + ndy * t
 
-        indicatorPaint.color = if (target === threat) Color.parseColor("#EF5350") else Color.parseColor("#8BC34A")
+        indicatorPaint.color = if (target === threat) threatIndicatorColor else preyIndicatorColor
         val angleDeg = Math.toDegrees(atan2(ndy, ndx).toDouble()).toFloat() + 90f
 
         canvas.save()
@@ -1501,27 +1574,41 @@ class GameView @JvmOverloads constructor(
 
     private fun drawHud(canvas: Canvas) {
         val player = engine.player
-        canvas.drawText(
-            context.getString(R.string.game_hud_size_format, player.radius.toInt()), 24f, 56f, hudTextPaint
-        )
-        canvas.drawText(
-            context.getString(R.string.game_hud_absorptions_format, engine.playerOpponentsAbsorbed), 24f, 90f, hudTextPaint
-        )
+        val size = player.radius.toInt()
+        if (size != hudSizeValue) {
+            hudSizeValue = size
+            hudSizeText = context.getString(R.string.game_hud_size_format, size)
+        }
+        canvas.drawText(hudSizeText, 24f, 56f, hudTextPaint)
+        val absorbed = engine.playerOpponentsAbsorbed
+        if (absorbed != hudAbsorbedValue) {
+            hudAbsorbedValue = absorbed
+            hudAbsorbedText = context.getString(R.string.game_hud_absorptions_format, absorbed)
+        }
+        canvas.drawText(hudAbsorbedText, 24f, 90f, hudTextPaint)
 
         // Third row of the left column rather than right-aligned in the top corner, where it
         // sat underneath the pause button.
-        canvas.drawText(
-            context.getString(R.string.game_hud_players_format, engine.aliveCount()), 24f, 124f, hudTextPaint
-        )
+        val playersAlive = engine.aliveCount()
+        if (playersAlive != hudPlayersValue) {
+            hudPlayersValue = playersAlive
+            hudPlayersText = context.getString(R.string.game_hud_players_format, playersAlive)
+        }
+        canvas.drawText(hudPlayersText, 24f, 124f, hudTextPaint)
 
         val zonePercent = (engine.safeZoneProgress * 100f).toInt()
-        canvas.drawText(
-            context.getString(R.string.game_hud_zone_format, zonePercent), width / 2f, 56f, zoneHudPaint
-        )
+        if (zonePercent != hudZoneValue) {
+            hudZoneValue = zonePercent
+            hudZoneText = context.getString(R.string.game_hud_zone_format, zonePercent)
+        }
+        canvas.drawText(hudZoneText, width / 2f, 56f, zoneHudPaint)
 
         val elapsedSeconds = engine.matchElapsed.toInt()
-        val timeText = "%02d:%02d".format(elapsedSeconds / 60, elapsedSeconds % 60)
-        canvas.drawText(timeText, width / 2f, 90f, timerHudPaint)
+        if (elapsedSeconds != hudTimeValue) {
+            hudTimeValue = elapsedSeconds
+            hudTimeText = "%02d:%02d".format(elapsedSeconds / 60, elapsedSeconds % 60)
+        }
+        canvas.drawText(hudTimeText, width / 2f, 90f, timerHudPaint)
 
         // playerWon is always false here since the match is still running - this omits
         // the win bonus that HighScores.computeScore would add once it actually ends. Every
@@ -1535,9 +1622,11 @@ class GameView @JvmOverloads constructor(
             opponentsAbsorbed = engine.playerOpponentsAbsorbed,
             reachedFinalRound = engine.isFinalRoundActive
         )
-        canvas.drawText(
-            context.getString(R.string.game_hud_score_format, liveScore), width / 2f, 134f, liveScoreHudPaint
-        )
+        if (liveScore != hudScoreValue) {
+            hudScoreValue = liveScore
+            hudScoreText = context.getString(R.string.game_hud_score_format, liveScore)
+        }
+        canvas.drawText(hudScoreText, width / 2f, 134f, liveScoreHudPaint)
 
         drawPermanentStatsHud(canvas, player)
     }
@@ -1552,15 +1641,15 @@ class GameView @JvmOverloads constructor(
         // ripple, instead of their own separately hardcoded hex values - two of these had
         // already drifted from the actual pickup color after an earlier recolor.
         y = drawStatPips(
-            canvas, context.getString(R.string.stat_speed_label), player.permanentSpeedMultiplier,
+            canvas, statSpeedLabel, player.permanentSpeedMultiplier,
             GameConfig.PERMANENT_SPEED_MAX_MULTIPLIER, powerUpColor(PowerUpType.SPEED_UP), y
         )
         y = drawStatPips(
-            canvas, context.getString(R.string.stat_agility_label), player.permanentTurnRateMultiplier,
+            canvas, statAgilityLabel, player.permanentTurnRateMultiplier,
             GameConfig.PERMANENT_TURN_RATE_MAX_MULTIPLIER, powerUpColor(PowerUpType.AGILITY_UP), y
         )
         drawStatPips(
-            canvas, context.getString(R.string.stat_potency_label), player.permanentPotencyMultiplier,
+            canvas, statPotencyLabel, player.permanentPotencyMultiplier,
             GameConfig.PERMANENT_POTENCY_MAX_MULTIPLIER, powerUpColor(PowerUpType.POTENCY_UP), y
         )
     }

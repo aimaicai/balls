@@ -87,12 +87,11 @@ abstract class Blob(
             // (the player's joystick centered/released) just means "no new steering input
             // this frame", not "stop": facingDirection simply keeps whatever heading it had.
             val rawDirection = decideDirection(engine, dt)
-            val hasHeading = rawDirection.length() > 0.05f
+            val rawLength = rawDirection.length()
 
-            if (hasHeading) {
-                val desiredHeading = rawDirection.normalized()
+            if (rawLength > 0.05f) {
                 val turnRate = GameConfig.TURN_RATE_RADIANS_PER_SECOND * permanentTurnRateMultiplier
-                facingDirection = steerTowards(facingDirection, desiredHeading, turnRate * dt)
+                steerTowards(rawDirection.x / rawLength, rawDirection.y / rawLength, turnRate * dt)
             }
 
             isThrusting = true
@@ -114,18 +113,21 @@ abstract class Blob(
         if (shieldTimer > 0f) shieldTimer = max(0f, shieldTimer - dt)
     }
 
-    // Turns current toward desired at a bounded rate instead of snapping - the source of
-    // "no abrupt reversals" for facingDirection.
-    private fun steerTowards(current: Vector2, desired: Vector2, maxTurnRadians: Float): Vector2 {
+    // Turns facingDirection toward the desired heading at a bounded rate instead of snapping -
+    // the source of "no abrupt reversals". Updates facingDirection's own fields rather than
+    // returning a fresh Vector2, since this runs for every alive blob, every tick.
+    private fun steerTowards(desiredX: Float, desiredY: Float, maxTurnRadians: Float) {
+        val current = facingDirection
         val currentAngle = atan2(current.y, current.x)
-        val desiredAngle = atan2(desired.y, desired.x)
+        val desiredAngle = atan2(desiredY, desiredX)
         val twoPi = (Math.PI * 2).toFloat()
         var diff = (desiredAngle - currentAngle) % twoPi
         if (diff > Math.PI.toFloat()) diff -= twoPi
         if (diff < -Math.PI.toFloat()) diff += twoPi
         val clamped = diff.coerceIn(-maxTurnRadians, maxTurnRadians)
         val newAngle = currentAngle + clamped
-        return Vector2(cos(newAngle), sin(newAngle))
+        current.x = cos(newAngle)
+        current.y = sin(newAngle)
     }
 
     fun clampToWorld() {

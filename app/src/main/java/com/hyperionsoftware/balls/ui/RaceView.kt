@@ -26,6 +26,7 @@ import com.hyperionsoftware.balls.race.RaceEngine
 import com.hyperionsoftware.balls.race.RaceListener
 import com.hyperionsoftware.balls.race.RaceTrack
 import com.hyperionsoftware.balls.settings.CosmeticsSettings
+import com.hyperionsoftware.balls.settings.DeveloperSettings
 import kotlin.math.atan2
 import kotlin.math.ceil
 import kotlin.math.min
@@ -58,6 +59,10 @@ class RaceView @JvmOverloads constructor(
 
     private lateinit var engine: RaceEngine
     private var loopThread: RaceThread? = null
+    // Developer mode only (see FpsCounter) - read once per match start, like the cosmetics.
+    private val fpsCounter = FpsCounter(resources.displayMetrics.density)
+    private var showFps = false
+
     private var surfaceReady = false
     private var started = false
     private var lastBoostAvailable = false
@@ -237,6 +242,7 @@ class RaceView @JvmOverloads constructor(
         if (started) return
         started = true
         floatingTexts.clear()
+        showFps = DeveloperSettings.isEnabled(context)
         countdownActive = true
         countdownRemaining = RaceConfig.COUNTDOWN_SECONDS
         lastBoostAvailable = false
@@ -392,6 +398,7 @@ class RaceView @JvmOverloads constructor(
     private fun launchLoop() {
         loopThread?.running = false
         loopThread?.join(500)
+        fpsCounter.reset()
         loopThread = RaceThread().also { it.start() }
     }
 
@@ -473,6 +480,7 @@ class RaceView @JvmOverloads constructor(
         drawHud(canvas)
         drawMinimap(canvas)
         drawCountdown(canvas)
+        if (showFps) fpsCounter.draw(canvas)
     }
 
     private fun cameraCoord(playerCoord: Float, viewportSize: Int, worldSize: Float): Float {
