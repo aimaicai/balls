@@ -17,7 +17,7 @@ import kotlin.math.sin
 // indistinguishable by ear.
 class SoundEffectPlayer(private val context: Context) {
     enum class Effect {
-        ABSORB, COMBO, POWERUP, ACTIVE_ITEM, FINAL_ROUND_ALERT, GAME_OVER_WIN, GAME_OVER_LOSE
+        ABSORB, COMBO, POWERUP, ACTIVE_ITEM, FINAL_ROUND_ALERT, GAME_OVER_WIN, GAME_OVER_LOSE, STATIC_CHARGED, STATIC_DISCHARGE
     }
 
     private val sampleRate = 22050
@@ -48,6 +48,46 @@ class SoundEffectPlayer(private val context: Context) {
         Effect.FINAL_ROUND_ALERT -> buildFinalRoundAlert()
         Effect.GAME_OVER_WIN -> buildGameOverWin()
         Effect.GAME_OVER_LOSE -> buildGameOverLose()
+        Effect.STATIC_CHARGED -> buildStaticCharged()
+        Effect.STATIC_DISCHARGE -> buildStaticDischarge()
+    }
+
+    // The charge topping up: a rising electric whine with a faint crackle on it, like a flash
+    // capacitor charging - "ready" without sounding like a pickup.
+    private fun buildStaticCharged(): AudioTrack {
+        val duration = 0.32
+        val frames = (sampleRate * duration).toInt()
+        val mix = DoubleArray(frames)
+        var phase = 0.0
+        for (i in 0 until frames) {
+            val t = i / sampleRate.toDouble()
+            val progress = t / duration
+            phase += (900.0 + 2600.0 * progress * progress) / sampleRate
+            val envelope = (progress * 6.0).coerceAtMost(1.0) * (1.0 - progress)
+            val whine = sin(2.0 * PI * phase) + 0.3 * sin(4.0 * PI * phase)
+            val crackle = if (Math.random() < 0.02) (Math.random() * 2.0 - 1.0) else 0.0
+            mix[i] = (whine * 0.35 + crackle * 0.6) * envelope
+        }
+        return render(mix)
+    }
+
+    // A spark jumping: a sharp crack of noise, then a short buzzing, sputtering tail of
+    // smaller sparks.
+    private fun buildStaticDischarge(): AudioTrack {
+        val duration = 0.45
+        val frames = (sampleRate * duration).toInt()
+        val mix = DoubleArray(frames)
+        var hold = 0.0
+        for (i in 0 until frames) {
+            val t = i / sampleRate.toDouble()
+            val crack = (Math.random() * 2.0 - 1.0) * exp(-t * 60.0)
+            // Sample-and-hold noise sputtering at random: the tail's little sparks.
+            if (Math.random() < 0.08) hold = Math.random() * 2.0 - 1.0
+            val sputter = hold * (0.5 + 0.5 * sin(2.0 * PI * 23.0 * t)).let { it * it } * exp(-t * 7.0)
+            val buzz = (if (sin(2.0 * PI * 110.0 * t) > 0) 1.0 else -1.0) * exp(-t * 9.0) * 0.25
+            mix[i] = crack * 0.95 + sputter * 0.45 + buzz
+        }
+        return render(mix)
     }
 
     // A satisfying "gulp": a quick upward pitch sweep with a short burst of noise riding

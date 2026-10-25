@@ -1,6 +1,7 @@
 package com.hyperionsoftware.balls.ui.gdx
 
 import android.graphics.Color
+import com.badlogic.gdx.graphics.g2d.TextureRegion
 import com.badlogic.gdx.math.MathUtils
 import com.hyperionsoftware.balls.cosmetics.BalloonSticker
 import com.hyperionsoftware.balls.cosmetics.ExhaustStyle
@@ -32,9 +33,17 @@ class BalloonPainter(private val painter: Painter, private val particles: Partic
         var sticker: BalloonSticker = BalloonSticker.NONE
         var cordColor = 0
         var exhaustStyle: ExhaustStyle = ExhaustStyle.CLASSIC
+        // The membrane's deformation, if it's being simulated (see BalloonBody) - null draws the
+        // balloon at rest. x/y/facing are already the drawn ones (BalloonBody.drawnX/drawnHeading).
+        var body: BalloonBody? = null
+        // Static charge from rubbing, 0..1 - full draws the electric aura.
+        var charge = 0f
+        // Anything stable per balloon, so its aura's sparks don't all flicker in step.
+        var seed = 0
     }
 
     private val atlas = painter.atlas
+    private val auraRandom = java.util.Random()
 
     // Drawn for every balloon before any balloon body, so a shadow never lands on top of a
     // neighbouring balloon - it reads as resting on the floor, lifting the balloons off it.
@@ -52,7 +61,7 @@ class BalloonPainter(private val painter: Painter, private val particles: Partic
         var count = rate * dt
         val backX = -s.facingX
         val backY = -s.facingY
-        val tip = s.radius * (Atlas.KNOT_END_Y + 0.1f)
+        val tip = s.radius * (Atlas.KNOT_END_Y + 0.1f) * rearScale(s)
         while (count > 0f) {
             if (count < 1f && MathUtils.random() > count) break
             count -= 1f
@@ -95,7 +104,7 @@ class BalloonPainter(private val painter: Painter, private val particles: Partic
             // An icy coat over the whole balloon, its own silhouette slightly enlarged.
             painter.color(FROZEN_COLOR, 0.4f * s.alpha)
             val size = s.radius * Atlas.BALLOON_SPRITE_SCALE * 1.05f
-            painter.region(atlas.balloon, s.x, s.y, size, size, facingAngleDeg(s.facingX, s.facingY))
+            balloonLayer(s, atlas.balloon, size, facingAngleDeg(s.facingX, s.facingY))
             painter.color(Color.WHITE, 0.35f * s.alpha)
             painter.region(atlas.sparkle, s.x - s.radius * 0.35f, s.y - s.radius * 0.3f, s.radius * 0.7f, s.radius * 0.7f, 15f)
         }
@@ -121,7 +130,7 @@ class BalloonPainter(private val painter: Painter, private val particles: Partic
     fun drawGlow(s: State) {
         if (s.isBoosting && s.isThrusting) {
             val pulse = 0.75f + 0.25f * sin(s.exhaustPhase * 22f)
-            val edge = s.radius * Atlas.NECK_Y
+            val edge = s.radius * Atlas.NECK_Y * rearScale(s)
             painter.color(BOOST_GLOW_COLOR, 0.7f * pulse * s.alpha)
             painter.glow(s.x - s.facingX * (edge + s.radius * 0.35f), s.y - s.facingY * (edge + s.radius * 0.35f), s.radius * 0.85f)
         }
@@ -129,7 +138,76 @@ class BalloonPainter(private val painter: Painter, private val particles: Partic
             painter.color(SHIELD_COLOR, 0.22f * s.alpha)
             painter.glow(s.x, s.y, s.radius * 1.35f)
         }
+        if (s.charge >= 1f) drawStaticAura(s)
     }
+
+    // Fully charged: a flickering blue-violet halo and little arcs of lightning crawling over
+    // the latex, hugging its (deformed) outline. The arcs are redrawn in a new place a dozen or
+    // so times a second, each balloon on its own beat.
+    private fun drawStaticAura(s: State) {
+        val phase = s.exhaustPhase
+        val flicker = 0.75f + 0.25f * sin(phase * 31f + s.seed) * sin(phase * 17f + s.seed * 0.7f)
+        painter.color(AURA_COLOR, 0.55f * flicker * s.alpha)
+        painter.glow(s.x, s.y, s.radius * 1.8f)
+        painter.color(AURA_ARC_GLOW_COLOR, 0.3f * flicker * s.alpha)
+        painter.glow(s.x, s.y, s.radius * 1.3f)
+
+        val bucket = (phase * AURA_ARC_RATE).toInt()
+        auraRandom.setSeed(bucket * 7919L + s.seed * 104729L)
+        val rotation = facingAngleDeg(s.facingX, s.facingY) * MathUtils.degreesToRadians
+        for (arc in 0 until AURA_ARCS) {
+            val start = auraRandom.nextFloat() * MathUtils.PI2
+            val span = 0.5f + auraRandom.nextFloat() * 0.6f
+            var previousX = 0f
+            var previousY = 0f
+            for (i in 0..AURA_ARC_POINTS) {
+                val local = start + span * i / AURA_ARC_POINTS
+                val reach = s.radius * (outlineRadius(s, local) + 0.08f + (auraRandom.nextFloat() - 0.5f) * 0.16f)
+                val world = local + rotation
+                val px = s.x + MathUtils.cos(world) * reach
+                val py = s.y + MathUtils.sin(world) * reach
+                if (i > 0) {
+                    painter.color(AURA_ARC_GLOW_COLOR, 0.6f * s.alpha)
+                    painter.line(previousX, previousY, px, py, 8f)
+                    painter.color(AURA_CORE_COLOR, 0.95f * s.alpha)
+                    painter.line(previousX, previousY, px, py, 2.2f)
+                }
+                previousX = px
+                previousY = py
+            }
+        }
+    }
+
+    // A few stray sparks jump off the latex as it charges up - rarely at first, constantly once
+    // it's full - so the meter shows on the balloon itself, the player's and everyone else's.
+    fun emitStaticSparks(s: State, dt: Float) {
+        if (s.charge <= 0.2f || dt <= 0f) return
+        val rate = if (s.charge >= 1f) 9f else 5f * s.charge * s.charge
+        if (MathUtils.random() > rate * dt) return
+        val local = MathUtils.random(MathUtils.PI2)
+        val world = local + facingAngleDeg(s.facingX, s.facingY) * MathUtils.degreesToRadians
+        val reach = s.radius * outlineRadius(s, local)
+        val dirX = MathUtils.cos(world)
+        val dirY = MathUtils.sin(world)
+        val speed = MathUtils.random(60f, 160f)
+        particles.spawn(
+            Particles.Kind.SPARK,
+            s.x + dirX * reach, s.y + dirY * reach,
+            dirX * speed, dirY * speed,
+            MathUtils.random(0.12f, 0.25f),
+            MathUtils.random(10f, 18f), 3f,
+            AURA_CORE_COLOR, AURA_COLOR,
+            alpha = s.alpha,
+            drag = 5f
+        )
+    }
+
+    // The outline's reach at a local angle, in radii (see BalloonBody.outlineRadius).
+    private fun outlineRadius(s: State, localAngle: Float): Float =
+        s.body?.outlineRadius(localAngle) ?: BalloonBody.sample(BalloonBody.PROFILE, localAngle / MathUtils.PI2 * BalloonBody.SPOKES)
+
+    // How far the neck and knot have moved with the latex behind them.
+    private fun rearScale(s: State): Float = s.body?.shape?.get(BalloonBody.SPOKES / 4) ?: 1f
 
     // A real balloon's teardrop shape (see Atlas.balloonPath), its front - the wide, round end -
     // toward the direction of travel and its knot trailing behind.
@@ -137,17 +215,32 @@ class BalloonPainter(private val painter: Painter, private val particles: Partic
         val angle = facingAngleDeg(s.facingX, s.facingY)
         val size = s.radius * Atlas.BALLOON_SPRITE_SCALE
         painter.color(s.color, s.alpha)
-        painter.region(atlas.balloon, s.x, s.y, size, size, angle)
+        balloonLayer(s, atlas.balloon, size, angle)
 
         // The pre-rotated shading variant nearest this angle (see Atlas.drawLightingVariant), so
         // the light stays put as the balloon turns...
         val variants = Atlas.LIGHTING_VARIANTS
         val variant = Math.round(((angle % 360f + 360f) % 360f) / (360f / variants)) % variants
         painter.color(Color.WHITE, s.alpha)
-        painter.region(atlas.lighting[variant], s.x, s.y, size, size, angle)
+        balloonLayer(s, atlas.lighting[variant], size, angle)
         // ...and the highlights on top, never rotated, so they glide along with no steps at all.
         val highlightSize = s.radius * Atlas.HIGHLIGHT_EXTENT * 2f
-        painter.region(atlas.highlight, s.x, s.y, highlightSize, highlightSize)
+        val body = s.body
+        if (body != null) {
+            painter.deformed(atlas.highlight, s.x, s.y, highlightSize, 0f, body.shape, angle)
+        } else {
+            painter.region(atlas.highlight, s.x, s.y, highlightSize, highlightSize)
+        }
+    }
+
+    // One layer of the balloon's body, stretched with its latex when it's being simulated.
+    private fun balloonLayer(s: State, region: TextureRegion, size: Float, angle: Float) {
+        val body = s.body
+        if (body != null) {
+            painter.deformed(region, s.x, s.y, size, angle, body.shape, angle)
+        } else {
+            painter.region(region, s.x, s.y, size, size, angle)
+        }
     }
 
     private fun drawSticker(s: State) {
@@ -165,8 +258,9 @@ class BalloonPainter(private val painter: Painter, private val particles: Partic
         // Tied on at the end of the knot.
         val backX = -s.facingX
         val backY = -s.facingY
-        val startX = s.x + backX * s.radius * Atlas.KNOT_END_Y
-        val startY = s.y + backY * s.radius * Atlas.KNOT_END_Y
+        val knot = s.radius * Atlas.KNOT_END_Y * rearScale(s)
+        val startX = s.x + backX * knot
+        val startY = s.y + backY * knot
         val length = s.radius * 0.9f
         val sway = sin(s.exhaustPhase * 2.3f) * s.radius * 0.15f
         val controlX = startX + backX * length * 0.5f + sway
@@ -202,7 +296,7 @@ class BalloonPainter(private val painter: Painter, private val particles: Partic
         val pulse = 0.7f + 0.3f * sin(s.exhaustPhase * (if (boosting) 22f else 14f))
         val intensity = if (boosting) 1.7f else 1f
         // The air escapes from the neck.
-        val edgeRadius = s.radius * Atlas.NECK_Y
+        val edgeRadius = s.radius * Atlas.NECK_Y * rearScale(s)
         val trailLength = s.radius * (1.4f + 0.5f * pulse) * intensity
         val baseAlphaFraction = if (boosting) 0.75f else 0.5f
         val classic = s.exhaustStyle == ExhaustStyle.CLASSIC
@@ -247,6 +341,12 @@ class BalloonPainter(private val painter: Painter, private val particles: Partic
         private val FROZEN_COLOR = Color.parseColor("#B3E5FC")
         private val SHIELD_COLOR = Color.parseColor("#4FC3F7")
         private val SPEED_BADGE_COLOR = Color.parseColor("#FFEB3B")
+        private val AURA_COLOR = Color.parseColor("#5C6BFF")
+        private val AURA_ARC_GLOW_COLOR = Color.parseColor("#448AFF")
+        private val AURA_CORE_COLOR = Color.parseColor("#E1F5FE")
+        private const val AURA_ARCS = 3
+        private const val AURA_ARC_POINTS = 6
+        private const val AURA_ARC_RATE = 14f
 
         fun facingAngleDeg(facingX: Float, facingY: Float): Float =
             atan2(facingY, facingX) * MathUtils.radiansToDegrees + 90f

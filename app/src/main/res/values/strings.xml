@@ -34,6 +34,8 @@
 
     <string name="boost_button">Speed boost</string>
     <string name="active_item_button">Use item</string>
+    <string name="static_discharge_button">Static discharge</string>
+    <string name="static_discharge_charging">Static charge %1$d%%</string>
     <string name="active_item_speed">Use Speed</string>
     <string name="active_item_invisibility">Use Invisibility</string>
     <string name="active_item_repel">Use Repel</string>
@@ -156,6 +158,7 @@
 
     <string name="game_zone_death">Eliminated!</string>
     <string name="game_deflate_death">Deflated!</string>
+    <string name="game_static_charged">Charged!</string>
     <string name="game_combo">COMBO x%1$d!</string>
 
     <string name="game_hud_size_format">Size: %1$d</string>
@@ -209,6 +212,8 @@
     <string name="customize_sticker_section">Sticker</string>
     <string name="customize_cord_section">String</string>
     <string name="customize_exhaust_section">Exhaust</string>
+    <string name="customize_developer_section">Developer</string>
+    <string name="customize_deformation_format">Balloon deformation: %1$d%%</string>
     <string name="customize_helium_balance_format">Helium: %1$d</string>
     <string name="customize_buy_for_helium_format">Buy for %1$d Helium</string>
     <string name="customize_insufficient_helium">Not enough Helium yet - keep playing to earn more!</string>

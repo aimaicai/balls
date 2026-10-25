@@ -41,6 +41,10 @@ abstract class RaceBlob(
     val isFrozen: Boolean get() = frozenTimer > 0f
     val isBoostAtMaxPower: Boolean get() = isBoosting && boostHoldSeconds >= RaceConfig.BOOST_RAMP_UP_SECONDS
 
+    // How fast the racer drove itself along facingDirection on its last update (0 while frozen).
+    var currentSpeed: Float = 0f
+        private set
+
     var carriedItem: PowerUpType? = null
         private set
 
@@ -81,6 +85,7 @@ abstract class RaceBlob(
         if (isFrozen) {
             frozenTimer = max(0f, frozenTimer - dt)
             isThrusting = false
+            currentSpeed = 0f
         } else {
             val rawDirection = decideDirection(engine, dt)
             val hasHeading = rawDirection.length() > 0.05f
@@ -95,6 +100,7 @@ abstract class RaceBlob(
             boostHoldSeconds = if (isBoosting) boostHoldSeconds + dt else 0f
 
             val speed = effectiveSpeed(baseSpeed)
+            currentSpeed = speed
             val step = speed * dt
             position.x += facingDirection.x * step
             position.y += facingDirection.y * step

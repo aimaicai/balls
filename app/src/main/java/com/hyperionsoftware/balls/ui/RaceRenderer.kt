@@ -24,6 +24,7 @@ import com.hyperionsoftware.balls.race.RaceTrack
 import com.hyperionsoftware.balls.settings.CosmeticsSettings
 import com.hyperionsoftware.balls.settings.DeveloperSettings
 import com.hyperionsoftware.balls.ui.gdx.Atlas
+import com.hyperionsoftware.balls.ui.gdx.BalloonBodies
 import com.hyperionsoftware.balls.ui.gdx.BalloonPainter
 import com.hyperionsoftware.balls.ui.gdx.FrameClock
 import com.hyperionsoftware.balls.ui.gdx.Painter
@@ -60,6 +61,7 @@ class RaceRenderer(private val view: RaceView) : ApplicationAdapter() {
     private val screenCamera = OrthographicCamera()
     private val clock = FrameClock()
     private val balloonState = BalloonPainter.State()
+    private val bodies = BalloonBodies()
     private val fpsCounter = FpsCounter(density)
 
     private var engine: RaceEngine? = null
@@ -178,7 +180,9 @@ class RaceRenderer(private val view: RaceView) : ApplicationAdapter() {
         floatingTexts.clear()
         flashes.clear()
         particles.clear()
+        bodies.clear()
         showFps = DeveloperSettings.isEnabled(context)
+        bodies.intensity = DeveloperSettings.getDeformationPercent(context) / 100f
         countdownActive = true
         countdownRemaining = RaceConfig.COUNTDOWN_SECONDS
         lastBoostAvailable = false
@@ -508,6 +512,17 @@ class RaceRenderer(private val view: RaceView) : ApplicationAdapter() {
             if (isVisible(powerUp.position.x, powerUp.position.y, powerUp.radius, left, top, right, bottom)) drawPowerUp(powerUp)
         }
 
+        // The latex of the balloons on screen (see BalloonBodies), same as classic mode.
+        bodies.beginFrame()
+        for (blob in engine.blobs) {
+            if (!blob.alive || !isBlobVisible(blob, left, top, right, bottom)) continue
+            bodies.track(
+                blob.id, blob === engine.player, blob.position.x, blob.position.y, blob.radius,
+                blob.facingDirection.x, blob.facingDirection.y, blob.currentSpeed,
+                blob.isThrusting, blob.isBoosting, blob.isFrozen, dt
+            )
+        }
+        bodies.step(dt)
         for (blob in engine.blobs) {
             if (blob.alive && isBlobVisible(blob, left, top, right, bottom)) balloons.drawShadow(stateOf(blob))
         }
@@ -549,11 +564,20 @@ class RaceRenderer(private val view: RaceView) : ApplicationAdapter() {
 
     private fun stateOf(blob: RaceBlob): BalloonPainter.State = balloonState.apply {
         val isPlayer = blob === engine?.player
-        x = blob.position.x
-        y = blob.position.y
+        val body = bodies[blob.id]
+        this.body = body
+        if (body != null) {
+            x = body.drawnX
+            y = body.drawnY
+            facingX = MathUtils.cos(body.drawnHeading)
+            facingY = MathUtils.sin(body.drawnHeading)
+        } else {
+            x = blob.position.x
+            y = blob.position.y
+            facingX = blob.facingDirection.x
+            facingY = blob.facingDirection.y
+        }
         radius = blob.radius
-        facingX = blob.facingDirection.x
-        facingY = blob.facingDirection.y
         color = blob.color
         alpha = if (blob.isInvisible) 70f / 255f else 1f
         exhaustPhase = blob.exhaustPhase

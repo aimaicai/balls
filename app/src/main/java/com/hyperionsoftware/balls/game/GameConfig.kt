@@ -292,6 +292,16 @@ object GameConfig {
     // a full reversal visibly takes about two seconds, not an instant flip.
     const val TURN_RATE_RADIANS_PER_SECOND = 1.6f
 
+    // Static electricity from balloons rubbing together (see GameEngine.rub): how many pixels
+    // of latex have to slide past another balloon's to charge up fully - a few seconds of
+    // deliberately grinding along someone, or a handful of bumps over a match. Driving straight
+    // into each other charges too, at this fraction of what sliding does.
+    const val STATIC_CHARGE_FULL_RUB_DISTANCE = 800f
+    const val STATIC_CHARGE_PRESSING_FACTOR = 0.6f
+    // Bots let a full charge go after holding it this long - until discharging does something,
+    // that just keeps the arena from filling up with crackling balloons.
+    const val BOT_STATIC_HOLD_SECONDS = 6f
+
     fun applyArenaSize(size: ArenaSize) {
         WORLD_WIDTH = BASE_WORLD_WIDTH * size.scaleFactor
         WORLD_HEIGHT = BASE_WORLD_HEIGHT * size.scaleFactor

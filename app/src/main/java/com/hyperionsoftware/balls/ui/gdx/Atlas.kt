@@ -238,17 +238,21 @@ class Atlas {
             }
         }
 
-        // The outline of a real party balloon, in balloon radii, front (direction of travel) up:
-        // round and widest a little above the middle, tapering into a short neck at the back,
-        // closed by the little rolled knot ("tortellino") of tied-off latex. Its width matches
-        // the round body the physics uses (radius 1); only the neck and knot extend past it.
+        // A real party balloon's outline (see BalloonOutline), front (direction of travel) up.
         fun balloonPath(unit: Float): Path = Path().apply {
-            moveTo(0f, -1.06f * unit)
-            cubicTo(0.56f * unit, -1.06f * unit, 0.98f * unit, -0.66f * unit, 0.98f * unit, -0.14f * unit)
-            cubicTo(0.98f * unit, 0.42f * unit, 0.5f * unit, 0.9f * unit, 0.09f * unit, NECK_Y * unit)
-            lineTo(-0.09f * unit, NECK_Y * unit)
-            cubicTo(-0.5f * unit, 0.9f * unit, -0.98f * unit, 0.42f * unit, -0.98f * unit, -0.14f * unit)
-            cubicTo(-0.98f * unit, -0.66f * unit, -0.56f * unit, -1.06f * unit, 0f, -1.06f * unit)
+            fun curves(segments: FloatArray) {
+                for (s in segments.indices step 6) {
+                    cubicTo(
+                        segments[s] * unit, segments[s + 1] * unit,
+                        segments[s + 2] * unit, segments[s + 3] * unit,
+                        segments[s + 4] * unit, segments[s + 5] * unit
+                    )
+                }
+            }
+            moveTo(0f, BalloonOutline.TOP_Y * unit)
+            curves(BalloonOutline.RIGHT_HALF)
+            lineTo(-BalloonOutline.NECK_HALF_WIDTH * unit, NECK_Y * unit)
+            curves(BalloonOutline.LEFT_HALF)
             close()
             // The knot: a small pinched bulb right under the neck, and its rolled lip.
             addOval(-0.085f * unit, (NECK_Y - 0.03f) * unit, 0.085f * unit, (KNOT_END_Y - 0.035f) * unit, Path.Direction.CW)

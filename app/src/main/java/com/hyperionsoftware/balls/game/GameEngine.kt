@@ -1,7 +1,9 @@
 package com.hyperionsoftware.balls.game
 
+import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.hypot
+import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.sin
 import kotlin.math.sqrt
@@ -30,6 +32,9 @@ interface GameListener {
     )
     fun onZoneDeath(x: Float, y: Float, wasPlayer: Boolean)
     fun onDeflateDeath(x: Float, y: Float, wasPlayer: Boolean)
+    // A balloon's static charge (see GameEngine.rub) just filled up / was just released.
+    fun onStaticFullyCharged(x: Float, y: Float, byPlayer: Boolean) = Unit
+    fun onStaticDischarged(x: Float, y: Float, byPlayer: Boolean, radius: Float) = Unit
     // Fired once, the instant the final round is set up (see triggerFinalRound) - the UI
     // layer uses this to cut to a dramatic transition before play resumes.
     fun onFinalRoundStarted()
@@ -275,7 +280,9 @@ class GameEngine(
         applyThrustEffects(dt)
         applyBoostEffects(dt)
         applyAmbientDeflation(dt)
-        resolveCollisions()
+        resolveCollisions(dt)
+        applyStaticCharges()
+        releaseBotStaticCharges()
         cullStrandedPowerUps()
         updatePowerUps(dt)
         updateSupplyDrop(dt)
@@ -482,7 +489,7 @@ class GameEngine(
 
     fun aliveCount(): Int = if (tickAliveCount >= 0) tickAliveCount else blobs.count { it.alive }
 
-    private fun resolveCollisions() {
+    private fun resolveCollisions(dt: Float) {
         // Iterates blobs directly (skipping dead ones inline) rather than filtering into a
         // fresh list first - this runs every single tick, so that filtered list was one more
         // allocation per frame on top of the pairwise checks below.
@@ -492,7 +499,7 @@ class GameEngine(
             for (j in i + 1 until blobs.size) {
                 val b = blobs[j]
                 if (!b.alive) continue
-                handlePair(a, b)
+                handlePair(a, b, dt)
             }
         }
 
@@ -515,7 +522,7 @@ class GameEngine(
         powerUps.removeAll { it.collected }
     }
 
-    private fun handlePair(a: Blob, b: Blob) {
+    private fun handlePair(a: Blob, b: Blob, dt: Float) {
         if (!a.alive || !b.alive) return
         // Squared check first: almost every pair is nowhere near touching, and this runs for
         // every pair of alive blobs, every tick.
@@ -554,9 +561,53 @@ class GameEngine(
                 listener.onComboAchieved(x, y, comboCount, bigger === player)
             }
         } else {
+            rub(a, b, distance, dt)
             bounce(a, b, distance)
             if (a is PlayerBlob || b is PlayerBlob) {
                 listener.onVibrate()
+            }
+        }
+    }
+
+    // Two balloons that bounce off each other rub latex on latex, and both pick up static
+    // electricity in proportion to how far their surfaces slid past each other this tick - the
+    // relative motion across the contact normal - plus a little for driving into each other.
+    // Only a balloon's hardest rub each tick counts (see applyStaticCharges): wedged in a
+    // crowd, it would otherwise charge up just by sitting there.
+    private fun rub(a: Blob, b: Blob, distance: Float, dt: Float) {
+        if (distance < 0.001f) return
+        val nx = (a.position.x - b.position.x) / distance
+        val ny = (a.position.y - b.position.y) / distance
+        val relativeX = a.facingDirection.x * a.currentSpeed - b.facingDirection.x * b.currentSpeed
+        val relativeY = a.facingDirection.y * a.currentSpeed - b.facingDirection.y * b.currentSpeed
+        val sliding = abs(relativeX * ny - relativeY * nx)
+        val pressing = max(0f, -(relativeX * nx + relativeY * ny))
+        val amount = (sliding + GameConfig.STATIC_CHARGE_PRESSING_FACTOR * pressing) * dt /
+            GameConfig.STATIC_CHARGE_FULL_RUB_DISTANCE
+        a.noteRub(amount)
+        b.noteRub(amount)
+    }
+
+    private fun applyStaticCharges() {
+        for (blob in blobs) {
+            val amount = blob.takeRub()
+            if (blob.alive && blob.addStaticCharge(amount)) {
+                listener.onStaticFullyCharged(blob.position.x, blob.position.y, blob === player)
+            }
+        }
+    }
+
+    // Releases a full static charge. For now that's all it does - the charge empties, with a
+    // crackle the UI shows. A no-op unless the blob is fully charged.
+    fun dischargeStatic(blob: Blob) {
+        if (!blob.alive || !blob.dischargeStatic()) return
+        listener.onStaticDischarged(blob.position.x, blob.position.y, blob === player, blob.radius)
+    }
+
+    private fun releaseBotStaticCharges() {
+        for (blob in blobs) {
+            if (blob !== player && blob.alive && blob.staticFullSeconds >= GameConfig.BOT_STATIC_HOLD_SECONDS) {
+                dischargeStatic(blob)
             }
         }
     }

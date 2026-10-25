@@ -14,6 +14,8 @@ import com.badlogic.gdx.math.MathUtils
 import com.hyperionsoftware.balls.R
 import com.hyperionsoftware.balls.achievements.Achievement
 import com.hyperionsoftware.balls.achievements.Achievements
+import com.hyperionsoftware.balls.audio.RubPlayer
+import com.hyperionsoftware.balls.audio.SfxSettings
 import com.hyperionsoftware.balls.audio.SoundEffectPlayer
 import com.hyperionsoftware.balls.audio.VibrationSettings
 import com.hyperionsoftware.balls.challenges.DailyChallenges
@@ -36,6 +38,7 @@ import com.hyperionsoftware.balls.score.HighScores
 import com.hyperionsoftware.balls.settings.CosmeticsSettings
 import com.hyperionsoftware.balls.settings.DeveloperSettings
 import com.hyperionsoftware.balls.ui.gdx.Atlas
+import com.hyperionsoftware.balls.ui.gdx.BalloonBodies
 import com.hyperionsoftware.balls.ui.gdx.BalloonPainter
 import com.hyperionsoftware.balls.ui.gdx.FrameClock
 import com.hyperionsoftware.balls.ui.gdx.Painter
@@ -76,6 +79,7 @@ class GameRenderer(private val view: GameView) : ApplicationAdapter() {
     private var wasPaused = false
     @Volatile var playerBoosting = false
     @Volatile var activeItemRequested = false
+    @Volatile var dischargeRequested = false
     @Volatile var playerDirection: Vector2 = Vector2(0f, 0f)
 
     private lateinit var painter: Painter
@@ -85,6 +89,13 @@ class GameRenderer(private val view: GameView) : ApplicationAdapter() {
     private val screenCamera = OrthographicCamera()
     private val clock = FrameClock()
     private val balloonState = BalloonPainter.State()
+    private val bodies = BalloonBodies()
+    private val rubPlayer = RubPlayer()
+    // Sound settings as of the match's start or its last resume - the pause dialog is the only
+    // place they can change - rather than read from preferences every frame for the rubbing.
+    private var sfxEnabled = false
+    private var sfxVolume = 1f
+    private var lastChargeStep = -1
 
     private var engine: GameEngine? = null
     private var matchOver = false
@@ -202,6 +213,12 @@ class GameRenderer(private val view: GameView) : ApplicationAdapter() {
     // Called by GameView when the view goes away - on the UI thread, after rendering stopped.
     fun releaseAudio() {
         if (soundEffectPlayerCreated) soundEffectPlayer.release()
+        rubPlayer.release()
+    }
+
+    // Stops the rubbing squeak right away - the match is being paused or left.
+    fun silenceRubbing() {
+        rubPlayer.silence()
     }
 
     override fun render() {
@@ -222,6 +239,7 @@ class GameRenderer(private val view: GameView) : ApplicationAdapter() {
             wasPaused = paused
             clock.reset()
             fpsCounter.reset()
+            if (paused) rubPlayer.silence() else readSfxSettings()
         }
         val dt = if (paused) 0f else clock.next(Gdx.graphics.deltaTime)
         if (!paused) step(engine, dt)
@@ -243,6 +261,10 @@ class GameRenderer(private val view: GameView) : ApplicationAdapter() {
             activeItemRequested = false
             engine.activateCarriedItem(engine.player)
         }
+        if (dischargeRequested) {
+            dischargeRequested = false
+            engine.dischargeStatic(engine.player)
+        }
         if (countdownActive) {
             countdownRemaining -= dt
             if (countdownRemaining <= 0f) countdownActive = false
@@ -255,6 +277,7 @@ class GameRenderer(private val view: GameView) : ApplicationAdapter() {
             engine.update(dt)
             checkBoostAvailability(engine)
             checkCarriedItemAvailability(engine)
+            checkStaticCharge(engine)
         }
     }
 
@@ -282,6 +305,10 @@ class GameRenderer(private val view: GameView) : ApplicationAdapter() {
         matchOver = false
         sinceMatchOver = 0f
         activeItemRequested = false
+        dischargeRequested = false
+        lastChargeStep = -1
+        bodies.clear()
+        readSfxSettings()
         hudSizeValue = Int.MIN_VALUE
         hudAbsorbedValue = Int.MIN_VALUE
         hudPlayersValue = Int.MIN_VALUE
@@ -293,6 +320,7 @@ class GameRenderer(private val view: GameView) : ApplicationAdapter() {
         selectedCord = CosmeticsSettings.getSelectedCord(context)
         selectedExhaustStyle = CosmeticsSettings.getSelectedExhaustStyle(context)
         showFps = DeveloperSettings.isEnabled(context)
+        bodies.intensity = DeveloperSettings.getDeformationPercent(context) / 100f
         fpsCounter.reset()
         clock.reset()
         engine = GameEngine(
@@ -465,6 +493,21 @@ class GameRenderer(private val view: GameView) : ApplicationAdapter() {
             }
         }
 
+        override fun onStaticFullyCharged(x: Float, y: Float, byPlayer: Boolean) {
+            if (!byPlayer) return
+            floatingTexts.add(FloatingText(x, y, context.getString(R.string.game_static_charged), STATIC_COLOR, 1.3f))
+            vibrate(VibrationEffect.createWaveform(longArrayOf(0, 25, 30, 25, 30, 45), -1))
+            playSound(SoundEffectPlayer.Effect.STATIC_CHARGED)
+        }
+
+        override fun onStaticDischarged(x: Float, y: Float, byPlayer: Boolean, radius: Float) {
+            staticBurst(x, y, radius)
+            if (byPlayer) {
+                vibrate(VibrationEffect.createWaveform(longArrayOf(0, 60, 30, 30), -1))
+                playSound(SoundEffectPlayer.Effect.STATIC_DISCHARGE)
+            }
+        }
+
         override fun onFinalRoundStarted() {
             finalRoundTransitionActive = true
             finalRoundTransitionElapsed = 0f
@@ -507,6 +550,26 @@ class GameRenderer(private val view: GameView) : ApplicationAdapter() {
                 MathUtils.random(18f, 30f), 4f,
                 color,
                 drag = 4f
+            )
+        }
+    }
+
+    // A static charge let go all at once: a crackling flash, sparks flying off in every
+    // direction and a ring of light spreading out from the balloon.
+    private fun staticBurst(x: Float, y: Float, radius: Float) {
+        flashes.add(Flash(x, y, radius * 2.6f, STATIC_COLOR, 0.25f))
+        effectRipples.add(EffectRipple(x, y, radius * 2.4f, STATIC_COLOR, 0.35f))
+        for (i in 0 until 14) {
+            val angle = MathUtils.random(MathUtils.PI2)
+            val speed = MathUtils.random(220f, 520f)
+            particles.spawn(
+                Particles.Kind.SPARK,
+                x + MathUtils.cos(angle) * radius, y + MathUtils.sin(angle) * radius,
+                MathUtils.cos(angle) * speed, MathUtils.sin(angle) * speed,
+                MathUtils.random(0.18f, 0.4f),
+                MathUtils.random(14f, 26f), 3f,
+                Color.WHITE, STATIC_COLOR,
+                drag = 4.5f
             )
         }
     }
@@ -572,7 +635,23 @@ class GameRenderer(private val view: GameView) : ApplicationAdapter() {
         }
 
         // Only balloons actually on screen get drawn - with 100 bots spread over the whole
-        // arena, only a handful are ever visible at once.
+        // arena, only a handful are ever visible at once - and only those have their latex
+        // simulated (see BalloonBodies).
+        bodies.beginFrame()
+        for (blob in engine.blobs) {
+            if (!blob.alive || !isBlobVisible(blob, left, top, right, bottom)) continue
+            bodies.track(
+                blob.id, blob === player, blob.position.x, blob.position.y, blob.radius,
+                blob.facingDirection.x, blob.facingDirection.y, blob.currentSpeed,
+                blob.isThrusting, blob.isBoosting, blob.isFrozen, dt
+            )
+        }
+        bodies.step(dt)
+        if (!paused && sfxEnabled && !matchOver) {
+            rubPlayer.update(bodies.rubIntensity, bodies.rubSpeed, sfxVolume)
+        } else {
+            rubPlayer.silence()
+        }
         for (blob in engine.blobs) {
             if (!blob.alive || !isBlobVisible(blob, left, top, right, bottom)) continue
             balloons.drawShadow(stateOf(blob))
@@ -586,7 +665,11 @@ class GameRenderer(private val view: GameView) : ApplicationAdapter() {
             if (isVisible(blob.position.x, blob.position.y, blob.radius * BalloonPainter.VISUAL_EXTENT + smokeMargin, left, top, right, bottom)) {
                 balloons.emitSmoke(stateOf(blob), dt)
             }
-            if (isBlobVisible(blob, left, top, right, bottom)) balloons.drawBalloon(stateOf(blob))
+            if (isBlobVisible(blob, left, top, right, bottom)) {
+                val state = stateOf(blob)
+                balloons.emitStaticSparks(state, dt)
+                balloons.drawBalloon(state)
+            }
         }
 
         drawAbsorbAnimations(dt)
@@ -628,11 +711,22 @@ class GameRenderer(private val view: GameView) : ApplicationAdapter() {
 
     private fun stateOf(blob: Blob): BalloonPainter.State = balloonState.apply {
         val isPlayer = blob === engine?.player
-        x = blob.position.x
-        y = blob.position.y
+        val body = bodies[blob.id]
+        this.body = body
+        if (body != null) {
+            x = body.drawnX
+            y = body.drawnY
+            facingX = MathUtils.cos(body.drawnHeading)
+            facingY = MathUtils.sin(body.drawnHeading)
+        } else {
+            x = blob.position.x
+            y = blob.position.y
+            facingX = blob.facingDirection.x
+            facingY = blob.facingDirection.y
+        }
         radius = blob.radius
-        facingX = blob.facingDirection.x
-        facingY = blob.facingDirection.y
+        charge = blob.staticCharge
+        seed = blob.id * 37 + 11
         color = blob.color
         alpha = if (blob.isInvisible) 70f / 255f else 1f
         exhaustPhase = blob.exhaustPhase
@@ -1141,6 +1235,23 @@ class GameRenderer(private val view: GameView) : ApplicationAdapter() {
         }
     }
 
+    // Reports the player's static charge to the button around it, in 2% steps so the UI thread
+    // only hears about visible changes.
+    private fun checkStaticCharge(engine: GameEngine) {
+        val player = engine.player
+        val step = if (player.alive) (player.staticCharge * CHARGE_STEPS).toInt() else 0
+        if (step != lastChargeStep) {
+            lastChargeStep = step
+            val charge = step / CHARGE_STEPS.toFloat()
+            view.post { view.callback?.onStaticChargeChanged(charge) }
+        }
+    }
+
+    private fun readSfxSettings() {
+        sfxEnabled = SfxSettings.isEnabled(context)
+        sfxVolume = SfxSettings.getVolume(context) / 100f
+    }
+
     private fun playSound(effect: SoundEffectPlayer.Effect) {
         soundEffectPlayerCreated = true
         soundEffectPlayer.play(effect)
@@ -1165,6 +1276,8 @@ class GameRenderer(private val view: GameView) : ApplicationAdapter() {
 
     companion object {
         private const val PARTICLE_CAPACITY = 2400
+        private const val CHARGE_STEPS = 50
+        private val STATIC_COLOR = Color.parseColor("#8C9EFF")
         private const val SETTLE_AFTER_END_SECONDS = 2f
         private const val FLOOR_CELL = 200f
         private const val MAX_FEED_ENTRIES = 5

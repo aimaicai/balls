@@ -72,6 +72,50 @@ class Painter {
         batch.draw(region, cx - size / 2f, cy - size / 2f, size / 2f, size / 2f, size, size, scaleX, scaleY, rotation)
     }
 
+    // A square region drawn like region(), but as a fan of triangles around its center whose
+    // spokes are each stretched by a deformed balloon's `shape` (see BalloonBody) - everything
+    // in the region moves along with the latex. The fan covers the region's inscribed circle, so
+    // whatever is drawn in it must stay inside that. The region is rotated by `rotationDeg`; the
+    // shape belongs to a balloon rotated by `shapeRotationDeg` (the same, for the body itself).
+    fun deformed(region: TextureRegion, cx: Float, cy: Float, size: Float, rotationDeg: Float, shape: FloatArray, shapeRotationDeg: Float) {
+        val spokes = BalloonBody.SPOKES
+        val half = size / 2f
+        val cosR = MathUtils.cosDeg(rotationDeg)
+        val sinR = MathUtils.sinDeg(rotationDeg)
+        val shapeOffset = (rotationDeg - shapeRotationDeg) / 360f * spokes
+        // Same texture mapping as SpriteBatch.draw: local +x toward u2, local +y toward v.
+        val centerU = (region.u + region.u2) / 2f
+        val centerV = (region.v + region.v2) / 2f
+        val halfU = (region.u2 - region.u) / 2f
+        val halfV = (region.v - region.v2) / 2f
+        for (k in 0..spokes) {
+            val i = k % spokes
+            val scale = BalloonBody.sample(shape, i + shapeOffset)
+            val lx = BalloonBody.COS[i] * half * scale
+            val ly = BalloonBody.SIN[i] * half * scale
+            fanX[k] = cx + cosR * lx - sinR * ly
+            fanY[k] = cy + sinR * lx + cosR * ly
+            fanU[k] = centerU + BalloonBody.COS[i] * halfU
+            fanV[k] = centerV + BalloonBody.SIN[i] * halfV
+        }
+        val color = batch.packedColor
+        // Each quad is two of the fan's triangles: center, k, k+1 and k+1, k+2, center.
+        var k = 0
+        while (k < spokes) {
+            vertices[0] = cx; vertices[1] = cy; vertices[2] = color; vertices[3] = centerU; vertices[4] = centerV
+            vertices[5] = fanX[k]; vertices[6] = fanY[k]; vertices[7] = color; vertices[8] = fanU[k]; vertices[9] = fanV[k]
+            vertices[10] = fanX[k + 1]; vertices[11] = fanY[k + 1]; vertices[12] = color; vertices[13] = fanU[k + 1]; vertices[14] = fanV[k + 1]
+            vertices[15] = fanX[k + 2]; vertices[16] = fanY[k + 2]; vertices[17] = color; vertices[18] = fanU[k + 2]; vertices[19] = fanV[k + 2]
+            batch.draw(region.texture, vertices, 0, 20)
+            k += 2
+        }
+    }
+
+    private val fanX = FloatArray(BalloonBody.SPOKES + 1)
+    private val fanY = FloatArray(BalloonBody.SPOKES + 1)
+    private val fanU = FloatArray(BalloonBody.SPOKES + 1)
+    private val fanV = FloatArray(BalloonBody.SPOKES + 1)
+
     fun disc(cx: Float, cy: Float, radius: Float) {
         region(atlas.disc, cx, cy, radius * Atlas.DISC_SPRITE_SCALE, radius * Atlas.DISC_SPRITE_SCALE)
     }

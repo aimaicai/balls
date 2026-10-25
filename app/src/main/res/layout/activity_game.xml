@@ -50,4 +50,16 @@
         android:padding="16dp"
         android:src="@drawable/ic_active_item" />
 
+    <com.hyperionsoftware.balls.ui.StaticChargeButton
+        android:id="@+id/staticDischargeButton"
+        android:layout_width="60dp"
+        android:layout_height="60dp"
+        android:layout_gravity="bottom|end"
+        android:layout_marginEnd="30dp"
+        android:layout_marginBottom="196dp"
+        android:background="@drawable/bg_round_button"
+        android:contentDescription="@string/static_discharge_button"
+        android:padding="15dp"
+        android:src="@drawable/ic_static_discharge" />
+
 </FrameLayout>

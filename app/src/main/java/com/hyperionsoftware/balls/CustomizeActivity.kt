@@ -9,6 +9,7 @@ import android.os.Bundle
 import android.view.Gravity
 import android.view.View
 import android.widget.LinearLayout
+import android.widget.SeekBar
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
@@ -21,6 +22,7 @@ import com.hyperionsoftware.balls.databinding.ActivityCustomizeBinding
 import com.hyperionsoftware.balls.economy.PurchasedCosmetics
 import com.hyperionsoftware.balls.economy.Wallet
 import com.hyperionsoftware.balls.settings.CosmeticsSettings
+import com.hyperionsoftware.balls.settings.DeveloperSettings
 import com.hyperionsoftware.balls.ui.fitContentInsideSystemBars
 import kotlin.math.min
 
@@ -41,6 +43,32 @@ class CustomizeActivity : AppCompatActivity() {
 
         binding.backButton.setOnClickListener { finish() }
         refreshGrid()
+        setUpDeveloperSection()
+    }
+
+    // How strongly the balloons' latex deforms (see BalloonBody.intensity), for tuning the look
+    // on a real device - developer mode only, in steps of DEFORMATION_STEP percent.
+    private fun setUpDeveloperSection() {
+        if (!DeveloperSettings.isEnabled(this)) return
+        binding.developerSection.visibility = View.VISIBLE
+        val seekBar = binding.deformationSeekBar
+        seekBar.max = DeveloperSettings.MAX_DEFORMATION_PERCENT / DEFORMATION_STEP
+        seekBar.progress = DeveloperSettings.getDeformationPercent(this) / DEFORMATION_STEP
+        updateDeformationLabel(seekBar.progress * DEFORMATION_STEP)
+        seekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(seekBar: SeekBar, progress: Int, fromUser: Boolean) {
+                val percent = progress * DEFORMATION_STEP
+                DeveloperSettings.setDeformationPercent(this@CustomizeActivity, percent)
+                updateDeformationLabel(percent)
+            }
+
+            override fun onStartTrackingTouch(seekBar: SeekBar) = Unit
+            override fun onStopTrackingTouch(seekBar: SeekBar) = Unit
+        })
+    }
+
+    private fun updateDeformationLabel(percent: Int) {
+        binding.deformationText.text = getString(R.string.customize_deformation_format, percent)
     }
 
     // Plain rows of 3 equal-width columns, built the same way AchievementsActivity builds
@@ -397,5 +425,6 @@ class CustomizeActivity : AppCompatActivity() {
 
     companion object {
         private const val COLUMNS = 3
+        private const val DEFORMATION_STEP = 10
     }
 }

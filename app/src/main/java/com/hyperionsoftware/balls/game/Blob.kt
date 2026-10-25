@@ -49,6 +49,21 @@ abstract class Blob(
     // achievement without duplicating the ramp math.
     val isBoostAtMaxPower: Boolean get() = isBoosting && boostHoldSeconds >= GameConfig.BOOST_RAMP_UP_SECONDS
 
+    // How fast the balloon drove itself along facingDirection on its last update (0 while
+    // frozen) - pushes from collisions and items come on top of this.
+    var currentSpeed: Float = 0f
+        private set
+
+    // Static electricity picked up by rubbing against other balloons (see GameEngine.rub), 0..1.
+    // Once full it stays full until discharged.
+    var staticCharge: Float = 0f
+        private set
+    val isFullyCharged: Boolean get() = staticCharge >= 1f
+
+    // How long the charge has been sitting full - lets bots let it go after a while.
+    var staticFullSeconds: Float = 0f
+        private set
+
     // A single carried/active item slot - picked up like a regular power-up but stored
     // instead of applied immediately, spent later via a dedicated button. Picking up a new
     // one while already holding one replaces it, whatever the two types are.
@@ -80,6 +95,7 @@ abstract class Blob(
         if (isFrozen) {
             frozenTimer = max(0f, frozenTimer - dt)
             isThrusting = false
+            currentSpeed = 0f
         } else {
             // The balloon always drifts forward on its own - decideDirection's result only
             // steers facingDirection toward wherever it's aimed (see steerTowards), it no
@@ -98,6 +114,7 @@ abstract class Blob(
             boostHoldSeconds = if (isBoosting) boostHoldSeconds + dt else 0f
 
             val speed = effectiveSpeed(baseSpeed)
+            currentSpeed = speed
             // Mutates position's own fields directly (same as clampToWorld right below)
             // instead of "position += facingDirection * (speed * dt)", which allocated two
             // throwaway Vector2s - unconditional, every alive blob, every single tick.
@@ -108,6 +125,7 @@ abstract class Blob(
         }
 
         exhaustPhase += dt
+        staticFullSeconds = if (isFullyCharged) staticFullSeconds + dt else 0f
         if (speedBoostTimer > 0f) speedBoostTimer = max(0f, speedBoostTimer - dt)
         if (invisibilityTimer > 0f) invisibilityTimer = max(0f, invisibilityTimer - dt)
         if (shieldTimer > 0f) shieldTimer = max(0f, shieldTimer - dt)
@@ -187,6 +205,35 @@ abstract class Blob(
             PowerUpType.SPEED, PowerUpType.INVISIBILITY, PowerUpType.REPEL,
             PowerUpType.FREEZE, PowerUpType.HOOK -> pickUpCarriedItem(type)
         }
+    }
+
+    // The hardest rub against another balloon this tick (see GameEngine.rub), applied once all
+    // the tick's collisions are in.
+    private var pendingRub = 0f
+
+    fun noteRub(amount: Float) {
+        pendingRub = max(pendingRub, amount)
+    }
+
+    fun takeRub(): Float {
+        val amount = pendingRub
+        pendingRub = 0f
+        return amount
+    }
+
+    // Returns true if this is what filled the charge up.
+    fun addStaticCharge(amount: Float): Boolean {
+        if (isFullyCharged || amount <= 0f) return false
+        staticCharge = min(1f, staticCharge + amount)
+        return isFullyCharged
+    }
+
+    // Releases a full charge. Returns false (and does nothing) unless it was full.
+    fun dischargeStatic(): Boolean {
+        if (!isFullyCharged) return false
+        staticCharge = 0f
+        staticFullSeconds = 0f
+        return true
     }
 
     fun pickUpCarriedItem(type: PowerUpType) {

@@ -32,6 +32,9 @@ class GameView @JvmOverloads constructor(
         )
         fun onBoostAvailabilityChanged(available: Boolean)
         fun onCarriedItemChanged(type: PowerUpType?)
+        // The player's static charge from rubbing, 0..1 (see GameEngine.rub) - full enables
+        // the discharge button.
+        fun onStaticChargeChanged(charge: Float)
         // The final round is meant to always feel the same regardless of whichever track
         // the player picked for the rest of the match - see GameActivity, which switches
         // background music to a dedicated final-round track on this.
@@ -69,6 +72,7 @@ class GameView @JvmOverloads constructor(
     // nothing - until resumeGame.
     fun pauseGame() {
         renderer.paused = true
+        renderer.silenceRubbing()
         setContinuousRendering(false)
     }
 
@@ -99,6 +103,11 @@ class GameView @JvmOverloads constructor(
     // the top of its next frame (see GameRenderer.step).
     fun useActiveItem() {
         if (started) renderer.activeItemRequested = true
+    }
+
+    // Releases the player's static charge, if it's full - applied at the top of the next frame.
+    fun dischargeStatic() {
+        if (started) renderer.dischargeRequested = true
     }
 
     override fun onDirectionChanged(x: Float, y: Float) {

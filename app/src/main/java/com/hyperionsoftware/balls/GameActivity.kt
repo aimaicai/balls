@@ -72,6 +72,7 @@ class GameActivity : AppCompatActivity(), GameView.Callback, AndroidFragmentAppl
             true
         }
         binding.activeItemButton.setOnClickListener { binding.gameView.useActiveItem() }
+        binding.staticDischargeButton.setOnClickListener { binding.gameView.dischargeStatic() }
         // Matches the player's starting size (no excess to burn yet): boost looks
         // disabled until GameView reports it's actually available.
         binding.boostButton.alpha = BOOST_UNAVAILABLE_ALPHA
@@ -221,6 +222,10 @@ class GameActivity : AppCompatActivity(), GameView.Callback, AndroidFragmentAppl
 
     override fun onBoostAvailabilityChanged(available: Boolean) {
         binding.boostButton.alpha = if (available) 1f else BOOST_UNAVAILABLE_ALPHA
+    }
+
+    override fun onStaticChargeChanged(charge: Float) {
+        binding.staticDischargeButton.charge = charge
     }
 
     override fun onCarriedItemChanged(type: PowerUpType?) {

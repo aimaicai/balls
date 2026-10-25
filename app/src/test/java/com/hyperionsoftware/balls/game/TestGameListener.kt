@@ -16,6 +16,8 @@ class TestGameListener : GameListener {
     var finalRoundStartedCount = 0
     var gameOverCount = 0
     var lastGameOverPlayerWon: Boolean? = null
+    var staticFullyChargedCount = 0
+    var staticDischargedCount = 0
 
     override fun onVibrate() {
         vibrateCount++
@@ -52,6 +54,14 @@ class TestGameListener : GameListener {
 
     override fun onDeflateDeath(x: Float, y: Float, wasPlayer: Boolean) {
         deflateDeaths++
+    }
+
+    override fun onStaticFullyCharged(x: Float, y: Float, byPlayer: Boolean) {
+        staticFullyChargedCount++
+    }
+
+    override fun onStaticDischarged(x: Float, y: Float, byPlayer: Boolean, radius: Float) {
+        staticDischargedCount++
     }
 
     override fun onFinalRoundStarted() {

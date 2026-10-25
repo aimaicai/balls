@@ -33,6 +33,8 @@
 
     <string name="boost_button">Spinta velocità</string>
     <string name="active_item_button">Usa oggetto</string>
+    <string name="static_discharge_button">Scarica elettrostatica</string>
+    <string name="static_discharge_charging">Carica elettrostatica %1$d%%</string>
     <string name="active_item_speed">Usa Velocità</string>
     <string name="active_item_invisibility">Usa Invisibilità</string>
     <string name="active_item_repel">Usa Respingi</string>
@@ -155,6 +157,7 @@
 
     <string name="game_zone_death">Eliminato!</string>
     <string name="game_deflate_death">Sgonfiato!</string>
+    <string name="game_static_charged">Carico!</string>
     <string name="game_combo">COMBO x%1$d!</string>
 
     <string name="game_hud_size_format">Dimensione: %1$d</string>
@@ -208,6 +211,8 @@
     <string name="customize_sticker_section">Adesivo</string>
     <string name="customize_cord_section">Filo</string>
     <string name="customize_exhaust_section">Scia</string>
+    <string name="customize_developer_section">Sviluppatore</string>
+    <string name="customize_deformation_format">Deformazione palloncini: %1$d%%</string>
     <string name="customize_helium_balance_format">Elio: %1$d</string>
     <string name="customize_buy_for_helium_format">Compra per %1$d Elio</string>
     <string name="customize_insufficient_helium">Elio insufficiente - continua a giocare per guadagnarne di più!</string>
