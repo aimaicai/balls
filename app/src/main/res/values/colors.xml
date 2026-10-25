@@ -12,4 +12,8 @@
     <!-- Same gold used for the in-game achievement-unlock popup - reused here for the
          leaderboard's new-high-score celebration so the two "special moment" callouts match. -->
     <color name="celebration_gold">#FFD700</color>
+    <!-- The splash animation's own edge colors (see activity_splash.xml): the dim stands
+         along its top, the arena floor along its bottom. -->
+    <color name="splash_top">#262D47</color>
+    <color name="splash_bottom">#1B2340</color>
 </resources>

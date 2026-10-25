@@ -1,7 +1,69 @@
 <?xml version="1.0" encoding="utf-8"?>
-<com.hyperionsoftware.balls.ui.SplashFightView
-    xmlns:android="http://schemas.android.com/apk/res/android"
-    android:id="@+id/splashView"
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/splashRoot"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/background_dark" />
+    android:background="@color/splash_bottom">
+
+    <!-- The background on screens taller than the video: its top-edge color above the middle,
+         its bottom-edge color below; the seam between them always sits behind the video. -->
+    <View
+        android:id="@+id/splashTopHalf"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:background="@color/splash_top"
+        app:layout_constraintBottom_toTopOf="@id/splashMiddle"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <androidx.constraintlayout.widget.Guideline
+        android:id="@+id/splashMiddle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        app:layout_constraintGuide_percent="0.5" />
+
+    <!-- The video: always the full width, at its own 9:16 (sized in SplashActivity) and
+         centered - letterboxed on taller screens, its top and bottom cropped on shorter ones. -->
+    <FrameLayout
+        android:id="@+id/splashFrame"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent">
+
+        <VideoView
+            android:id="@+id/splashVideo"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_gravity="center" />
+
+        <!-- Its first frame, shown until the video actually starts drawing, so the screen never
+             flashes black while the player warms up. -->
+        <ImageView
+            android:id="@+id/splashPoster"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:importantForAccessibility="no"
+            android:scaleType="fitXY"
+            android:src="@drawable/splash_poster" />
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="32dp"
+            android:layout_gravity="top"
+            android:background="@drawable/splash_fade_top" />
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="40dp"
+            android:layout_gravity="bottom"
+            android:background="@drawable/splash_fade_bottom" />
+
+    </FrameLayout>
+
+</androidx.constraintlayout.widget.ConstraintLayout>

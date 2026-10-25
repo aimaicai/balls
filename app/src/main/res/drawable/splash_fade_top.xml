@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Fades the splash animation's top edge into the background above it. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <gradient
+        android:angle="270"
+        android:startColor="@color/splash_top"
+        android:centerColor="#80262D47"
+        android:endColor="#00262D47" />
+</shape>
