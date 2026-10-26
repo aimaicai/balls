@@ -39,6 +39,26 @@ object BalloonOutline {
         }
     }
 
+    // For each of `spokes` directions, how far out a fan of triangles around the center has to
+    // reach (as a fraction of `extent` radii) to cover the whole silhouette, its soft edge
+    // included: the farthest the outline gets anywhere between the neighbouring spokes, pushed
+    // out so the straight edge between two spokes never cuts inside it, plus `margin` radii.
+    // A sprite drawn as that fan touches only the pixels the balloon can actually be in, rather
+    // than its whole square - most of a square around a round balloon is transparent.
+    fun fanReach(spokes: Int, extent: Float, margin: Float): FloatArray {
+        val points = outlinePolygon()
+        val step = TWO_PI / spokes
+        val chord = cos(step / 2f)
+        return FloatArray(spokes) { k ->
+            var farthest = 0f
+            for (i in -FAN_SAMPLES..FAN_SAMPLES) {
+                val angle = (k + i / FAN_SAMPLES.toFloat()) * step
+                farthest = maxOf(farthest, farthestCrossing(points, cos(angle), sin(angle)))
+            }
+            ((farthest / chord + margin) / extent).coerceAtMost(1f)
+        }
+    }
+
     // The closed outline as a polygon (x, y pairs), the curves sampled finely enough that their
     // chords are well under a pixel off at any size the game draws.
     private fun outlinePolygon(): FloatArray {
@@ -98,5 +118,6 @@ object BalloonOutline {
     }
 
     private const val CURVE_SAMPLES = 24
+    private const val FAN_SAMPLES = 8
     private const val TWO_PI = (Math.PI * 2).toFloat()
 }

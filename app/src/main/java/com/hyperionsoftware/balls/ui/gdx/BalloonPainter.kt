@@ -51,7 +51,7 @@ class BalloonPainter(private val painter: Painter, private val particles: Partic
     // neighbouring balloon - it reads as resting on the floor, lifting the balloons off it.
     fun drawShadow(s: State) {
         painter.color(SHADOW_COLOR, 0.42f * s.alpha)
-        painter.region(atlas.glow, s.x + s.radius * 0.28f, s.y + s.radius * 0.42f, s.radius * 2.5f, s.radius * 2.1f)
+        painter.glowEllipse(s.x + s.radius * 0.28f, s.y + s.radius * 0.42f, s.radius * 1.25f, s.radius * 1.05f)
     }
 
     // Leaves a trail of drifting smoke behind a moving balloon, densest (and fiery) while
@@ -181,10 +181,13 @@ class BalloonPainter(private val painter: Painter, private val particles: Partic
         for (arc in 0 until count) {
             val start = auraRandom.nextFloat() * MathUtils.PI2
             val span = 0.5f + auraRandom.nextFloat() * 0.6f
+            // A kink every dozen pixels or so reads as jagged at any size - more than that on a
+            // small balloon is just more sprites.
+            val points = (span * s.radius / ARC_KINK_SPACING).toInt().coerceIn(2, AURA_ARC_POINTS)
             var previousX = 0f
             var previousY = 0f
-            for (i in 0..AURA_ARC_POINTS) {
-                val local = start + span * i / AURA_ARC_POINTS
+            for (i in 0..points) {
+                val local = start + span * i / points
                 val reach = s.radius * (outlineRadius(s, local) + jitter / 2f + (auraRandom.nextFloat() - 0.5f) * jitter)
                 val world = local + rotation
                 val px = s.x + MathUtils.cos(world) * reach
@@ -270,21 +273,25 @@ class BalloonPainter(private val painter: Painter, private val particles: Partic
         val highlightSize = s.radius * Atlas.HIGHLIGHT_EXTENT * 2f
         val body = s.body
         if (body != null) {
-            painter.deformed(atlas.highlight, s.x, s.y, highlightSize, 0f, body.shape, angle)
+            painter.deformed(atlas.highlight, s.x, s.y, highlightSize, 0f, body.shape, angle, stride = fanStride(s))
         } else {
             painter.region(atlas.highlight, s.x, s.y, highlightSize, highlightSize)
         }
     }
 
-    // One layer of the balloon's body, stretched with its latex when it's being simulated.
+    // One layer of the balloon's body (anything balloon-shaped), stretched with its latex when
+    // it's being simulated - and either way drawn as a fan hugging the silhouette, not the
+    // sprite's whole square: on a big balloon, the corners alone were thousands of transparent
+    // pixels blended per layer for nothing.
     private fun balloonLayer(s: State, region: TextureRegion, size: Float, angle: Float) {
-        val body = s.body
-        if (body != null) {
-            painter.deformed(region, s.x, s.y, size, angle, body.shape, angle)
-        } else {
-            painter.region(region, s.x, s.y, size, size, angle)
-        }
+        val stride = fanStride(s)
+        val reach = if (stride == 1) BalloonBody.SPRITE_REACH else BalloonBody.COARSE_SPRITE_REACH
+        painter.deformed(region, s.x, s.y, size, angle, s.body?.shape ?: REST_SHAPE, angle, reach, stride)
     }
+
+    // A balloon a few dozen pixels across can't show its latex's finest ripples anyway: half the
+    // spokes draw it just the same, for half the triangles - and that's most balloons on screen.
+    private fun fanStride(s: State): Int = if (s.radius < COARSE_FAN_RADIUS) 2 else 1
 
     private fun drawSticker(s: State) {
         val region = atlas.sticker(s.sticker) ?: return
@@ -315,8 +322,9 @@ class BalloonPainter(private val painter: Painter, private val particles: Partic
         // The same quadratic curve as before, as a few short segments.
         var previousX = startX
         var previousY = startY
-        for (i in 1..STRING_SEGMENTS) {
-            val t = i / STRING_SEGMENTS.toFloat()
+        val segments = if (s.radius < COARSE_FAN_RADIUS) STRING_SEGMENTS / 2 else STRING_SEGMENTS
+        for (i in 1..segments) {
+            val t = i / segments.toFloat()
             val inv = 1f - t
             val px = inv * inv * startX + 2f * inv * t * controlX + t * t * endX
             val py = inv * inv * startY + 2f * inv * t * controlY + t * t * endY
@@ -368,6 +376,8 @@ class BalloonPainter(private val painter: Painter, private val particles: Partic
     }
 
     companion object {
+        private val REST_SHAPE = FloatArray(BalloonBody.SPOKES) { 1f }
+        private const val COARSE_FAN_RADIUS = 90f
         // How far a balloon's drawing reaches past its center, as a multiple of its radius:
         // the sprinting exhaust trail is the longest part (see drawExhaust), the shadow next.
         const val VISUAL_EXTENT = 5f
@@ -389,6 +399,7 @@ class BalloonPainter(private val painter: Painter, private val particles: Partic
         private val AURA_CORE_COLOR = Color.parseColor("#E1F5FE")
         private const val AURA_ARCS = 3
         private const val AURA_ARC_POINTS = 6
+        private const val ARC_KINK_SPACING = 12f
         private const val AURA_ARC_RATE = 14f
         private val SCORCH_COLOR = Color.parseColor("#1A1420")
         private val SCORCH_SMOKE_COLOR = Color.parseColor("#4A4650")

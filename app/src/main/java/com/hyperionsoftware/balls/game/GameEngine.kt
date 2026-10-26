@@ -498,12 +498,19 @@ class GameEngine(
     // REPEL's opposite: yanks only the single nearest blob toward the source instead of
     // pushing everyone away - a targeted grapple rather than an area push.
     // The blob a HOOK used by `source` right now would grab - the nearest one, if it's in reach.
+    // Asked every frame while the player holds a HOOK (its range indicator), so a single pass.
     fun hookTarget(source: Blob): Blob? {
-        val target = blobs
-            .filter { it !== source && it.alive }
-            .minByOrNull { it.position.distanceTo(source.position) }
-            ?: return null
-        return target.takeIf { isInReach(source, it, itemRange(source, PowerUpType.HOOK)) }
+        var target: Blob? = null
+        var targetDistance = Float.MAX_VALUE
+        for (candidate in blobs) {
+            if (candidate === source || !candidate.alive) continue
+            val distance = candidate.position.distanceTo(source.position)
+            if (distance < targetDistance) {
+                target = candidate
+                targetDistance = distance
+            }
+        }
+        return target?.takeIf { isInReach(source, it, itemRange(source, PowerUpType.HOOK)) }
     }
 
     private fun applyHookPull(source: Blob) {
@@ -647,19 +654,22 @@ class GameEngine(
 
     // The balloon a discharge by `blob` right now would strike first, or null if nobody's in
     // reach - the player's range indicator marks it, and bots wait for one.
+    // Asked every frame (the indicator, and every charged bot), so it allocates nothing.
     fun staticDischargeTarget(blob: Blob): Blob? =
-        nearestArcTarget(blob, setOf(blob.id), staticDischargeRange(blob))
+        nearestArcTarget(blob, null, staticDischargeRange(blob))
 
     fun staticDischargeRange(blob: Blob): Float =
         reachRangeFromCenter(blob, GameConfig.STATIC_DISCHARGE_RANGE_MULTIPLIER)
 
     // A stunned balloon was just struck by some bolt and is skipped, the way it can't be struck
     // twice by the same one - so two chains crossing each other spread out instead of piling up.
-    private fun nearestArcTarget(from: Blob, struck: Set<Int>, range: Float): Blob? {
+    // `struck` null means only `from` itself is excluded.
+    private fun nearestArcTarget(from: Blob, struck: Set<Int>?, range: Float): Blob? {
         var nearest: Blob? = null
         var nearestGap = Float.MAX_VALUE
         for (candidate in blobs) {
-            if (!candidate.alive || candidate.id in struck || candidate.isStunned) continue
+            if (!candidate.alive || candidate === from || candidate.isStunned) continue
+            if (struck != null && candidate.id in struck) continue
             val gap = candidate.position.distanceTo(from.position) - candidate.radius
             if (gap <= range && gap < nearestGap) {
                 nearest = candidate

@@ -1035,9 +1035,11 @@ class GameRenderer(private val view: GameView) : ApplicationAdapter() {
     }
 
     // What the player's carried REPEL/FREEZE/HOOK and a full static charge would reach if used
-    // right now - only ever drawn for the player, so they can aim it: a slowly turning dashed
-    // ring at the exact range the effect uses (see GameEngine.itemRange/staticDischargeRange),
-    // with a reticle on every balloon it would catch.
+    // right now - only ever drawn for the player, so they can aim it: a faint, slowly turning
+    // dashed ring at the exact range the effect uses (see GameEngine.itemRange/
+    // staticDischargeRange), with a reticle on every balloon it would catch. Kept subtle so it
+    // informs without pulling the eye off the action: the ring only firms up a little while
+    // something is actually in reach.
     private fun drawRangeIndicators(engine: GameEngine, left: Float, top: Float, right: Float, bottom: Float) {
         val player = engine.player
         if (!player.alive || countdownActive || matchOver) return
@@ -1047,21 +1049,31 @@ class GameRenderer(private val view: GameView) : ApplicationAdapter() {
         painter.additive(true)
         if (item != null && itemRange > 0f) {
             val color = powerUpColor(item)
-            drawRangeRing(player, itemRange, color, 1f)
+            var inReach = false
             if (item == PowerUpType.HOOK) {
-                engine.hookTarget(player)?.let { if (!it.isInvisible) drawTargetMark(it, color) }
+                engine.hookTarget(player)?.let {
+                    if (!it.isInvisible) {
+                        drawTargetMark(it, color)
+                        inReach = true
+                    }
+                }
             } else {
                 for (blob in engine.blobs) {
                     if (blob === player || !blob.alive || blob.isInvisible) continue
                     if (!isBlobVisible(blob, left, top, right, bottom)) continue
-                    if (engine.isInReach(player, blob, itemRange)) drawTargetMark(blob, color)
+                    if (engine.isInReach(player, blob, itemRange)) {
+                        drawTargetMark(blob, color)
+                        inReach = true
+                    }
                 }
             }
+            drawRangeRing(player, itemRange, color, 1f, inReach)
         }
         if (player.isFullyCharged) {
-            drawRangeRing(player, engine.staticDischargeRange(player), STATIC_COLOR, -1f)
             val target = engine.staticDischargeTarget(player)
-            if (target != null && !target.isInvisible) {
+            val visibleTarget = target != null && !target.isInvisible
+            drawRangeRing(player, engine.staticDischargeRange(player), STATIC_COLOR, -1f, visibleTarget)
+            if (target != null && visibleTarget) {
                 drawTargetMark(target, STATIC_COLOR)
                 drawChargeGuide(player, target)
             }
@@ -1069,13 +1081,14 @@ class GameRenderer(private val view: GameView) : ApplicationAdapter() {
         painter.additive(false)
     }
 
-    private fun drawRangeRing(player: Blob, range: Float, color: Int, spin: Float) {
+    private fun drawRangeRing(player: Blob, range: Float, color: Int, spin: Float, inReach: Boolean) {
         val x = player.position.x
         val y = player.position.y
-        val pulse = 0.8f + 0.2f * sin(elapsedRealTime * 4f)
-        painter.ring(x, y, range - 40f, range, color, 0f, color, 0.14f * pulse)
-        painter.color(color, 0.6f * pulse)
-        painter.circleStroke(x, y, range, 4f, dashed = true, startAngle = spin * elapsedRealTime * 0.35f)
+        val emphasis = if (inReach) 1f else RANGE_IDLE_EMPHASIS
+        val pulse = 0.85f + 0.15f * sin(elapsedRealTime * 3f)
+        painter.ring(x, y, range - 28f, range, color, 0f, color, 0.06f * pulse * emphasis)
+        painter.color(color, 0.32f * pulse * emphasis)
+        painter.circleStroke(x, y, range, 2.5f, dashed = true, startAngle = spin * elapsedRealTime * 0.3f)
     }
 
     // A reticle closing in on a balloon the item would catch: a counter-turning dashed ring and
@@ -1083,17 +1096,18 @@ class GameRenderer(private val view: GameView) : ApplicationAdapter() {
     private fun drawTargetMark(blob: Blob, color: Int) {
         val x = blob.position.x
         val y = blob.position.y
-        val pulse = 0.5f + 0.5f * sin(elapsedRealTime * 9f)
-        val r = blob.radius * 1.2f + 8f + 4f * pulse
-        painter.color(color, 0.25f + 0.15f * pulse)
-        painter.glow(x, y, blob.radius * 1.6f)
-        painter.color(color, 0.85f)
-        painter.circleStroke(x, y, r, 3f, dashed = true, startAngle = -elapsedRealTime * 1.2f)
+        val pulse = 0.5f + 0.5f * sin(elapsedRealTime * 5f)
+        val r = blob.radius * 1.15f + 8f + 3f * pulse
+        painter.color(color, 0.1f + 0.06f * pulse)
+        painter.glow(x, y, blob.radius * 1.5f)
+        painter.color(color, 0.5f)
+        painter.circleStroke(x, y, r, 2f, dashed = true, startAngle = -elapsedRealTime * 1.2f)
+        painter.color(color, 0.45f)
         for (i in 0 until 4) {
             val angle = elapsedRealTime * 1.2f + i * MathUtils.HALF_PI
             val c = MathUtils.cos(angle)
             val sn = MathUtils.sin(angle)
-            painter.triangle(x + c * (r + 20f), y + sn * (r + 20f), x + c * (r + 5f), y + sn * (r + 5f), 14f)
+            painter.triangle(x + c * (r + 16f), y + sn * (r + 16f), x + c * (r + 5f), y + sn * (r + 5f), 10f)
         }
     }
 
@@ -1109,13 +1123,13 @@ class GameRenderer(private val view: GameView) : ApplicationAdapter() {
         val start = player.radius
         val end = length - target.radius
         if (end <= start) return
-        val dots = ((end - start) / 36f).toInt().coerceIn(2, 24)
-        val flow = (elapsedRealTime * 2.2f) % 1f
+        val dots = ((end - start) / 40f).toInt().coerceIn(2, 20)
+        val flow = (elapsedRealTime * 1.8f) % 1f
         for (i in 0 until dots) {
             val t = (i + flow) / dots
             val d = start + (end - start) * t
-            painter.color(STATIC_COLOR, 0.55f * sin(t * MathUtils.PI))
-            painter.glow(player.position.x + ux * d, player.position.y + uy * d, 9f)
+            painter.color(STATIC_COLOR, 0.3f * sin(t * MathUtils.PI))
+            painter.glow(player.position.x + ux * d, player.position.y + uy * d, 7f)
         }
     }
 
@@ -1666,6 +1680,8 @@ class GameRenderer(private val view: GameView) : ApplicationAdapter() {
 
     companion object {
         private const val PARTICLE_CAPACITY = 2400
+        // How strongly a range ring shows while nothing is in reach, relative to while something is.
+        private const val RANGE_IDLE_EMPHASIS = 0.55f
         private const val CHARGE_STEPS = 50
         private val STATIC_COLOR = Color.parseColor("#8C9EFF")
         private val STATIC_GLOW_COLOR = Color.parseColor("#7C4DFF")

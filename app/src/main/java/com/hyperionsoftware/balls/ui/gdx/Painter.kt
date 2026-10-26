@@ -77,8 +77,24 @@ class Painter {
     // in the region moves along with the latex. The fan covers the region's inscribed circle, so
     // whatever is drawn in it must stay inside that. The region is rotated by `rotationDeg`; the
     // shape belongs to a balloon rotated by `shapeRotationDeg` (the same, for the body itself).
-    fun deformed(region: TextureRegion, cx: Float, cy: Float, size: Float, rotationDeg: Float, shape: FloatArray, shapeRotationDeg: Float) {
+    // With `reach` (one fraction of the half size per spoke, see BalloonBody.SPRITE_REACH), each
+    // spoke stops there instead: a region whose content is known to stay inside it then costs
+    // only the pixels it can cover. `stride` 2 uses every other spoke only - half the triangles,
+    // for a balloon small enough on screen that the difference is under a pixel (`reach` then has
+    // one entry per spoke used, see BalloonBody.COARSE_SPRITE_REACH).
+    fun deformed(
+        region: TextureRegion,
+        cx: Float,
+        cy: Float,
+        size: Float,
+        rotationDeg: Float,
+        shape: FloatArray,
+        shapeRotationDeg: Float,
+        reach: FloatArray? = null,
+        stride: Int = 1
+    ) {
         val spokes = BalloonBody.SPOKES
+        val points = spokes / stride
         val half = size / 2f
         val cosR = MathUtils.cosDeg(rotationDeg)
         val sinR = MathUtils.sinDeg(rotationDeg)
@@ -88,20 +104,21 @@ class Painter {
         val centerV = (region.v + region.v2) / 2f
         val halfU = (region.u2 - region.u) / 2f
         val halfV = (region.v - region.v2) / 2f
-        for (k in 0..spokes) {
-            val i = k % spokes
-            val scale = BalloonBody.sample(shape, i + shapeOffset)
+        for (k in 0..points) {
+            val i = (k * stride) % spokes
+            val fraction = reach?.get(k % points) ?: 1f
+            val scale = BalloonBody.sample(shape, i + shapeOffset) * fraction
             val lx = BalloonBody.COS[i] * half * scale
             val ly = BalloonBody.SIN[i] * half * scale
             fanX[k] = cx + cosR * lx - sinR * ly
             fanY[k] = cy + sinR * lx + cosR * ly
-            fanU[k] = centerU + BalloonBody.COS[i] * halfU
-            fanV[k] = centerV + BalloonBody.SIN[i] * halfV
+            fanU[k] = centerU + BalloonBody.COS[i] * halfU * fraction
+            fanV[k] = centerV + BalloonBody.SIN[i] * halfV * fraction
         }
         val color = batch.packedColor
         // Each quad is two of the fan's triangles: center, k, k+1 and k+1, k+2, center.
         var k = 0
-        while (k < spokes) {
+        while (k < points) {
             vertices[0] = cx; vertices[1] = cy; vertices[2] = color; vertices[3] = centerU; vertices[4] = centerV
             vertices[5] = fanX[k]; vertices[6] = fanY[k]; vertices[7] = color; vertices[8] = fanU[k]; vertices[9] = fanV[k]
             vertices[10] = fanX[k + 1]; vertices[11] = fanY[k + 1]; vertices[12] = color; vertices[13] = fanU[k + 1]; vertices[14] = fanV[k + 1]
@@ -145,7 +162,41 @@ class Painter {
     }
 
     fun glow(cx: Float, cy: Float, radius: Float) {
-        region(atlas.glow, cx, cy, radius * 2f, radius * 2f)
+        glowEllipse(cx, cy, radius, radius)
+    }
+
+    // The glow stretched to an ellipse of the given half sizes - the balloons' drop shadow. A big
+    // one goes out as a 16-sided fan just around the glow's circle instead of its square sprite:
+    // a quarter of that square is transparent corners, which still cost a blend per pixel - and
+    // the glows are most of what the game draws. Small ones, where a few pixels don't matter but
+    // the extra vertices would, stay a single quad.
+    fun glowEllipse(cx: Float, cy: Float, halfWidth: Float, halfHeight: Float) {
+        val region = atlas.glow
+        if (halfWidth < GLOW_FAN_MIN_RADIUS && halfHeight < GLOW_FAN_MIN_RADIUS) {
+            region(region, cx, cy, halfWidth * 2f, halfHeight * 2f)
+            return
+        }
+        val color = batch.packedColor
+        val centerU = (region.u + region.u2) / 2f
+        val centerV = (region.v + region.v2) / 2f
+        val halfU = (region.u2 - region.u) / 2f
+        // Same mapping as SpriteBatch.draw: local +y toward v.
+        val halfV = (region.v - region.v2) / 2f
+        var k = 0
+        while (k < GLOW_FAN_SIDES) {
+            vertices[0] = cx; vertices[1] = cy; vertices[2] = color; vertices[3] = centerU; vertices[4] = centerV
+            for (j in 0..2) {
+                val i = (k + j) % GLOW_FAN_SIDES
+                val o = 5 + j * 5
+                vertices[o] = cx + GLOW_FAN_COS[i] * halfWidth
+                vertices[o + 1] = cy + GLOW_FAN_SIN[i] * halfHeight
+                vertices[o + 2] = color
+                vertices[o + 3] = centerU + GLOW_FAN_COS[i] * halfU
+                vertices[o + 4] = centerV + GLOW_FAN_SIN[i] * halfV
+            }
+            batch.draw(region.texture, vertices, 0, 20)
+            k += 2
+        }
     }
 
     fun rect(x: Float, y: Float, width: Float, height: Float) {
@@ -333,6 +384,14 @@ class Painter {
 
     companion object {
         private const val MAX_SPRITES = 6000
+        // Glows at least this big (radius, px) are drawn as a fan (see glowEllipse). Its corners
+        // sit just outside the glow's circle - which the atlas draws a little inside its cell -
+        // but still inside the cell, so they never sample a neighbouring sprite.
+        private const val GLOW_FAN_MIN_RADIUS = 64f
+        private const val GLOW_FAN_SIDES = 16
+        private val GLOW_FAN_REACH = Atlas.GLOW_RADIUS_FRACTION / MathUtils.cos(MathUtils.PI / GLOW_FAN_SIDES)
+        private val GLOW_FAN_COS = FloatArray(GLOW_FAN_SIDES) { MathUtils.cos(it * MathUtils.PI2 / GLOW_FAN_SIDES) * GLOW_FAN_REACH }
+        private val GLOW_FAN_SIN = FloatArray(GLOW_FAN_SIDES) { MathUtils.sin(it * MathUtils.PI2 / GLOW_FAN_SIDES) * GLOW_FAN_REACH }
         private const val THICK_LINE_THRESHOLD = 24f
         private const val VIGNETTE_START = 0.5f
         private const val VIGNETTE_KNEE = 0.82f

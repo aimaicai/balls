@@ -173,13 +173,13 @@ class Atlas {
             at(1) {
                 val glowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                     shader = RadialGradient(
-                        center, center, center - 4f,
+                        center, center, center * GLOW_RADIUS_FRACTION,
                         intArrayOf(Color.WHITE, Color.argb(150, 255, 255, 255), Color.argb(40, 255, 255, 255), Color.TRANSPARENT),
                         floatArrayOf(0f, 0.35f, 0.7f, 1f),
                         Shader.TileMode.CLAMP
                     )
                 }
-                it.drawCircle(center, center, center - 4f, glowPaint)
+                it.drawCircle(center, center, center * GLOW_RADIUS_FRACTION, glowPaint)
             }
 
             at(2) {
@@ -526,6 +526,8 @@ class Atlas {
         // Balloon sprites (silhouette, shading, highlights) span this many balloon radii on
         // each side of the balloon's center - enough for the neck and knot.
         const val BALLOON_EXTENT = 1.42f
+        // How far the glow reaches into its cell, as a fraction of half the cell.
+        const val GLOW_RADIUS_FRACTION = (HALF_CELL - 4f) / HALF_CELL
         const val BALLOON_SPRITE_SCALE = BALLOON_EXTENT * 2f
         const val HIGHLIGHT_EXTENT = 0.85f
         // Along the balloon's back, in radii from its center: where the neck closes, and the far

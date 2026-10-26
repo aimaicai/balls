@@ -403,6 +403,13 @@ class BalloonBody {
         // Where the latex (or the knot) is along each spoke at rest, in radii.
         val PROFILE: FloatArray = BalloonOutline.radialProfile(SPOKES)
 
+        // How far along each spoke a balloon-shaped sprite actually needs drawing, as a fraction
+        // of its half size (see Painter.deformed). The margin keeps the silhouette's soft,
+        // filtered edge, a few texels wide even on a mipmapped small balloon.
+        val SPRITE_REACH: FloatArray = BalloonOutline.fanReach(SPOKES, Atlas.BALLOON_EXTENT, 0.06f)
+        // The same for a fan using every other spoke (see Painter.deformed's stride).
+        val COARSE_SPRITE_REACH: FloatArray = BalloonOutline.fanReach(SPOKES / 2, Atlas.BALLOON_EXTENT, 0.06f)
+
         // Mode n of a SPOKES-ring's Laplacian has eigenvalue 4 sin^2(pi n / SPOKES). SPRING and
         // TENSION (in units of the n=2 mode's stiffness) put mode 2 at exactly the base
         // frequency and the rigid shift of mode 1 at 0.6 of it - it's what lets the body lag

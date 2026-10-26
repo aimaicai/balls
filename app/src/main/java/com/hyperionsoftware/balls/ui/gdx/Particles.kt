@@ -95,6 +95,10 @@ class Particles(private val capacity: Int) {
             if (kind == Kind.CONFETTI) {
                 // A flat little card tumbling as it flies.
                 painter.transformed(region, x[i], y[i], size, 1f, 0.55f + 0.45f * MathUtils.sinDeg(rotation[i] * 2f), rotation[i])
+            } else if (region === painter.atlas.glow) {
+                // Round and soft, so its spin never shows - and a big puff of smoke is cheaper
+                // drawn as glow() does it.
+                painter.glow(x[i], y[i], half)
             } else {
                 painter.region(region, x[i], y[i], size, size, rotation[i])
             }
