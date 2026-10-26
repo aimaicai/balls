@@ -193,10 +193,6 @@ class GameRenderer(private val view: GameView) : ApplicationAdapter() {
     private val achievementDailyStreakTarget = 3
 
     // The HUD text only changes when its underlying number does - see drawHud.
-    private var hudSizeValue = Int.MIN_VALUE
-    private var hudSizeText = ""
-    private var hudAbsorbedValue = Int.MIN_VALUE
-    private var hudAbsorbedText = ""
     private var hudPlayersValue = Int.MIN_VALUE
     private var hudPlayersText = ""
     private var hudZoneValue = Int.MIN_VALUE
@@ -347,8 +343,6 @@ class GameRenderer(private val view: GameView) : ApplicationAdapter() {
         lastChargeStep = -1
         bodies.clear()
         readSfxSettings()
-        hudSizeValue = Int.MIN_VALUE
-        hudAbsorbedValue = Int.MIN_VALUE
         hudPlayersValue = Int.MIN_VALUE
         hudZoneValue = Int.MIN_VALUE
         hudTimeValue = Int.MIN_VALUE
@@ -869,6 +863,7 @@ class GameRenderer(private val view: GameView) : ApplicationAdapter() {
         drawScreenFlash(dt, width, height)
         drawDangerIndicator(engine, camX - width / 2f, camY - height / 2f, width, height)
         drawPermanentStatsHud(player, width, text = false)
+        drawPlayersIcon()
         drawHud(engine, width)
         drawPermanentStatsHud(player, width, text = true)
         drawFeed(dt)
@@ -1381,26 +1376,15 @@ class GameRenderer(private val view: GameView) : ApplicationAdapter() {
         painter.triangle(px - ndx * 14f, py - ndy * 14f, px + ndx * 18f, py + ndy * 18f, 28f)
     }
 
+    // Just how many balloons are still in play, kept small and dim in the top-left corner -
+    // a balloon glyph (shape pass, see drawPlayersIcon) followed by the bare number.
     private fun drawHud(engine: GameEngine, width: Float) {
-        val player = engine.player
-        val size = player.radius.toInt()
-        if (size != hudSizeValue) {
-            hudSizeValue = size
-            hudSizeText = context.getString(R.string.game_hud_size_format, size)
-        }
-        hudText(hudSizeText, 24f, 56f, HUD_TEXT_STYLE, Color.WHITE)
-        val absorbed = engine.playerOpponentsAbsorbed
-        if (absorbed != hudAbsorbedValue) {
-            hudAbsorbedValue = absorbed
-            hudAbsorbedText = context.getString(R.string.game_hud_absorptions_format, absorbed)
-        }
-        hudText(hudAbsorbedText, 24f, 90f, HUD_TEXT_STYLE, Color.WHITE)
         val playersAlive = engine.aliveCount()
         if (playersAlive != hudPlayersValue) {
             hudPlayersValue = playersAlive
-            hudPlayersText = context.getString(R.string.game_hud_players_format, playersAlive)
+            hudPlayersText = playersAlive.toString()
         }
-        hudText(hudPlayersText, 24f, 124f, HUD_TEXT_STYLE, Color.WHITE)
+        hudText(hudPlayersText, PLAYERS_HUD_X + PLAYERS_ICON_RADIUS * 2f + 10f, PLAYERS_HUD_BASELINE, PLAYERS_HUD_STYLE, Color.WHITE, PLAYERS_HUD_ALPHA)
 
         val zonePercent = (engine.safeZoneProgress * 100f).toInt()
         if (zonePercent != hudZoneValue) {
@@ -1432,8 +1416,16 @@ class GameRenderer(private val view: GameView) : ApplicationAdapter() {
 
     }
 
-    private fun hudText(value: String, x: Float, y: Float, style: TextStyle, argb: Int) {
-        painter.text(value, x, y, style, argb)
+    private fun hudText(value: String, x: Float, y: Float, style: TextStyle, argb: Int, alpha: Float = 1f) {
+        painter.text(value, x, y, style, argb, alpha)
+    }
+
+    private fun drawPlayersIcon() {
+        val cx = PLAYERS_HUD_X + PLAYERS_ICON_RADIUS
+        val cy = PLAYERS_HUD_BASELINE - PLAYERS_ICON_RADIUS - 2f
+        painter.color(Color.WHITE, PLAYERS_HUD_ALPHA)
+        painter.filledCircle(cx, cy, PLAYERS_ICON_RADIUS)
+        painter.triangle(cx, cy + PLAYERS_ICON_RADIUS + 5f, cx, cy + PLAYERS_ICON_RADIUS - 1f, 8f)
     }
 
     // Small pip bars per permanent stat, below the pause button - the pips (text = false) and
@@ -1724,7 +1716,11 @@ class GameRenderer(private val view: GameView) : ApplicationAdapter() {
         private val DEFLATE_SMOKE_COLOR = Color.parseColor("#9AA7B2")
 
         private val FLOATING_TEXT_STYLE = TextStyle(34f, bold = true, align = TextStyle.Align.CENTER)
-        private val HUD_TEXT_STYLE = TextStyle(42f, bold = true)
+        private val PLAYERS_HUD_STYLE = TextStyle(32f, bold = true)
+        private const val PLAYERS_HUD_X = 28f
+        private const val PLAYERS_HUD_BASELINE = 60f
+        private const val PLAYERS_ICON_RADIUS = 11f
+        private const val PLAYERS_HUD_ALPHA = 0.6f
         private val ZONE_HUD_STYLE = TextStyle(34f, bold = true, align = TextStyle.Align.CENTER)
         private val TIMER_HUD_STYLE = TextStyle(30f, bold = true, align = TextStyle.Align.CENTER)
         private val LIVE_SCORE_HUD_STYLE = TextStyle(40f, bold = true, align = TextStyle.Align.CENTER)

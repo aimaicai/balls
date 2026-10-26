@@ -163,9 +163,6 @@
     <string name="game_static_backfire">Backfire!</string>
     <string name="game_combo">COMBO x%1$d!</string>
 
-    <string name="game_hud_size_format">Size: %1$d</string>
-    <string name="game_hud_absorptions_format">Absorptions: %1$d</string>
-    <string name="game_hud_players_format">Players: %1$d</string>
     <string name="game_hud_zone_format">Zone: %1$d%%</string>
     <string name="game_hud_score_format">Score: %1$d</string>
 

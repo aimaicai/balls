@@ -4,7 +4,11 @@
     android:height="28dp"
     android:viewportWidth="24"
     android:viewportHeight="24">
+    <!-- Two stacked chevrons pointing up: "go faster", distinct from the discharge bolt. -->
     <path
         android:fillColor="#0F1620"
-        android:pathData="M13,2 L4,14 H11 L10,22 L20,9 H13 Z" />
+        android:pathData="M12,2.5 L20.5,11 L17.5,14 L12,8.5 L6.5,14 L3.5,11 Z" />
+    <path
+        android:fillColor="#0F1620"
+        android:pathData="M12,10.5 L20.5,19 L17.5,22 L12,16.5 L6.5,22 L3.5,19 Z" />
 </vector>

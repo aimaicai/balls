@@ -267,6 +267,6 @@ class GameActivity : AppCompatActivity(), GameView.Callback, AndroidFragmentAppl
         const val EXTRA_SAFE_ZONE_SHRINK_SPEED = "extra_safe_zone_shrink_speed"
         private const val BOOST_UNAVAILABLE_ALPHA = 0.35f
         private const val ACTIVE_ITEM_UNAVAILABLE_ALPHA = 0.35f
-        private const val DEFAULT_BOTS = 100
+        private const val DEFAULT_BOTS = 99
     }
 }

@@ -14,7 +14,7 @@ object GameSettings {
     private const val KEY_ARENA_SIZE = "arena_size"
     private const val KEY_BOT_AGGRESSIVENESS = "bot_aggressiveness"
     private const val KEY_SAFE_ZONE_SHRINK_SPEED = "safe_zone_shrink_speed"
-    const val DEFAULT_BOT_COUNT = 100
+    const val DEFAULT_BOT_COUNT = 99
 
     fun getBotCount(context: Context): Int =
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)

@@ -27,6 +27,9 @@
         android:padding="12dp"
         android:src="@drawable/ic_pause" />
 
+    <!-- Boost sits in the corner under the thumb; the item and discharge buttons sit on an arc
+         around it (straight above, and up-left diagonally) so the thumb reaches each with one
+         short slide, while keeping clear of the joystick on narrow screens. -->
     <ImageButton
         android:id="@+id/boostButton"
         android:layout_width="76dp"
@@ -43,8 +46,8 @@
         android:layout_width="64dp"
         android:layout_height="64dp"
         android:layout_gravity="bottom|end"
-        android:layout_marginEnd="28dp"
-        android:layout_marginBottom="116dp"
+        android:layout_marginEnd="34dp"
+        android:layout_marginBottom="140dp"
         android:background="@drawable/bg_round_button"
         android:contentDescription="@string/active_item_button"
         android:padding="16dp"
@@ -55,8 +58,8 @@
         android:layout_width="60dp"
         android:layout_height="60dp"
         android:layout_gravity="bottom|end"
-        android:layout_marginEnd="30dp"
-        android:layout_marginBottom="196dp"
+        android:layout_marginEnd="110dp"
+        android:layout_marginBottom="110dp"
         android:background="@drawable/bg_round_button"
         android:contentDescription="@string/static_discharge_button"
         android:padding="15dp"

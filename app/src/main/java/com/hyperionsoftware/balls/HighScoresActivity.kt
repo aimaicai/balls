@@ -154,6 +154,6 @@ class HighScoresActivity : AppCompatActivity() {
         const val EXTRA_MATCH_REACHED_FINAL_ROUND = "extra_match_reached_final_round"
         const val EXTRA_MATCH_HELIUM_EARNED = "extra_match_helium_earned"
         const val EXTRA_HIGHLIGHT_TIMESTAMP = "extra_highlight_timestamp"
-        private const val DEFAULT_BOTS = 100
+        private const val DEFAULT_BOTS = 99
     }
 }
