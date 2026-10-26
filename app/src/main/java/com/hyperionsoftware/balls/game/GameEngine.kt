@@ -35,6 +35,9 @@ interface GameListener {
     // A balloon's static charge (see GameEngine.rub) just filled up / was just released.
     fun onStaticFullyCharged(x: Float, y: Float, byPlayer: Boolean) = Unit
     fun onStaticDischarged(x: Float, y: Float, byPlayer: Boolean, radius: Float) = Unit
+    // A discharge's bolt just jumped from one balloon to another (see GameEngine.strike).
+    // `blocked` means it hit a shield and went no further; `hitPlayer` that the player was struck.
+    fun onStaticArc(fromId: Int, toId: Int, fromX: Float, fromY: Float, toX: Float, toY: Float, byPlayer: Boolean, hitPlayer: Boolean, blocked: Boolean) = Unit
     // Fired once, the instant the final round is set up (see triggerFinalRound) - the UI
     // layer uses this to cut to a dramatic transition before play resumes.
     fun onFinalRoundStarted()
@@ -201,6 +204,15 @@ class GameEngine(
     private val comboStreak = mutableMapOf<Int, Int>()
     private val lastAbsorbAt = mutableMapOf<Int, Float>()
 
+    // A bolt waiting to jump on from `from`: `launcher` is whoever set this chain off, and
+    // `struck` every balloon it has already gone through (launcher included) - none of them can
+    // be hit by it again. Declared up here, before the init block below: skipping straight to the
+    // final round clears it.
+    private class StaticArc(val from: Blob, val launcher: Blob, val struck: MutableSet<Int>, var delay: Float)
+
+    private val pendingArcs = ArrayList<StaticArc>()
+
+
     // Exposed read-only so the UI layer can react to the transition (e.g. an achievement
     // for reaching the final round) without needing its own copy of the trigger logic.
     val isFinalRoundActive: Boolean get() = finalRoundTriggered
@@ -282,6 +294,7 @@ class GameEngine(
         applyAmbientDeflation(dt)
         resolveCollisions(dt)
         applyStaticCharges()
+        advanceStaticArcs(dt)
         releaseBotStaticCharges()
         cullStrandedPowerUps()
         updatePowerUps(dt)
@@ -391,6 +404,8 @@ class GameEngine(
                 blob.clampToWorld()
             }
         }
+        // Everyone was just moved: a bolt still on its way would jump across the whole arena.
+        pendingArcs.clear()
         // Only this very first power-up is dead center - every one after it (see
         // updatePowerUps) lands somewhere random in the zone instead.
         powerUps.clear()
@@ -426,9 +441,26 @@ class GameEngine(
     private fun reachRangeFromCenter(source: Blob, multiplier: Float): Float =
         source.radius + source.baseRadius * multiplier
 
+    // How far `type` (REPEL, FREEZE or HOOK) reaches from `source`'s center right now, or 0 for
+    // an item that isn't aimed at anyone. Public so the player's range indicator shows exactly
+    // what the effect itself will use.
+    fun itemRange(source: Blob, type: PowerUpType): Float {
+        val multiplier = when (type) {
+            PowerUpType.REPEL -> GameConfig.REPEL_RANGE_MULTIPLIER
+            PowerUpType.FREEZE -> GameConfig.FREEZE_RANGE_MULTIPLIER
+            PowerUpType.HOOK -> GameConfig.HOOK_RANGE_MULTIPLIER
+            else -> return 0f
+        }
+        return reachRangeFromCenter(source, multiplier * source.permanentPotencyMultiplier)
+    }
+
+    // Whether `target`'s body overlaps a circle of `range` around `source`'s center.
+    fun isInReach(source: Blob, target: Blob, range: Float): Boolean =
+        target.position.distanceTo(source.position) <= range + target.radius
+
     private fun applyRepelBlast(source: Blob) {
         val potency = source.permanentPotencyMultiplier
-        val range = reachRangeFromCenter(source, GameConfig.REPEL_RANGE_MULTIPLIER * potency)
+        val range = itemRange(source, PowerUpType.REPEL)
         for (target in blobs) {
             if (target === source || !target.alive) continue
             val offset = target.position - source.position
@@ -452,26 +484,31 @@ class GameEngine(
         // and checked as a circle-circle overlap against the target's own body, not just its
         // center point.
         val potency = source.permanentPotencyMultiplier
-        val range = reachRangeFromCenter(source, GameConfig.FREEZE_RANGE_MULTIPLIER * potency)
+        val range = itemRange(source, PowerUpType.FREEZE)
         for (target in blobs) {
             if (target === source || !target.alive) continue
-            if (target.position.distanceTo(source.position) > range + target.radius) continue
+            if (!isInReach(source, target, range)) continue
             target.applyFreeze(GameConfig.FREEZE_DURATION_SECONDS * potency)
         }
     }
 
     // REPEL's opposite: yanks only the single nearest blob toward the source instead of
     // pushing everyone away - a targeted grapple rather than an area push.
-    private fun applyHookPull(source: Blob) {
-        val potency = source.permanentPotencyMultiplier
-        val range = reachRangeFromCenter(source, GameConfig.HOOK_RANGE_MULTIPLIER * potency)
+    // The blob a HOOK used by `source` right now would grab - the nearest one, if it's in reach.
+    fun hookTarget(source: Blob): Blob? {
         val target = blobs
             .filter { it !== source && it.alive }
             .minByOrNull { it.position.distanceTo(source.position) }
-            ?: return
+            ?: return null
+        return target.takeIf { isInReach(source, it, itemRange(source, PowerUpType.HOOK)) }
+    }
+
+    private fun applyHookPull(source: Blob) {
+        val potency = source.permanentPotencyMultiplier
+        val target = hookTarget(source) ?: return
         val offset = source.position - target.position
         val distance = offset.length()
-        if (distance > range + target.radius || distance < 0.01f) return
+        if (distance < 0.01f) return
         val direction = offset * (1f / distance)
         // Clamped to the actual gap left once their two bodies are touching, not a flat
         // HOOK_FORCE - a target already closer than that (the common case when the source
@@ -544,7 +581,7 @@ class GameEngine(
         // pausing its own ambient deflation - see Blob.applyAmbientDeflation), since a
         // supply-drop-only power-up that a bigger balloon could just walk through and pop
         // anyway would be worth almost nothing.
-        if (ratio >= GameConfig.ABSORB_RATIO && !bigger.isFrozen && !smaller.isShielded) {
+        if (ratio >= GameConfig.ABSORB_RATIO && !bigger.isInert && !smaller.isShielded) {
             val radiusBefore = bigger.radius
             val x = smaller.position.x
             val y = smaller.position.y
@@ -597,16 +634,91 @@ class GameEngine(
         }
     }
 
-    // Releases a full static charge. For now that's all it does - the charge empties, with a
-    // crackle the UI shows. A no-op unless the blob is fully charged.
+    // Releases a full static charge as a bolt into the nearest balloon in reach, which carries on
+    // as a chain from there (see strike). A no-op unless the blob is fully charged.
     fun dischargeStatic(blob: Blob) {
         if (!blob.alive || !blob.dischargeStatic()) return
         listener.onStaticDischarged(blob.position.x, blob.position.y, blob === player, blob.radius)
+        strike(StaticArc(blob, blob, mutableSetOf(blob.id), 0f), GameConfig.STATIC_DISCHARGE_RANGE_MULTIPLIER)
     }
 
+    // The balloon a discharge by `blob` right now would strike first, or null if nobody's in
+    // reach - the player's range indicator marks it, and bots wait for one.
+    fun staticDischargeTarget(blob: Blob): Blob? =
+        nearestArcTarget(blob, setOf(blob.id), staticDischargeRange(blob))
+
+    fun staticDischargeRange(blob: Blob): Float =
+        reachRangeFromCenter(blob, GameConfig.STATIC_DISCHARGE_RANGE_MULTIPLIER)
+
+    // A stunned balloon was just struck by some bolt and is skipped, the way it can't be struck
+    // twice by the same one - so two chains crossing each other spread out instead of piling up.
+    private fun nearestArcTarget(from: Blob, struck: Set<Int>, range: Float): Blob? {
+        var nearest: Blob? = null
+        var nearestGap = Float.MAX_VALUE
+        for (candidate in blobs) {
+            if (!candidate.alive || candidate.id in struck || candidate.isStunned) continue
+            val gap = candidate.position.distanceTo(from.position) - candidate.radius
+            if (gap <= range && gap < nearestGap) {
+                nearest = candidate
+                nearestGap = gap
+            }
+        }
+        return nearest
+    }
+
+    // The bolt jumps from arc.from to its nearest balloon in reach, if any. A shield takes the hit
+    // and ends the chain there; anyone else loses a little air, is stunned, and passes the bolt on
+    // to its own neighbour a moment later. If that balloon was fully charged too, its own charge
+    // goes off as well - a separate discharge, so the original discharger is fair game for it.
+    private fun strike(arc: StaticArc, rangeMultiplier: Float) {
+        val from = arc.from
+        if (!from.alive) return
+        val target = nearestArcTarget(from, arc.struck, reachRangeFromCenter(from, rangeMultiplier)) ?: return
+        arc.struck.add(target.id)
+        val blocked = target.isShielded
+        listener.onStaticArc(
+            from.id, target.id, from.position.x, from.position.y, target.position.x, target.position.y,
+            arc.launcher === player, target === player, blocked
+        )
+        if (blocked) return
+        val chained = target.isFullyCharged
+        if (target.applyStaticShock()) {
+            listener.onDeflateDeath(target.position.x, target.position.y, target === player)
+            return
+        }
+        pendingArcs.add(StaticArc(target, arc.launcher, arc.struck, GameConfig.STATIC_CHAIN_HOP_SECONDS))
+        if (chained && target.dischargeStatic()) {
+            listener.onStaticDischarged(target.position.x, target.position.y, target === player, target.radius)
+            pendingArcs.add(StaticArc(target, target, mutableSetOf(target.id), GameConfig.STATIC_CHAIN_HOP_SECONDS))
+        }
+    }
+
+    private fun advanceStaticArcs(dt: Float) {
+        if (pendingArcs.isEmpty()) return
+        for (arc in pendingArcs) arc.delay -= dt
+        // Striking queues the next hops (always with a delay still ahead of them), so this only
+        // ever takes the ones that were already due.
+        while (true) {
+            val index = pendingArcs.indexOfFirst { it.delay <= 0f }
+            if (index < 0) break
+            val arc = pendingArcs.removeAt(index)
+            // A discharge's own first bolt reaches further than the hops after it.
+            val multiplier = if (arc.from === arc.launcher) {
+                GameConfig.STATIC_DISCHARGE_RANGE_MULTIPLIER
+            } else {
+                GameConfig.STATIC_CHAIN_RANGE_MULTIPLIER
+            }
+            strike(arc, multiplier)
+        }
+    }
+
+    // Bots hold a full charge until someone wanders into reach, then let it go.
     private fun releaseBotStaticCharges() {
         for (blob in blobs) {
-            if (blob !== player && blob.alive && blob.staticFullSeconds >= GameConfig.BOT_STATIC_HOLD_SECONDS) {
+            if (blob !== player && blob.alive && !blob.isInert &&
+                blob.staticFullSeconds >= GameConfig.BOT_STATIC_REACTION_SECONDS &&
+                staticDischargeTarget(blob) != null
+            ) {
                 dischargeStatic(blob)
             }
         }

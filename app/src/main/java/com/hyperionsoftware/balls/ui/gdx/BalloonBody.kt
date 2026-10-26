@@ -126,6 +126,14 @@ class BalloonBody {
         flutter = 0f
     }
 
+    // Struck by a static discharge: the latex shudders all over at once, then rings down.
+    fun shock(random: java.util.Random) {
+        for (k in 0 until SPOKES) {
+            val kick = (if (k % 2 == 0) 1f else -1f) * (0.4f + random.nextFloat()) - 0.5f
+            shapeSpeed[k] += kick * SHOCK_KICK * intensity
+        }
+    }
+
     // Feeds in this frame's gameplay state. `speed` is how fast the balloon is driving itself
     // along its facing (0 while frozen). A body that skipped a frame (off screen, or just
     // spawned) starts again from rest rather than reading a jump as a violent acceleration.
@@ -364,6 +372,8 @@ class BalloonBody {
         private const val FLUTTER_SMOOTHING = 0.5f
         private const val MAX_ACCELERATION = REFERENCE_ACCELERATION * 3f
         private const val ACCELERATION_SMOOTHING = 0.05f
+        // How hard a static shock kicks the membrane, in radii per second.
+        private const val SHOCK_KICK = 5f
         private const val MIN_SCALE = 0.6f
         private const val MAX_SCALE = 1.4f
         private const val MAX_SUBSTEP = 1f / 300f

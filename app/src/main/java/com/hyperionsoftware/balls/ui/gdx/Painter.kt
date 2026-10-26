@@ -178,8 +178,8 @@ class Painter {
 
     // A circle outline of constant stroke width, built from short antialiased segments rather
     // than a scaled ring texture (whose stroke would grow and shrink with the radius). With
-    // `dashed`, only every other segment is drawn.
-    fun circleStroke(cx: Float, cy: Float, radius: Float, width: Float, dashed: Boolean = false) {
+    // `dashed`, only every other segment is drawn; `startAngle` (radians) turns the dashes.
+    fun circleStroke(cx: Float, cy: Float, radius: Float, width: Float, dashed: Boolean = false, startAngle: Float = 0f) {
         if (radius <= 0f) return
         val segments = segmentsFor(radius)
         val step = MathUtils.PI2 / segments
@@ -189,7 +189,7 @@ class Painter {
         val outer = radius + width / 2f + 0.75f
         for (i in 0 until segments) {
             if (dashed && i % 2 == 1) continue
-            val a0 = i * step
+            val a0 = startAngle + i * step
             val a1 = a0 + step
             val c0 = MathUtils.cos(a0)
             val s0 = MathUtils.sin(a0)

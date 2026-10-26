@@ -17,7 +17,7 @@ import kotlin.math.sin
 // indistinguishable by ear.
 class SoundEffectPlayer(private val context: Context) {
     enum class Effect {
-        ABSORB, COMBO, POWERUP, ACTIVE_ITEM, FINAL_ROUND_ALERT, GAME_OVER_WIN, GAME_OVER_LOSE, STATIC_CHARGED, STATIC_DISCHARGE
+        ABSORB, COMBO, POWERUP, ACTIVE_ITEM, FINAL_ROUND_ALERT, GAME_OVER_WIN, GAME_OVER_LOSE, STATIC_CHARGED, STATIC_DISCHARGE, STATIC_ZAP
     }
 
     private val sampleRate = 22050
@@ -50,6 +50,7 @@ class SoundEffectPlayer(private val context: Context) {
         Effect.GAME_OVER_LOSE -> buildGameOverLose()
         Effect.STATIC_CHARGED -> buildStaticCharged()
         Effect.STATIC_DISCHARGE -> buildStaticDischarge()
+        Effect.STATIC_ZAP -> buildStaticZap()
     }
 
     // The charge topping up: a rising electric whine with a faint crackle on it, like a flash
@@ -86,6 +87,30 @@ class SoundEffectPlayer(private val context: Context) {
             val sputter = hold * (0.5 + 0.5 * sin(2.0 * PI * 23.0 * t)).let { it * it } * exp(-t * 7.0)
             val buzz = (if (sin(2.0 * PI * 110.0 * t) > 0) 1.0 else -1.0) * exp(-t * 9.0) * 0.25
             mix[i] = crack * 0.95 + sputter * 0.45 + buzz
+        }
+        return render(mix)
+    }
+
+    // A bolt striking a balloon: a whip-crack of bright noise with a falling electric zap
+    // through it, then a short low thunder rumble and the crackle of the latex frying.
+    private fun buildStaticZap(): AudioTrack {
+        val duration = 0.6
+        val frames = (sampleRate * duration).toInt()
+        val mix = DoubleArray(frames)
+        var phase = 0.0
+        var rumble = 0.0
+        var hold = 0.0
+        for (i in 0 until frames) {
+            val t = i / sampleRate.toDouble()
+            val crack = (Math.random() * 2.0 - 1.0) * exp(-t * 85.0)
+            phase += (2400.0 * exp(-t * 18.0) + 180.0) / sampleRate
+            val zap = (if (sin(2.0 * PI * phase) > 0) 1.0 else -1.0) * exp(-t * 14.0) * 0.3
+            // Low-passed noise: a quick one-pole filter turns hiss into a rumble.
+            rumble += ((Math.random() * 2.0 - 1.0) - rumble) * 0.035
+            val thunder = rumble * 6.0 * (1.0 - exp(-t * 60.0)) * exp(-t * 6.5)
+            if (Math.random() < 0.05) hold = Math.random() * 2.0 - 1.0
+            val crackle = hold * exp(-t * 5.0) * (if (Math.random() < 0.3) 1.0 else 0.0) * 0.3
+            mix[i] = crack + zap + thunder * 0.55 + crackle
         }
         return render(mix)
     }

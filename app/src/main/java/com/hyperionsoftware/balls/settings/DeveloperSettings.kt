@@ -9,7 +9,7 @@ object DeveloperSettings {
     private const val PREFS_NAME = "settings"
     private const val KEY_ENABLED = "developer_mode_enabled"
     private const val KEY_DEFORMATION_PERCENT = "developer_deformation_percent"
-    const val DEFAULT_DEFORMATION_PERCENT = 100
+    const val DEFAULT_DEFORMATION_PERCENT = 70
     const val MAX_DEFORMATION_PERCENT = 300
 
     fun isEnabled(context: Context): Boolean =
@@ -24,8 +24,9 @@ object DeveloperSettings {
     }
 
     // How exaggerated the balloons' latex deformation is (see BalloonBody.intensity), as a
-    // percentage of the tuned default - only adjustable in developer mode (CustomizeActivity),
-    // but read regardless, so a value set there sticks.
+    // percentage of its full tuned strength - 70% by default, which read best on a device. Only
+    // adjustable in developer mode (CustomizeActivity), but read regardless, so a value set there
+    // sticks.
     fun getDeformationPercent(context: Context): Int =
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             .getInt(KEY_DEFORMATION_PERCENT, DEFAULT_DEFORMATION_PERCENT)

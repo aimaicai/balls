@@ -20,8 +20,9 @@ class BalloonBodies {
     var rubSpeed = 0f
         private set
 
-    // How exaggerated the latex's deformation is (1 = default, 0 = rigid balloons) - a
-    // developer-mode tuning knob, see DeveloperSettings.getDeformationPercent.
+    // How exaggerated the latex's deformation is (1 = the full tuned strength, 0 = rigid
+    // balloons; the game defaults to 0.7) - a developer-mode tuning knob, see
+    // DeveloperSettings.getDeformationPercent.
     var intensity = 1f
 
     fun beginFrame() {
@@ -72,6 +73,13 @@ class BalloonBodies {
         for (body in active) body.settle(dt)
         for (body in active) body.simulate(dt)
     }
+
+    // A static shock jolting `id`'s latex, if it's on screen.
+    fun shock(id: Int) {
+        bodies.getOrNull(id)?.shock(shockRandom)
+    }
+
+    private val shockRandom = java.util.Random()
 
     fun clear() {
         bodies.fill(null)

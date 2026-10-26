@@ -28,6 +28,8 @@ class BalloonPainter(private val painter: Painter, private val particles: Partic
         var isThrusting = false
         var isBoosting = false
         var isFrozen = false
+        // Knocked out by a static discharge: scorched and still crackling.
+        var isStunned = false
         var isShielded = false
         var isSpeedBoosted = false
         var sticker: BalloonSticker = BalloonSticker.NONE
@@ -108,6 +110,12 @@ class BalloonPainter(private val painter: Painter, private val particles: Partic
             painter.color(Color.WHITE, 0.35f * s.alpha)
             painter.region(atlas.sparkle, s.x - s.radius * 0.35f, s.y - s.radius * 0.3f, s.radius * 0.7f, s.radius * 0.7f, 15f)
         }
+        if (s.isStunned) {
+            // Scorched by the bolt: a sooty, flickering coat over the latex.
+            val flicker = 0.8f + 0.2f * sin(s.exhaustPhase * 47f + s.seed)
+            painter.color(SCORCH_COLOR, 0.38f * flicker * s.alpha)
+            balloonLayer(s, atlas.balloon, s.radius * Atlas.BALLOON_SPRITE_SCALE, facingAngleDeg(s.facingX, s.facingY))
+        }
         if (s.isShielded) {
             val pulse = 0.6f + 0.4f * sin(s.exhaustPhase * 3f)
             painter.color(SHIELD_COLOR, 0.5f * pulse * s.alpha)
@@ -139,6 +147,14 @@ class BalloonPainter(private val painter: Painter, private val particles: Partic
             painter.glow(s.x, s.y, s.radius * 1.35f)
         }
         if (s.charge >= 1f) drawStaticAura(s)
+        if (s.isStunned) {
+            // The bolt still running through it: a cold flicker and lightning racing over the
+            // latex, faster and wilder than a charge's aura.
+            val flicker = 0.6f + 0.4f * sin(s.exhaustPhase * 53f + s.seed)
+            painter.color(STUN_GLOW_COLOR, 0.35f * flicker * s.alpha)
+            painter.glow(s.x, s.y, s.radius * 1.5f)
+            drawArcs(s, STUN_ARCS, STUN_ARC_RATE, 0.22f, STUN_GLOW_COLOR, Color.WHITE, 1)
+        }
     }
 
     // Fully charged: a flickering blue-violet halo and little arcs of lightning crawling over
@@ -152,24 +168,31 @@ class BalloonPainter(private val painter: Painter, private val particles: Partic
         painter.color(AURA_ARC_GLOW_COLOR, 0.3f * flicker * s.alpha)
         painter.glow(s.x, s.y, s.radius * 1.3f)
 
-        val bucket = (phase * AURA_ARC_RATE).toInt()
-        auraRandom.setSeed(bucket * 7919L + s.seed * 104729L)
+        drawArcs(s, AURA_ARCS, AURA_ARC_RATE, 0.16f, AURA_ARC_GLOW_COLOR, AURA_CORE_COLOR, 0)
+    }
+
+    // Little arcs of lightning crawling over the balloon, hugging its (deformed) outline, redrawn
+    // in a new place `rate` times a second - each balloon on its own beat. `jitter` is how far,
+    // in radii, they wander off the outline; `salt` keeps two kinds of arcs on one balloon apart.
+    private fun drawArcs(s: State, count: Int, rate: Float, jitter: Float, glowColor: Int, coreColor: Int, salt: Int) {
+        val bucket = (s.exhaustPhase * rate).toInt()
+        auraRandom.setSeed(bucket * 7919L + s.seed * 104729L + salt * 15485863L)
         val rotation = facingAngleDeg(s.facingX, s.facingY) * MathUtils.degreesToRadians
-        for (arc in 0 until AURA_ARCS) {
+        for (arc in 0 until count) {
             val start = auraRandom.nextFloat() * MathUtils.PI2
             val span = 0.5f + auraRandom.nextFloat() * 0.6f
             var previousX = 0f
             var previousY = 0f
             for (i in 0..AURA_ARC_POINTS) {
                 val local = start + span * i / AURA_ARC_POINTS
-                val reach = s.radius * (outlineRadius(s, local) + 0.08f + (auraRandom.nextFloat() - 0.5f) * 0.16f)
+                val reach = s.radius * (outlineRadius(s, local) + jitter / 2f + (auraRandom.nextFloat() - 0.5f) * jitter)
                 val world = local + rotation
                 val px = s.x + MathUtils.cos(world) * reach
                 val py = s.y + MathUtils.sin(world) * reach
                 if (i > 0) {
-                    painter.color(AURA_ARC_GLOW_COLOR, 0.6f * s.alpha)
+                    painter.color(glowColor, 0.6f * s.alpha)
                     painter.line(previousX, previousY, px, py, 8f)
-                    painter.color(AURA_CORE_COLOR, 0.95f * s.alpha)
+                    painter.color(coreColor, 0.95f * s.alpha)
                     painter.line(previousX, previousY, px, py, 2.2f)
                 }
                 previousX = px
@@ -181,8 +204,10 @@ class BalloonPainter(private val painter: Painter, private val particles: Partic
     // A few stray sparks jump off the latex as it charges up - rarely at first, constantly once
     // it's full - so the meter shows on the balloon itself, the player's and everyone else's.
     fun emitStaticSparks(s: State, dt: Float) {
-        if (s.charge <= 0.2f || dt <= 0f) return
-        val rate = if (s.charge >= 1f) 9f else 5f * s.charge * s.charge
+        if (dt <= 0f) return
+        if (s.isStunned) emitScorch(s, dt)
+        if (s.charge <= 0.2f && !s.isStunned) return
+        val rate = if (s.isStunned) 16f else if (s.charge >= 1f) 9f else 5f * s.charge * s.charge
         if (MathUtils.random() > rate * dt) return
         val local = MathUtils.random(MathUtils.PI2)
         val world = local + facingAngleDeg(s.facingX, s.facingY) * MathUtils.degreesToRadians
@@ -199,6 +224,24 @@ class BalloonPainter(private val painter: Painter, private val particles: Partic
             AURA_CORE_COLOR, AURA_COLOR,
             alpha = s.alpha,
             drag = 5f
+        )
+    }
+
+    // A stunned balloon smoulders: thin wisps of smoke curling off where the bolt went through.
+    private fun emitScorch(s: State, dt: Float) {
+        if (MathUtils.random() > SCORCH_SMOKE_RATE * dt) return
+        val local = MathUtils.random(MathUtils.PI2)
+        val world = local + facingAngleDeg(s.facingX, s.facingY) * MathUtils.degreesToRadians
+        val reach = s.radius * outlineRadius(s, local) * 0.8f
+        particles.spawn(
+            Particles.Kind.SMOKE,
+            s.x + MathUtils.cos(world) * reach, s.y + MathUtils.sin(world) * reach,
+            MathUtils.cos(world) * 25f, MathUtils.sin(world) * 25f - 30f,
+            MathUtils.random(0.5f, 0.9f),
+            s.radius * 0.25f, s.radius * 0.8f,
+            SCORCH_SMOKE_COLOR,
+            alpha = 0.45f * s.alpha,
+            drag = 1.2f
         )
     }
 
@@ -347,6 +390,12 @@ class BalloonPainter(private val painter: Painter, private val particles: Partic
         private const val AURA_ARCS = 3
         private const val AURA_ARC_POINTS = 6
         private const val AURA_ARC_RATE = 14f
+        private val SCORCH_COLOR = Color.parseColor("#1A1420")
+        private val SCORCH_SMOKE_COLOR = Color.parseColor("#4A4650")
+        private const val SCORCH_SMOKE_RATE = 10f
+        private val STUN_GLOW_COLOR = Color.parseColor("#7C8CFF")
+        private const val STUN_ARCS = 4
+        private const val STUN_ARC_RATE = 24f
 
         fun facingAngleDeg(facingX: Float, facingY: Float): Float =
             atan2(facingY, facingX) * MathUtils.radiansToDegrees + 90f

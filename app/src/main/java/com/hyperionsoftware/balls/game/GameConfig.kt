@@ -298,9 +298,21 @@ object GameConfig {
     // into each other charges too, at this fraction of what sliding does.
     const val STATIC_CHARGE_FULL_RUB_DISTANCE = 800f
     const val STATIC_CHARGE_PRESSING_FACTOR = 0.6f
-    // Bots let a full charge go after holding it this long - until discharging does something,
-    // that just keeps the arena from filling up with crackling balloons.
-    const val BOT_STATIC_HOLD_SECONDS = 6f
+    // Discharging a full charge sends a bolt into the nearest balloon within this reach of the
+    // discharger's edge (baseRadius multiples, like REPEL/FREEZE/HOOK). The struck balloon loses
+    // a little air and is knocked out for a moment, then the bolt jumps on from it to its own
+    // nearest neighbour within the shorter hop reach - never back to whoever discharged it, nor
+    // to a balloon this chain already went through - one hop every STATIC_CHAIN_HOP_SECONDS, so
+    // the chain can be followed by eye. Striking a balloon that was fully charged itself sets its
+    // charge off too, as a fresh discharge of its own (which can hit the first discharger).
+    const val STATIC_DISCHARGE_RANGE_MULTIPLIER = 4f
+    const val STATIC_CHAIN_RANGE_MULTIPLIER = 3.5f
+    const val STATIC_CHAIN_HOP_SECONDS = 0.12f
+    const val STATIC_SHOCK_DEFLATE_FRACTION = 0.08f
+    const val STATIC_SHOCK_STUN_SECONDS = 1.2f
+    // A bot with a full charge lets it go once someone is in reach, after this beat of reaction
+    // time (so it doesn't fire the very tick its charge fills).
+    const val BOT_STATIC_REACTION_SECONDS = 0.5f
 
     fun applyArenaSize(size: ArenaSize) {
         WORLD_WIDTH = BASE_WORLD_WIDTH * size.scaleFactor

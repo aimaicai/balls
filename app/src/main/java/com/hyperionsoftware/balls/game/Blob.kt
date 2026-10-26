@@ -38,11 +38,16 @@ abstract class Blob(
     private var invisibilityTimer: Float = 0f
     private var shieldTimer: Float = 0f
     private var frozenTimer: Float = 0f
+    private var stunnedTimer: Float = 0f
 
     val isInvisible: Boolean get() = invisibilityTimer > 0f
     val isSpeedBoosted: Boolean get() = speedBoostTimer > 0f
     val isShielded: Boolean get() = shieldTimer > 0f
     val isFrozen: Boolean get() = frozenTimer > 0f
+    // Knocked out for a moment by a static discharge striking it (see GameEngine.strike).
+    val isStunned: Boolean get() = stunnedTimer > 0f
+    // Frozen or stunned: can't drive itself, and can't absorb anyone either.
+    val isInert: Boolean get() = isFrozen || isStunned
 
     // True once a continuously-held sprint has ramped all the way up to its speed cap
     // (see effectiveSpeed) - exposed so the UI layer can detect the moment for an
@@ -92,8 +97,9 @@ abstract class Blob(
     open fun update(dt: Float, engine: GameEngine, baseSpeed: Float) {
         if (!alive) return
 
-        if (isFrozen) {
+        if (isInert) {
             frozenTimer = max(0f, frozenTimer - dt)
+            stunnedTimer = max(0f, stunnedTimer - dt)
             isThrusting = false
             currentSpeed = 0f
         } else {
@@ -226,6 +232,18 @@ abstract class Blob(
         if (isFullyCharged || amount <= 0f) return false
         staticCharge = min(1f, staticCharge + amount)
         return isFullyCharged
+    }
+
+    // Struck by a static discharge: the jolt lets a little air out and knocks the balloon out for
+    // a moment. Returns true if what air it lost was the last it could spare.
+    fun applyStaticShock(): Boolean {
+        stunnedTimer = GameConfig.STATIC_SHOCK_STUN_SECONDS
+        radius -= radius * GameConfig.STATIC_SHOCK_DEFLATE_FRACTION
+        if (radius < GameConfig.ZONE_DEATH_RADIUS) {
+            alive = false
+            return true
+        }
+        return false
     }
 
     // Releases a full charge. Returns false (and does nothing) unless it was full.

@@ -46,9 +46,11 @@ import com.hyperionsoftware.balls.ui.gdx.Particles
 import com.hyperionsoftware.balls.ui.gdx.TextStyle
 import kotlin.math.abs
 import kotlin.math.ceil
+import kotlin.math.exp
 import kotlin.math.hypot
 import kotlin.math.max
 import kotlin.math.min
+import kotlin.math.pow
 import kotlin.math.sin
 
 // Classic mode's match, on libGDX: runs the GameEngine and draws it, all on libGDX's own render
@@ -139,6 +141,22 @@ class GameRenderer(private val view: GameView) : ApplicationAdapter() {
     // A brief additive burst of light - where a balloon popped, or an item went off.
     private class Flash(val x: Float, val y: Float, val radius: Float, val color: Int, var ttl: Float, val maxTtl: Float = ttl)
     private class AchievementPopup(val text: String, var ttl: Float, val maxTtl: Float = ttl)
+    // A static discharge's bolt from one balloon to another, its ends following both balloons
+    // (by id) for as long as it lasts - or, with ids of -1, fixed in place (a discharge
+    // crackling into the air around itself). `blocked` stops it on the target's shield.
+    private class Bolt(
+        val fromId: Int,
+        val toId: Int,
+        var fromX: Float,
+        var fromY: Float,
+        var toX: Float,
+        var toY: Float,
+        val seed: Long,
+        val width: Float,
+        val blocked: Boolean,
+        var ttl: Float,
+        val maxTtl: Float = ttl
+    )
 
     private val floatingTexts = mutableListOf<FloatingText>()
     private val feedEntries = mutableListOf<FeedEntry>()
@@ -146,6 +164,22 @@ class GameRenderer(private val view: GameView) : ApplicationAdapter() {
     private val absorbAnims = mutableListOf<AbsorbAnim>()
     private val flashes = mutableListOf<Flash>()
     private val achievementPopups = mutableListOf<AchievementPopup>()
+    private val bolts = mutableListOf<Bolt>()
+    private val boltRandom = java.util.Random()
+    private val boltX = FloatArray(MAX_BOLT_POINTS)
+    private val boltY = FloatArray(MAX_BOLT_POINTS)
+    private val boltMainX = FloatArray(MAX_BOLT_POINTS)
+    private val boltMainY = FloatArray(MAX_BOLT_POINTS)
+    private var nextBoltSeed = 1L
+    // A strike's jolt: the camera shakes by up to this many pixels, dying away, and the whole
+    // screen lights up for an instant.
+    private var shake = 0f
+    private var screenFlash = 0f
+    // The world area on screen last frame - whether a strike is worth a sound and a jolt.
+    private var viewLeft = 0f
+    private var viewTop = 0f
+    private var viewRight = 0f
+    private var viewBottom = 0f
 
     // Per-match latches - see the old GameView for the reasoning, all unchanged.
     private var maxSizeAchievementChecked = false
@@ -288,6 +322,9 @@ class GameRenderer(private val view: GameView) : ApplicationAdapter() {
         absorbAnims.clear()
         flashes.clear()
         achievementPopups.clear()
+        bolts.clear()
+        shake = 0f
+        screenFlash = 0f
         particles.clear()
         maxSizeAchievementChecked = false
         maxBoostAchievementChecked = false
@@ -505,6 +542,46 @@ class GameRenderer(private val view: GameView) : ApplicationAdapter() {
             if (byPlayer) {
                 vibrate(VibrationEffect.createWaveform(longArrayOf(0, 60, 30, 30), -1))
                 playSound(SoundEffectPlayer.Effect.STATIC_DISCHARGE)
+                shake = max(shake, 9f)
+                screenFlash = max(screenFlash, 0.14f)
+            } else if (isVisible(x, y, radius * 3f, viewLeft, viewTop, viewRight, viewBottom)) {
+                playSound(SoundEffectPlayer.Effect.STATIC_DISCHARGE)
+            }
+        }
+
+        override fun onStaticArc(
+            fromId: Int,
+            toId: Int,
+            fromX: Float,
+            fromY: Float,
+            toX: Float,
+            toY: Float,
+            byPlayer: Boolean,
+            hitPlayer: Boolean,
+            blocked: Boolean
+        ) {
+            val engine = engine ?: return
+            val target = engine.blobs.firstOrNull { it.id == toId } ?: return
+            bolts.add(Bolt(fromId, toId, fromX, fromY, toX, toY, nextBoltSeed++, BOLT_WIDTH, blocked, BOLT_SECONDS))
+            strikeBurst(toX, toY, target.radius, blocked)
+            if (!blocked) bodies.shock(toId)
+            val involvesPlayer = byPlayer || hitPlayer
+            val onScreen = isVisible(toX, toY, target.radius * 3f, viewLeft, viewTop, viewRight, viewBottom) ||
+                isVisible(fromX, fromY, target.radius * 3f, viewLeft, viewTop, viewRight, viewBottom)
+            if (involvesPlayer || onScreen) {
+                playSound(SoundEffectPlayer.Effect.STATIC_ZAP)
+                shake = max(shake, if (hitPlayer && !blocked) 22f else if (fromId == 0) 12f else 6f)
+                // The screen lights up for the strikes that matter to the player - the first bolt
+                // of their own discharge and any bolt hitting them - and only faintly for the rest
+                // of a chain, which would otherwise keep the whole screen washed out.
+                val flash = if (hitPlayer || fromId == 0) 0.2f else 0.06f
+                screenFlash = max(screenFlash, flash)
+            }
+            if (hitPlayer && !blocked) {
+                vibrate(VibrationEffect.createWaveform(longArrayOf(0, 30, 20, 50, 20, 80, 30, 40), -1))
+                floatingTexts.add(FloatingText(toX, toY - target.radius, context.getString(R.string.game_static_zapped), STATIC_COLOR, 1.3f))
+            } else if (byPlayer && !blocked) {
+                vibrate(VibrationEffect.createOneShot(40, 160))
             }
         }
 
@@ -555,10 +632,25 @@ class GameRenderer(private val view: GameView) : ApplicationAdapter() {
     }
 
     // A static charge let go all at once: a crackling flash, sparks flying off in every
-    // direction and a ring of light spreading out from the balloon.
+    // direction, a ring of light spreading out from the balloon and a few stray bolts lashing
+    // out into the air around it.
     private fun staticBurst(x: Float, y: Float, radius: Float) {
         flashes.add(Flash(x, y, radius * 2.6f, STATIC_COLOR, 0.25f))
+        flashes.add(Flash(x, y, radius * 1.4f, Color.WHITE, 0.12f))
         effectRipples.add(EffectRipple(x, y, radius * 2.4f, STATIC_COLOR, 0.35f))
+        effectRipples.add(EffectRipple(x, y, radius * 3.6f, STATIC_GLOW_COLOR, 0.5f))
+        repeat(4) {
+            val angle = MathUtils.random(MathUtils.PI2)
+            val reach = radius * MathUtils.random(1.6f, 2.8f)
+            bolts.add(
+                Bolt(
+                    -1, -1,
+                    x + MathUtils.cos(angle) * radius * 0.9f, y + MathUtils.sin(angle) * radius * 0.9f,
+                    x + MathUtils.cos(angle) * reach, y + MathUtils.sin(angle) * reach,
+                    nextBoltSeed++, BOLT_WIDTH * 0.55f, false, MathUtils.random(0.14f, 0.26f)
+                )
+            )
+        }
         for (i in 0 until 14) {
             val angle = MathUtils.random(MathUtils.PI2)
             val speed = MathUtils.random(220f, 520f)
@@ -570,6 +662,42 @@ class GameRenderer(private val view: GameView) : ApplicationAdapter() {
                 MathUtils.random(14f, 26f), 3f,
                 Color.WHITE, STATIC_COLOR,
                 drag = 4.5f
+            )
+        }
+    }
+
+    // Where a bolt lands: a white-hot flash, a shower of sparks, a shockwave and a puff of
+    // scorched air - or, on a shield, a cold blue splash and nothing gets through.
+    private fun strikeBurst(x: Float, y: Float, radius: Float, blocked: Boolean) {
+        val color = if (blocked) SHIELD_STRIKE_COLOR else STATIC_COLOR
+        flashes.add(Flash(x, y, radius * 3.2f, color, 0.32f))
+        flashes.add(Flash(x, y, radius * 1.5f, Color.WHITE, 0.14f))
+        effectRipples.add(EffectRipple(x, y, radius * 2.8f, color, 0.4f))
+        for (i in 0 until 22) {
+            val angle = MathUtils.random(MathUtils.PI2)
+            val speed = MathUtils.random(260f, 680f)
+            particles.spawn(
+                Particles.Kind.SPARK,
+                x + MathUtils.cos(angle) * radius * 0.8f, y + MathUtils.sin(angle) * radius * 0.8f,
+                MathUtils.cos(angle) * speed, MathUtils.sin(angle) * speed,
+                MathUtils.random(0.2f, 0.5f),
+                MathUtils.random(14f, 30f), 3f,
+                Color.WHITE, color,
+                drag = 4f
+            )
+        }
+        if (blocked) return
+        for (i in 0 until 6) {
+            val angle = MathUtils.random(MathUtils.PI2)
+            val speed = MathUtils.random(40f, 120f)
+            particles.spawn(
+                Particles.Kind.SMOKE, x, y,
+                MathUtils.cos(angle) * speed, MathUtils.sin(angle) * speed,
+                MathUtils.random(0.5f, 0.9f),
+                radius * 0.5f, radius * 1.6f,
+                SCORCH_SMOKE_COLOR,
+                alpha = 0.4f,
+                drag = 2f
             )
         }
     }
@@ -599,14 +727,24 @@ class GameRenderer(private val view: GameView) : ApplicationAdapter() {
         particles.update(dt)
 
         val player = engine.player
-        val camX = cameraCoord(player.position.x, width, GameConfig.WORLD_WIDTH)
-        val camY = cameraCoord(player.position.y, height, GameConfig.WORLD_HEIGHT)
+        var camX = cameraCoord(player.position.x, width, GameConfig.WORLD_WIDTH)
+        var camY = cameraCoord(player.position.y, height, GameConfig.WORLD_HEIGHT)
+        if (shake > 0f && dt > 0f) {
+            camX += MathUtils.random(-shake, shake)
+            camY += MathUtils.random(-shake, shake)
+            shake *= exp(-dt * SHAKE_DECAY)
+            if (shake < 0.5f) shake = 0f
+        }
         worldCamera.position.set(camX, camY, 0f)
         worldCamera.update()
         val left = camX - width / 2f
         val top = camY - height / 2f
         val right = left + width
         val bottom = top + height
+        viewLeft = left
+        viewTop = top
+        viewRight = right
+        viewBottom = bottom
 
         painter.begin(worldCamera.combined)
         // The floor is fully opaque, so it skips blending altogether.
@@ -633,6 +771,7 @@ class GameRenderer(private val view: GameView) : ApplicationAdapter() {
                 drawPowerUp(powerUp)
             }
         }
+        drawRangeIndicators(engine, left, top, right, bottom)
 
         // Only balloons actually on screen get drawn - with 100 bots spread over the whole
         // arena, only a handful are ever visible at once - and only those have their latex
@@ -681,6 +820,7 @@ class GameRenderer(private val view: GameView) : ApplicationAdapter() {
             if (blob.alive && isBlobVisible(blob, left, top, right, bottom)) balloons.drawGlow(stateOf(blob))
         }
         particles.draw(painter, Particles.Kind.SPARK, painter.atlas.sparkle, left, top, right, bottom)
+        drawBolts(engine, dt)
         drawFlashes(dt)
         painter.additive(false)
 
@@ -691,6 +831,7 @@ class GameRenderer(private val view: GameView) : ApplicationAdapter() {
         // the HUD, then their own text - so the whole HUD costs a handful of draw calls rather
         // than one per string, without changing what's layered over what.
         painter.begin(screenCamera.combined)
+        drawScreenFlash(dt, width, height)
         drawDangerIndicator(engine, camX - width / 2f, camY - height / 2f, width, height)
         drawPermanentStatsHud(player, width, text = false)
         drawHud(engine, width)
@@ -733,6 +874,7 @@ class GameRenderer(private val view: GameView) : ApplicationAdapter() {
         isThrusting = blob.isThrusting
         isBoosting = blob.isBoosting
         isFrozen = blob.isFrozen
+        isStunned = blob.isStunned
         isShielded = blob.isShielded
         isSpeedBoosted = blob.isSpeedBoosted
         // Cosmetics only ever apply to the player's own balloon - bots keep the plain look.
@@ -855,6 +997,218 @@ class GameRenderer(private val view: GameView) : ApplicationAdapter() {
         val ringRadius = GameConfig.POWERUP_RADIUS * (1.6f + cyclePhase * 3f)
         painter.color(SUPPLY_BEACON_COLOR, (1f - cyclePhase) * 180f / 255f)
         painter.circleStroke(cx, cy, ringRadius, 4f)
+    }
+
+    // What the player's carried REPEL/FREEZE/HOOK and a full static charge would reach if used
+    // right now - only ever drawn for the player, so they can aim it: a slowly turning dashed
+    // ring at the exact range the effect uses (see GameEngine.itemRange/staticDischargeRange),
+    // with a reticle on every balloon it would catch.
+    private fun drawRangeIndicators(engine: GameEngine, left: Float, top: Float, right: Float, bottom: Float) {
+        val player = engine.player
+        if (!player.alive || countdownActive || matchOver) return
+        val item = player.carriedItem
+        val itemRange = if (item != null) engine.itemRange(player, item) else 0f
+        if (itemRange <= 0f && !player.isFullyCharged) return
+        painter.additive(true)
+        if (item != null && itemRange > 0f) {
+            val color = powerUpColor(item)
+            drawRangeRing(player, itemRange, color, 1f)
+            if (item == PowerUpType.HOOK) {
+                engine.hookTarget(player)?.let { if (!it.isInvisible) drawTargetMark(it, color) }
+            } else {
+                for (blob in engine.blobs) {
+                    if (blob === player || !blob.alive || blob.isInvisible) continue
+                    if (!isBlobVisible(blob, left, top, right, bottom)) continue
+                    if (engine.isInReach(player, blob, itemRange)) drawTargetMark(blob, color)
+                }
+            }
+        }
+        if (player.isFullyCharged) {
+            drawRangeRing(player, engine.staticDischargeRange(player), STATIC_COLOR, -1f)
+            val target = engine.staticDischargeTarget(player)
+            if (target != null && !target.isInvisible) {
+                drawTargetMark(target, STATIC_COLOR)
+                drawChargeGuide(player, target)
+            }
+        }
+        painter.additive(false)
+    }
+
+    private fun drawRangeRing(player: Blob, range: Float, color: Int, spin: Float) {
+        val x = player.position.x
+        val y = player.position.y
+        val pulse = 0.8f + 0.2f * sin(elapsedRealTime * 4f)
+        painter.ring(x, y, range - 40f, range, color, 0f, color, 0.14f * pulse)
+        painter.color(color, 0.6f * pulse)
+        painter.circleStroke(x, y, range, 4f, dashed = true, startAngle = spin * elapsedRealTime * 0.35f)
+    }
+
+    // A reticle closing in on a balloon the item would catch: a counter-turning dashed ring and
+    // four little arrowheads pointing at it.
+    private fun drawTargetMark(blob: Blob, color: Int) {
+        val x = blob.position.x
+        val y = blob.position.y
+        val pulse = 0.5f + 0.5f * sin(elapsedRealTime * 9f)
+        val r = blob.radius * 1.2f + 8f + 4f * pulse
+        painter.color(color, 0.25f + 0.15f * pulse)
+        painter.glow(x, y, blob.radius * 1.6f)
+        painter.color(color, 0.85f)
+        painter.circleStroke(x, y, r, 3f, dashed = true, startAngle = -elapsedRealTime * 1.2f)
+        for (i in 0 until 4) {
+            val angle = elapsedRealTime * 1.2f + i * MathUtils.HALF_PI
+            val c = MathUtils.cos(angle)
+            val sn = MathUtils.sin(angle)
+            painter.triangle(x + c * (r + 20f), y + sn * (r + 20f), x + c * (r + 5f), y + sn * (r + 5f), 14f)
+        }
+    }
+
+    // Little sparks of current flowing from the player toward the balloon its discharge would
+    // strike first.
+    private fun drawChargeGuide(player: Blob, target: Blob) {
+        val dx = target.position.x - player.position.x
+        val dy = target.position.y - player.position.y
+        val length = hypot(dx, dy)
+        if (length < 1f) return
+        val ux = dx / length
+        val uy = dy / length
+        val start = player.radius
+        val end = length - target.radius
+        if (end <= start) return
+        val dots = ((end - start) / 36f).toInt().coerceIn(2, 24)
+        val flow = (elapsedRealTime * 2.2f) % 1f
+        for (i in 0 until dots) {
+            val t = (i + flow) / dots
+            val d = start + (end - start) * t
+            painter.color(STATIC_COLOR, 0.55f * sin(t * MathUtils.PI))
+            painter.glow(player.position.x + ux * d, player.position.y + uy * d, 9f)
+        }
+    }
+
+    // Each bolt is a jagged line of light from balloon to balloon, re-struck in a new shape
+    // many times a second as it flickers out, with a few forks branching off it: a wide violet
+    // glow, a blue body and a white-hot core, all additive.
+    private fun drawBolts(engine: GameEngine, dt: Float) {
+        val iterator = bolts.iterator()
+        while (iterator.hasNext()) {
+            val bolt = iterator.next()
+            bolt.ttl -= dt
+            if (bolt.ttl <= 0f) {
+                iterator.remove()
+                continue
+            }
+            followBoltEnds(engine, bolt)
+            val age = bolt.maxTtl - bolt.ttl
+            val progress = age / bolt.maxTtl
+            boltRandom.setSeed(bolt.seed * 1_000_003L + (age * BOLT_RESTRIKE_RATE).toInt())
+            // Full strength for the first instant, then flickering as it dies.
+            val flicker = if (progress < 0.18f) 1f else 0.35f + 0.65f * boltRandom.nextFloat()
+            val alpha = (1f - progress).pow(0.6f) * flicker
+
+            var x0 = bolt.fromX
+            var y0 = bolt.fromY
+            var x1 = bolt.toX
+            var y1 = bolt.toY
+            if (bolt.fromId >= 0) {
+                // From surface to surface, not center to center.
+                val from = engine.blobs.firstOrNull { it.id == bolt.fromId }
+                val to = engine.blobs.firstOrNull { it.id == bolt.toId }
+                val dx = x1 - x0
+                val dy = y1 - y0
+                val length = hypot(dx, dy)
+                if (length > 1f) {
+                    val fromRadius = (from?.radius ?: 0f) * 0.85f
+                    val toRadius = (to?.radius ?: 0f) * (if (bolt.blocked) 1.2f else 0.85f)
+                    if (fromRadius + toRadius < length) {
+                        x0 += dx / length * fromRadius
+                        y0 += dy / length * fromRadius
+                        x1 -= dx / length * toRadius
+                        y1 -= dy / length * toRadius
+                    }
+                }
+            }
+            val count = jaggedPath(x0, y0, x1, y1, 0.16f)
+            strokeBolt(count, bolt.width, alpha)
+            painter.color(STATIC_COLOR, 0.5f * alpha)
+            painter.glow(x0, y0, bolt.width * 3f)
+            painter.color(Color.WHITE, 0.6f * alpha)
+            painter.glow(x1, y1, bolt.width * 3.5f)
+
+            // Forks: short side branches leaving the bolt at a slant, toward the target.
+            if (bolt.fromId >= 0) {
+                // Forks reuse the path buffer, so the main bolt's points are kept aside first.
+                System.arraycopy(boltX, 0, boltMainX, 0, count)
+                System.arraycopy(boltY, 0, boltMainY, 0, count)
+                val length = hypot(x1 - x0, y1 - y0)
+                repeat(BOLT_FORKS) {
+                    val at = 1 + boltRandom.nextInt((count - 2).coerceAtLeast(1))
+                    val baseAngle = MathUtils.atan2(y1 - y0, x1 - x0)
+                    val angle = baseAngle + (if (boltRandom.nextBoolean()) 1f else -1f) * (0.4f + boltRandom.nextFloat() * 0.6f)
+                    val reach = length * (0.12f + boltRandom.nextFloat() * 0.2f)
+                    val sx = boltMainX[at]
+                    val sy = boltMainY[at]
+                    val forkCount = jaggedPath(sx, sy, sx + MathUtils.cos(angle) * reach, sy + MathUtils.sin(angle) * reach, 0.25f)
+                    strokeBolt(forkCount, bolt.width * 0.5f, alpha * 0.8f)
+                }
+            }
+        }
+    }
+
+    // Keeps a bolt's ends on the balloons it joins while they move, and where they were last
+    // seen if one is gone.
+    private fun followBoltEnds(engine: GameEngine, bolt: Bolt) {
+        if (bolt.fromId < 0) return
+        engine.blobs.firstOrNull { it.id == bolt.fromId && it.alive }?.let {
+            val body = bodies[it.id]
+            bolt.fromX = body?.drawnX ?: it.position.x
+            bolt.fromY = body?.drawnY ?: it.position.y
+        }
+        engine.blobs.firstOrNull { it.id == bolt.toId && it.alive }?.let {
+            val body = bodies[it.id]
+            bolt.toX = body?.drawnX ?: it.position.x
+            bolt.toY = body?.drawnY ?: it.position.y
+        }
+    }
+
+    // Fills boltX/boltY with a lightning-shaped path from (x0, y0) to (x1, y1): a random walk
+    // sideways of the straight line, pinned at both ends, `roughness` times its length at most.
+    // Returns how many points it has.
+    private fun jaggedPath(x0: Float, y0: Float, x1: Float, y1: Float, roughness: Float): Int {
+        val dx = x1 - x0
+        val dy = y1 - y0
+        val length = hypot(dx, dy)
+        val count = ((length / BOLT_SEGMENT_LENGTH).toInt() + 1).coerceIn(3, MAX_BOLT_POINTS)
+        val nx = if (length > 0f) -dy / length else 0f
+        val ny = if (length > 0f) dx / length else 0f
+        val amplitude = length * roughness
+        var walk = 0f
+        for (i in 0 until count) {
+            val t = i / (count - 1).toFloat()
+            walk = (walk + (boltRandom.nextFloat() - 0.5f) * amplitude * 0.9f).coerceIn(-amplitude, amplitude)
+            // Pinned at both ends, free to wander in the middle.
+            val offset = walk * sin(t * MathUtils.PI)
+            boltX[i] = x0 + dx * t + nx * offset
+            boltY[i] = y0 + dy * t + ny * offset
+        }
+        return count
+    }
+
+    private fun strokeBolt(count: Int, width: Float, alpha: Float) {
+        painter.color(STATIC_GLOW_COLOR, 0.32f * alpha)
+        for (i in 1 until count) painter.line(boltX[i - 1], boltY[i - 1], boltX[i], boltY[i], width * 4.5f)
+        painter.color(STATIC_COLOR, 0.85f * alpha)
+        for (i in 1 until count) painter.line(boltX[i - 1], boltY[i - 1], boltX[i], boltY[i], width * 1.5f)
+        painter.color(Color.WHITE, alpha)
+        for (i in 1 until count) painter.line(boltX[i - 1], boltY[i - 1], boltX[i], boltY[i], width * 0.55f)
+    }
+
+    // The instant a bolt strikes nearby, the whole screen lights up with it.
+    private fun drawScreenFlash(dt: Float, width: Float, height: Float) {
+        if (screenFlash <= 0f) return
+        painter.additive(true)
+        painter.color(STATIC_FLASH_COLOR, screenFlash)
+        painter.rect(0f, 0f, width, height)
+        painter.additive(false)
+        screenFlash = max(0f, screenFlash - dt * SCREEN_FLASH_FADE)
     }
 
     private fun drawAbsorbAnimations(dt: Float) {
@@ -1278,6 +1632,18 @@ class GameRenderer(private val view: GameView) : ApplicationAdapter() {
         private const val PARTICLE_CAPACITY = 2400
         private const val CHARGE_STEPS = 50
         private val STATIC_COLOR = Color.parseColor("#8C9EFF")
+        private val STATIC_GLOW_COLOR = Color.parseColor("#7C4DFF")
+        private val STATIC_FLASH_COLOR = Color.parseColor("#B8C4FF")
+        private val SHIELD_STRIKE_COLOR = Color.parseColor("#4FC3F7")
+        private val SCORCH_SMOKE_COLOR = Color.parseColor("#4A4650")
+        private const val BOLT_SECONDS = 0.42f
+        private const val BOLT_WIDTH = 6f
+        private const val BOLT_SEGMENT_LENGTH = 22f
+        private const val BOLT_RESTRIKE_RATE = 30f
+        private const val BOLT_FORKS = 3
+        private const val MAX_BOLT_POINTS = 40
+        private const val SHAKE_DECAY = 9f
+        private const val SCREEN_FLASH_FADE = 4f
         private const val SETTLE_AFTER_END_SECONDS = 2f
         private const val FLOOR_CELL = 200f
         private const val MAX_FEED_ENTRIES = 5

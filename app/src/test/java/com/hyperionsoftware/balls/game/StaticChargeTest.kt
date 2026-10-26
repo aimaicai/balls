@@ -6,7 +6,8 @@ import org.junit.Test
 
 // Covers static electricity: balloons that bounce off each other charge up in proportion to how
 // far their latex slid past the other's, a full charge stays full until released, releasing it
-// only works when full, and bots let theirs go on their own after a while.
+// only works when full, bots let theirs go once someone's in reach, and the discharge's bolt
+// chains from balloon to balloon.
 class StaticChargeTest {
 
     private fun newEngine(listener: TestGameListener = TestGameListener()) =
@@ -101,16 +102,185 @@ class StaticChargeTest {
     }
 
     @Test
-    fun `bots release a full charge after holding it for a while`() {
+    fun `bots hold a full charge until someone is in reach`() {
         val listener = TestGameListener()
         val engine = newEngine(listener)
-        val bot = engine.blobs.first { it !== engine.player }
-        engine.player.position = Vector2(300f, 300f)
+        val player = engine.player
+        val bot = engine.blobs.first { it !== player }
+        player.position = Vector2(300f, 300f)
         bot.position = Vector2(1800f, 1800f)
         bot.addStaticCharge(1f)
         val dt = 1f / 60f
-        repeat(((GameConfig.BOT_STATIC_HOLD_SECONDS + 0.5f) / dt).toInt()) { engine.update(dt) }
+        repeat(120) {
+            player.position = Vector2(300f, 300f)
+            bot.position = Vector2(1800f, 1800f)
+            engine.update(dt)
+        }
+        assertTrue("nobody in reach, so it keeps it", bot.isFullyCharged)
+
+        repeat(60) {
+            player.position = Vector2(1800f + 200f, 1800f)
+            bot.position = Vector2(1800f, 1800f)
+            engine.update(dt)
+        }
         assertEquals(0f, bot.staticCharge, 0f)
         assertEquals(1, listener.staticDischargedCount)
+        assertTrue("and the player took the bolt", player.isStunned || listener.arcs.any { it.toId == player.id })
+    }
+
+    // ---- The discharge itself ----------------------------------------------------------------
+
+    // Bots lined up to the player's right, every one of them still (frozen keeps them from
+    // wandering off, and a frozen balloon can still be struck), each `gap` apart edge to edge.
+    private fun lineUp(botCount: Int, gap: Float, listener: TestGameListener): GameEngine {
+        val engine = GameEngine(botCount = botCount, powerUpFrequencyLevel = 1, listener = listener)
+        engine.powerUps.clear()
+        val player = engine.player
+        player.radius = 40f
+        player.position = Vector2(1000f, 1000f)
+        engine.blobs.filter { it !== player }.forEachIndexed { i, bot ->
+            bot.radius = 40f
+            bot.position = Vector2(1000f + (i + 1) * (80f + gap), 1000f)
+            bot.applyFreeze(30f)
+        }
+        return engine
+    }
+
+    private fun bots(engine: GameEngine) = engine.blobs.filter { it !== engine.player }
+
+    private fun runFor(engine: GameEngine, seconds: Float) {
+        val dt = 1f / 60f
+        repeat((seconds / dt).toInt()) { engine.update(dt) }
+    }
+
+    @Test
+    fun `a discharge strikes the nearest balloon, deflating and stunning it`() {
+        val listener = TestGameListener()
+        val engine = lineUp(1, 100f, listener)
+        val player = engine.player
+        val bot = bots(engine)[0]
+        player.addStaticCharge(1f)
+        engine.dischargeStatic(player)
+        assertEquals(1, listener.arcs.size)
+        assertEquals(bot.id, listener.arcs[0].toId)
+        assertTrue(bot.isStunned)
+        assertEquals(40f * (1f - GameConfig.STATIC_SHOCK_DEFLATE_FRACTION), bot.radius, 0.001f)
+        assertTrue(listener.arcs[0].byPlayer)
+    }
+
+    @Test
+    fun `nobody in reach means the discharge strikes no one`() {
+        val listener = TestGameListener()
+        val engine = lineUp(1, GameConfig.BASE_RADIUS * GameConfig.STATIC_DISCHARGE_RANGE_MULTIPLIER + 50f, listener)
+        engine.player.addStaticCharge(1f)
+        engine.dischargeStatic(engine.player)
+        assertEquals(1, listener.staticDischargedCount)
+        assertTrue(listener.arcs.isEmpty())
+        assertTrue(bots(engine).none { it.isStunned })
+    }
+
+    @Test
+    fun `the bolt jumps along the chain one hop at a time and never back to the discharger`() {
+        val listener = TestGameListener()
+        val engine = lineUp(3, 60f, listener)
+        val player = engine.player
+        player.addStaticCharge(1f)
+        engine.dischargeStatic(player)
+        assertEquals(1, listener.arcs.size)
+        runFor(engine, GameConfig.STATIC_CHAIN_HOP_SECONDS * 0.5f)
+        assertEquals("the next hop waits its turn", 1, listener.arcs.size)
+        runFor(engine, GameConfig.STATIC_CHAIN_HOP_SECONDS * 6f)
+        val ids = bots(engine).map { it.id }
+        assertEquals(ids, listener.arcs.map { it.toId })
+        assertTrue(listener.arcs.none { it.toId == player.id })
+        assertTrue(bots(engine).all { it.isStunned })
+        assertTrue(!player.isStunned)
+    }
+
+    @Test
+    fun `hops only reach a close neighbour`() {
+        val listener = TestGameListener()
+        val engine = lineUp(2, 100f, listener)
+        // Moves the second bot out of hop reach of the first, but leaves the first in reach.
+        val far = bots(engine)[1]
+        far.position = Vector2(far.position.x + GameConfig.BASE_RADIUS * GameConfig.STATIC_CHAIN_RANGE_MULTIPLIER, 1000f)
+        engine.player.addStaticCharge(1f)
+        engine.dischargeStatic(engine.player)
+        runFor(engine, 1f)
+        assertEquals(listOf(bots(engine)[0].id), listener.arcs.map { it.toId })
+        assertTrue(!far.isStunned)
+    }
+
+    @Test
+    fun `striking a fully charged balloon sets its own discharge off, which can hit the discharger`() {
+        val listener = TestGameListener()
+        val engine = lineUp(1, 100f, listener)
+        val player = engine.player
+        val bot = bots(engine)[0]
+        player.addStaticCharge(1f)
+        bot.addStaticCharge(1f)
+        engine.dischargeStatic(player)
+        assertEquals(0f, bot.staticCharge, 0f)
+        assertEquals(2, listener.staticDischargedCount)
+        runFor(engine, GameConfig.STATIC_CHAIN_HOP_SECONDS * 3f)
+        assertEquals(listOf(bot.id, player.id), listener.arcs.map { it.toId })
+        assertTrue(player.isStunned)
+        assertTrue(!listener.arcs[1].byPlayer)
+        assertTrue(listener.arcs[1].hitPlayer)
+    }
+
+    @Test
+    fun `a shield takes the bolt and stops the chain`() {
+        val listener = TestGameListener()
+        val engine = lineUp(2, 60f, listener)
+        val (shielded, behind) = bots(engine)
+        shielded.applyPowerUp(PowerUpType.SHIELD)
+        engine.player.addStaticCharge(1f)
+        engine.dischargeStatic(engine.player)
+        runFor(engine, 1f)
+        assertEquals(1, listener.arcs.size)
+        assertTrue(listener.arcs[0].blocked)
+        assertEquals(40f, shielded.radius, 0.001f)
+        assertTrue(!shielded.isStunned && !behind.isStunned)
+    }
+
+    @Test
+    fun `a stunned balloon can't move or absorb`() {
+        val listener = TestGameListener()
+        val engine = lineUp(1, 100f, listener)
+        val player = engine.player
+        val bot = bots(engine)[0]
+        player.addStaticCharge(1f)
+        bot.addStaticCharge(1f)
+        engine.dischargeStatic(player)
+        runFor(engine, GameConfig.STATIC_CHAIN_HOP_SECONDS * 2f)
+        assertTrue(player.isStunned)
+        val before = Vector2(player.position.x, player.position.y)
+        player.inputDirection = Vector2(1f, 0f)
+        engine.update(1f / 60f)
+        assertEquals(0f, player.currentSpeed, 0f)
+        assertTrue(player.position.distanceTo(before) < 1f)
+
+        // Tiny and pressed against the stunned player, the bot would normally be absorbed.
+        bot.radius = 15f
+        bot.position = Vector2(player.position.x + 40f, player.position.y)
+        engine.update(1f / 60f)
+        assertTrue(bot.alive)
+        runFor(engine, GameConfig.STATIC_SHOCK_STUN_SECONDS + 0.1f)
+        assertTrue(!player.isStunned)
+    }
+
+    @Test
+    fun `range queries match what the items actually do`() {
+        val listener = TestGameListener()
+        val engine = lineUp(1, 100f, listener)
+        val player = engine.player
+        val bot = bots(engine)[0]
+        assertEquals(bot, engine.hookTarget(player))
+        assertEquals(bot, engine.staticDischargeTarget(player))
+        assertEquals(40f + GameConfig.BASE_RADIUS * GameConfig.FREEZE_RANGE_MULTIPLIER, engine.itemRange(player, PowerUpType.FREEZE), 0.001f)
+        assertEquals(0f, engine.itemRange(player, PowerUpType.SPEED), 0f)
+        bot.position = Vector2(1000f + 40f + engine.itemRange(player, PowerUpType.HOOK) + 60f, 1000f)
+        assertEquals(null, engine.hookTarget(player))
     }
 }

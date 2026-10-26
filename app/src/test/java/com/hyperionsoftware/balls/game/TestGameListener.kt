@@ -18,6 +18,8 @@ class TestGameListener : GameListener {
     var lastGameOverPlayerWon: Boolean? = null
     var staticFullyChargedCount = 0
     var staticDischargedCount = 0
+    class Arc(val fromId: Int, val toId: Int, val byPlayer: Boolean, val hitPlayer: Boolean, val blocked: Boolean)
+    val arcs = mutableListOf<Arc>()
 
     override fun onVibrate() {
         vibrateCount++
@@ -62,6 +64,20 @@ class TestGameListener : GameListener {
 
     override fun onStaticDischarged(x: Float, y: Float, byPlayer: Boolean, radius: Float) {
         staticDischargedCount++
+    }
+
+    override fun onStaticArc(
+        fromId: Int,
+        toId: Int,
+        fromX: Float,
+        fromY: Float,
+        toX: Float,
+        toY: Float,
+        byPlayer: Boolean,
+        hitPlayer: Boolean,
+        blocked: Boolean
+    ) {
+        arcs.add(Arc(fromId, toId, byPlayer, hitPlayer, blocked))
     }
 
     override fun onFinalRoundStarted() {
