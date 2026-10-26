@@ -304,7 +304,9 @@ object GameConfig {
     // nearest neighbour within the shorter hop reach - never back to whoever discharged it, nor
     // to a balloon this chain already went through - one hop every STATIC_CHAIN_HOP_SECONDS, so
     // the chain can be followed by eye. Striking a balloon that was fully charged itself sets its
-    // charge off too, as a fresh discharge of its own (which can hit the first discharger).
+    // charge off too, as a fresh discharge of its own (which can hit the first discharger). A
+    // shielded balloon is immune and passes the bolt straight on; a discharge with nobody in reach
+    // stuns the discharger itself instead (without deflating it).
     const val STATIC_DISCHARGE_RANGE_MULTIPLIER = 4f
     const val STATIC_CHAIN_RANGE_MULTIPLIER = 3.5f
     const val STATIC_CHAIN_HOP_SECONDS = 0.12f

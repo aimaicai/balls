@@ -36,8 +36,11 @@ interface GameListener {
     fun onStaticFullyCharged(x: Float, y: Float, byPlayer: Boolean) = Unit
     fun onStaticDischarged(x: Float, y: Float, byPlayer: Boolean, radius: Float) = Unit
     // A discharge's bolt just jumped from one balloon to another (see GameEngine.strike).
-    // `blocked` means it hit a shield and went no further; `hitPlayer` that the player was struck.
+    // `blocked` means it hit a shield, which took no harm and passed it straight on; `hitPlayer`
+    // that the player was struck.
     fun onStaticArc(fromId: Int, toId: Int, fromX: Float, fromY: Float, toX: Float, toY: Float, byPlayer: Boolean, hitPlayer: Boolean, blocked: Boolean) = Unit
+    // A discharge found nobody in reach and stunned the balloon that let it go instead.
+    fun onStaticBackfire(blobId: Int, x: Float, y: Float, radius: Float, byPlayer: Boolean) = Unit
     // Fired once, the instant the final round is set up (see triggerFinalRound) - the UI
     // layer uses this to cut to a dramatic transition before play resumes.
     fun onFinalRoundStarted()
@@ -666,21 +669,32 @@ class GameEngine(
         return nearest
     }
 
-    // The bolt jumps from arc.from to its nearest balloon in reach, if any. A shield takes the hit
-    // and ends the chain there; anyone else loses a little air, is stunned, and passes the bolt on
-    // to its own neighbour a moment later. If that balloon was fully charged too, its own charge
-    // goes off as well - a separate discharge, so the original discharger is fair game for it.
+    // The bolt jumps from arc.from to its nearest balloon in reach, if any. A shielded balloon is
+    // immune and passes it straight on to its own neighbour; anyone else loses a little air, is
+    // stunned, and passes the bolt on a moment later. If that balloon was fully charged too, its
+    // own charge goes off as well - a separate discharge, so the original discharger is fair game
+    // for it. A discharge with nobody in reach at all stuns whoever let it go instead.
     private fun strike(arc: StaticArc, rangeMultiplier: Float) {
         val from = arc.from
         if (!from.alive) return
-        val target = nearestArcTarget(from, arc.struck, reachRangeFromCenter(from, rangeMultiplier)) ?: return
+        val target = nearestArcTarget(from, arc.struck, reachRangeFromCenter(from, rangeMultiplier))
+        if (target == null) {
+            if (arc.from === arc.launcher) {
+                from.applyStaticBackfire()
+                listener.onStaticBackfire(from.id, from.position.x, from.position.y, from.radius, from === player)
+            }
+            return
+        }
         arc.struck.add(target.id)
         val blocked = target.isShielded
         listener.onStaticArc(
             from.id, target.id, from.position.x, from.position.y, target.position.x, target.position.y,
             arc.launcher === player, target === player, blocked
         )
-        if (blocked) return
+        if (blocked) {
+            strike(StaticArc(target, arc.launcher, arc.struck, 0f), GameConfig.STATIC_CHAIN_RANGE_MULTIPLIER)
+            return
+        }
         val chained = target.isFullyCharged
         if (target.applyStaticShock()) {
             listener.onDeflateDeath(target.position.x, target.position.y, target === player)

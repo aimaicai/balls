@@ -246,6 +246,12 @@ abstract class Blob(
         return false
     }
 
+    // A discharge with nobody to go to grounds itself through the balloon that let it go: the
+    // same knockout as being struck, without losing any air.
+    fun applyStaticBackfire() {
+        stunnedTimer = GameConfig.STATIC_SHOCK_STUN_SECONDS
+    }
+
     // Releases a full charge. Returns false (and does nothing) unless it was full.
     fun dischargeStatic(): Boolean {
         if (!isFullyCharged) return false

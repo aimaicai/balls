@@ -143,7 +143,8 @@ class GameRenderer(private val view: GameView) : ApplicationAdapter() {
     private class AchievementPopup(val text: String, var ttl: Float, val maxTtl: Float = ttl)
     // A static discharge's bolt from one balloon to another, its ends following both balloons
     // (by id) for as long as it lasts - or, with ids of -1, fixed in place (a discharge
-    // crackling into the air around itself). `blocked` stops it on the target's shield.
+    // crackling into the air around itself). `blocked` ends it on the target's shield instead of
+    // its latex.
     private class Bolt(
         val fromId: Int,
         val toId: Int,
@@ -549,6 +550,21 @@ class GameRenderer(private val view: GameView) : ApplicationAdapter() {
             }
         }
 
+        override fun onStaticBackfire(blobId: Int, x: Float, y: Float, radius: Float, byPlayer: Boolean) {
+            backfireBurst(x, y, radius)
+            bodies.shock(blobId)
+            if (byPlayer) {
+                playSound(SoundEffectPlayer.Effect.STATIC_ZAP)
+                vibrate(VibrationEffect.createWaveform(longArrayOf(0, 30, 20, 50, 20, 80, 30, 40), -1))
+                shake = max(shake, 18f)
+                screenFlash = max(screenFlash, 0.2f)
+                floatingTexts.add(FloatingText(x, y - radius, context.getString(R.string.game_static_backfire), STATIC_COLOR, 1.4f))
+            } else if (isVisible(x, y, radius * 3f, viewLeft, viewTop, viewRight, viewBottom)) {
+                playSound(SoundEffectPlayer.Effect.STATIC_ZAP)
+                shake = max(shake, 6f)
+            }
+        }
+
         override fun onStaticArc(
             fromId: Int,
             toId: Int,
@@ -664,6 +680,25 @@ class GameRenderer(private val view: GameView) : ApplicationAdapter() {
                 drag = 4.5f
             )
         }
+    }
+
+    // A discharge with nowhere to go turns back on its balloon: bolts lash in at it from all
+    // around, and it takes the strike itself.
+    private fun backfireBurst(x: Float, y: Float, radius: Float) {
+        repeat(5) {
+            val angle = MathUtils.random(MathUtils.PI2)
+            val reach = radius * MathUtils.random(2.2f, 3.2f)
+            val landing = angle + MathUtils.random(-0.5f, 0.5f)
+            bolts.add(
+                Bolt(
+                    -1, -1,
+                    x + MathUtils.cos(angle) * reach, y + MathUtils.sin(angle) * reach,
+                    x + MathUtils.cos(landing) * radius * 0.85f, y + MathUtils.sin(landing) * radius * 0.85f,
+                    nextBoltSeed++, BOLT_WIDTH * 0.7f, false, MathUtils.random(0.25f, 0.4f)
+                )
+            )
+        }
+        strikeBurst(x, y, radius, false)
     }
 
     // Where a bolt lands: a white-hot flash, a shower of sparks, a shockwave and a puff of
@@ -1116,7 +1151,8 @@ class GameRenderer(private val view: GameView) : ApplicationAdapter() {
                 val dy = y1 - y0
                 val length = hypot(dx, dy)
                 if (length > 1f) {
-                    val fromRadius = (from?.radius ?: 0f) * 0.85f
+                    // A shielded balloon passes the bolt on from its shield, not from inside it.
+                    val fromRadius = (from?.radius ?: 0f) * (if (from?.isShielded == true) 1.2f else 0.85f)
                     val toRadius = (to?.radius ?: 0f) * (if (bolt.blocked) 1.2f else 0.85f)
                     if (fromRadius + toRadius < length) {
                         x0 += dx / length * fromRadius

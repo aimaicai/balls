@@ -169,14 +169,29 @@ class StaticChargeTest {
     }
 
     @Test
-    fun `nobody in reach means the discharge strikes no one`() {
+    fun `nobody in reach means the discharge backfires, stunning without deflating`() {
         val listener = TestGameListener()
         val engine = lineUp(1, GameConfig.BASE_RADIUS * GameConfig.STATIC_DISCHARGE_RANGE_MULTIPLIER + 50f, listener)
-        engine.player.addStaticCharge(1f)
-        engine.dischargeStatic(engine.player)
+        val player = engine.player
+        player.addStaticCharge(1f)
+        engine.dischargeStatic(player)
         assertEquals(1, listener.staticDischargedCount)
         assertTrue(listener.arcs.isEmpty())
         assertTrue(bots(engine).none { it.isStunned })
+        assertEquals(1, listener.backfireCount)
+        assertTrue(player.isStunned)
+        assertEquals(40f, player.radius, 0.001f)
+    }
+
+    @Test
+    fun `a chain running out of neighbours doesn't backfire on anyone`() {
+        val listener = TestGameListener()
+        val engine = lineUp(1, 100f, listener)
+        engine.player.addStaticCharge(1f)
+        engine.dischargeStatic(engine.player)
+        runFor(engine, 1f)
+        assertEquals(0, listener.backfireCount)
+        assertTrue(!engine.player.isStunned)
     }
 
     @Test
@@ -230,18 +245,22 @@ class StaticChargeTest {
     }
 
     @Test
-    fun `a shield takes the bolt and stops the chain`() {
+    fun `a shielded balloon is immune and passes the bolt straight on`() {
         val listener = TestGameListener()
         val engine = lineUp(2, 60f, listener)
         val (shielded, behind) = bots(engine)
         shielded.applyPowerUp(PowerUpType.SHIELD)
+        shielded.addStaticCharge(1f)
         engine.player.addStaticCharge(1f)
         engine.dischargeStatic(engine.player)
-        runFor(engine, 1f)
-        assertEquals(1, listener.arcs.size)
+        // No hop delay after a shield: both strikes land at once.
+        assertEquals(listOf(shielded.id, behind.id), listener.arcs.map { it.toId })
         assertTrue(listener.arcs[0].blocked)
+        assertTrue(!listener.arcs[1].blocked)
         assertEquals(40f, shielded.radius, 0.001f)
-        assertTrue(!shielded.isStunned && !behind.isStunned)
+        assertTrue(!shielded.isStunned)
+        assertTrue("its own charge isn't set off either", shielded.isFullyCharged)
+        assertTrue(behind.isStunned)
     }
 
     @Test

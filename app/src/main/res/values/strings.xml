@@ -160,6 +160,7 @@
     <string name="game_deflate_death">Deflated!</string>
     <string name="game_static_charged">Charged!</string>
     <string name="game_static_zapped">Zapped!</string>
+    <string name="game_static_backfire">Backfire!</string>
     <string name="game_combo">COMBO x%1$d!</string>
 
     <string name="game_hud_size_format">Size: %1$d</string>
