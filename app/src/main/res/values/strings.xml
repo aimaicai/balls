@@ -163,12 +163,7 @@
     <string name="game_static_backfire">Backfire!</string>
     <string name="game_combo">COMBO x%1$d!</string>
 
-    <string name="game_hud_zone_format">Zone: %1$d%%</string>
-    <string name="game_hud_score_format">Score: %1$d</string>
 
-    <string name="stat_speed_label">Speed</string>
-    <string name="stat_agility_label">Agility</string>
-    <string name="stat_potency_label">Power</string>
 
     <string name="game_final_round_title">FINAL SHOWDOWN</string>
     <string name="game_final_round_warning">FINAL ROUND INCOMING</string>

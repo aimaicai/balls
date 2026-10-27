@@ -16,12 +16,15 @@
         android:layout_gravity="bottom|start"
         android:layout_margin="28dp" />
 
+    <!-- Sits in the right end of the HUD's bar, centered in its height (GameHud.BAR_HEIGHT,
+         62dp) and inside the room it leaves for it (GameHud.PAUSE_AREA, 64dp). -->
     <ImageButton
         android:id="@+id/pauseButton"
-        android:layout_width="52dp"
-        android:layout_height="52dp"
+        android:layout_width="44dp"
+        android:layout_height="44dp"
         android:layout_gravity="top|end"
-        android:layout_margin="16dp"
+        android:layout_marginTop="9dp"
+        android:layout_marginEnd="10dp"
         android:background="@drawable/bg_round_button"
         android:contentDescription="@string/pause_title"
         android:padding="12dp"

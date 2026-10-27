@@ -8,6 +8,7 @@ import com.badlogic.gdx.math.Matrix4
 import com.badlogic.gdx.utils.NumberUtils
 import kotlin.math.atan2
 import kotlin.math.max
+import kotlin.math.min
 import kotlin.math.sqrt
 
 // Thin drawing layer over one SpriteBatch + the Atlas, giving the renderers the same kind of
@@ -294,6 +295,40 @@ class Painter {
         )
     }
 
+    // A rectangle with rounded corners in the current color - the HUD's panels and chips - as a
+    // fan of triangles from its center, its outline then traced with a soft line so the edge is
+    // antialiased like everything else.
+    fun roundedRect(x: Float, y: Float, width: Float, height: Float, radius: Float) {
+        val r = radius.coerceAtMost(min(width, height) / 2f)
+        val color = batch.packedColor
+        val cx = x + width / 2f
+        val cy = y + height / 2f
+        var n = 0
+        // Corner centers clockwise from the top left (y down), each arc a quarter turn.
+        for (corner in 0 until 4) {
+            val ox = if (corner == 1 || corner == 2) x + width - r else x + r
+            val oy = if (corner >= 2) y + height - r else y + r
+            val start = MathUtils.PI + corner * MathUtils.HALF_PI
+            for (k in 0..CORNER_SEGMENTS) {
+                val angle = start + k * MathUtils.HALF_PI / CORNER_SEGMENTS
+                outlineX[n] = ox + MathUtils.cos(angle) * r
+                outlineY[n] = oy + MathUtils.sin(angle) * r
+                n++
+            }
+        }
+        for (i in 0 until n) {
+            val j = (i + 1) % n
+            quad(atlas.white, cx, cy, color, cx, cy, color, outlineX[j], outlineY[j], color, outlineX[i], outlineY[i], color)
+        }
+        for (i in 0 until n) {
+            val j = (i + 1) % n
+            line(outlineX[i], outlineY[i], outlineX[j], outlineY[j], 1f)
+        }
+    }
+
+    private val outlineX = FloatArray(4 * (CORNER_SEGMENTS + 1))
+    private val outlineY = FloatArray(4 * (CORNER_SEGMENTS + 1))
+
     // A triangle with its base centered on (baseX, baseY), `baseWidth` across, pointing at
     // (tipX, tipY) - the balloon's knot and the off-screen danger arrow.
     fun triangle(baseX: Float, baseY: Float, tipX: Float, tipY: Float, baseWidth: Float) {
@@ -384,6 +419,7 @@ class Painter {
 
     companion object {
         private const val MAX_SPRITES = 6000
+        private const val CORNER_SEGMENTS = 5
         // Glows at least this big (radius, px) are drawn as a fan (see glowEllipse). Its corners
         // sit just outside the glow's circle - which the atlas draws a little inside its cell -
         // but still inside the cell, so they never sample a neighbouring sprite.

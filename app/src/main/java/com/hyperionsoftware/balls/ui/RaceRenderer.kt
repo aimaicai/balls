@@ -533,8 +533,13 @@ class RaceRenderer(private val view: RaceView) : ApplicationAdapter() {
             if (isVisible(blob.position.x, blob.position.y, blob.radius * BalloonPainter.VISUAL_EXTENT + smokeMargin, left, top, right, bottom)) {
                 balloons.emitSmoke(stateOf(blob), dt)
             }
-            if (isBlobVisible(blob, left, top, right, bottom)) balloons.drawBalloon(stateOf(blob))
+            if (isBlobVisible(blob, left, top, right, bottom)) {
+                val state = stateOf(blob)
+                balloons.emitStatusParticles(state, dt)
+                balloons.drawBalloon(state)
+            }
         }
+        particles.draw(painter, Particles.Kind.MIST, painter.atlas.glow, left, top, right, bottom)
         particles.draw(painter, Particles.Kind.CONFETTI, painter.atlas.white, left, top, right, bottom)
 
         painter.additive(true)
@@ -542,6 +547,7 @@ class RaceRenderer(private val view: RaceView) : ApplicationAdapter() {
             if (blob.alive && isBlobVisible(blob, left, top, right, bottom)) balloons.drawGlow(stateOf(blob))
         }
         particles.draw(painter, Particles.Kind.SPARK, painter.atlas.sparkle, left, top, right, bottom)
+        particles.draw(painter, Particles.Kind.FLAKE, painter.atlas.snowflake, left, top, right, bottom)
         drawFlashes(dt)
         painter.additive(false)
 
@@ -580,6 +586,7 @@ class RaceRenderer(private val view: RaceView) : ApplicationAdapter() {
         radius = blob.radius
         color = blob.color
         alpha = if (blob.isInvisible) 70f / 255f else 1f
+        isInvisible = blob.isInvisible
         exhaustPhase = blob.exhaustPhase
         isThrusting = blob.isThrusting
         isBoosting = blob.isBoosting

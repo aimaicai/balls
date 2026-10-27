@@ -35,6 +35,11 @@ class SoundEffectPlayer(private val context: Context) {
         track.play()
     }
 
+    // Builds every sound now, so play() never has to synthesize one on the spot.
+    fun warmUp() {
+        for (effect in Effect.values()) cache.getOrPut(effect) { build(effect) }
+    }
+
     fun release() {
         cache.values.forEach { it.release() }
         cache.clear()

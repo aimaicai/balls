@@ -3,6 +3,8 @@ package com.hyperionsoftware.balls.ui
 import android.content.Context
 import android.graphics.Color
 import android.os.Build
+import android.os.Handler
+import android.os.HandlerThread
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
@@ -34,7 +36,6 @@ import com.hyperionsoftware.balls.game.PowerUpType
 import com.hyperionsoftware.balls.game.Vector2
 import com.hyperionsoftware.balls.records.PersonalRecords
 import com.hyperionsoftware.balls.records.RecordType
-import com.hyperionsoftware.balls.score.HighScores
 import com.hyperionsoftware.balls.settings.CosmeticsSettings
 import com.hyperionsoftware.balls.settings.DeveloperSettings
 import com.hyperionsoftware.balls.ui.gdx.Atlas
@@ -87,6 +88,8 @@ class GameRenderer(private val view: GameView) : ApplicationAdapter() {
     private lateinit var painter: Painter
     private lateinit var balloons: BalloonPainter
     private lateinit var particles: Particles
+    private lateinit var fx: PowerUpFx
+    private lateinit var hud: GameHud
     private val worldCamera = OrthographicCamera()
     private val screenCamera = OrthographicCamera()
     private val clock = FrameClock()
@@ -119,7 +122,6 @@ class GameRenderer(private val view: GameView) : ApplicationAdapter() {
     private var elapsedRealTime = 0f
 
     private class FloatingText(var x: Float, var y: Float, val text: String, val color: Int, var ttl: Float, val maxTtl: Float = ttl)
-    private class FeedEntry(val text: String, var ttl: Float, val maxTtl: Float = ttl)
     private class EffectRipple(
         val x: Float,
         val y: Float,
@@ -160,7 +162,6 @@ class GameRenderer(private val view: GameView) : ApplicationAdapter() {
     )
 
     private val floatingTexts = mutableListOf<FloatingText>()
-    private val feedEntries = mutableListOf<FeedEntry>()
     private val effectRipples = mutableListOf<EffectRipple>()
     private val absorbAnims = mutableListOf<AbsorbAnim>()
     private val flashes = mutableListOf<Flash>()
@@ -192,20 +193,23 @@ class GameRenderer(private val view: GameView) : ApplicationAdapter() {
     private val achievementAbsorbStreakTarget = 5
     private val achievementDailyStreakTarget = 3
 
-    // The HUD text only changes when its underlying number does - see drawHud.
-    private var hudPlayersValue = Int.MIN_VALUE
-    private var hudPlayersText = ""
-    private var hudZoneValue = Int.MIN_VALUE
-    private var hudZoneText = ""
-    private var hudTimeValue = Int.MIN_VALUE
-    private var hudTimeText = ""
-    private var hudScoreValue = Int.MIN_VALUE
-    private var hudScoreText = ""
-    private val statSpeedLabel = context.getString(R.string.stat_speed_label)
-    private val statAgilityLabel = context.getString(R.string.stat_agility_label)
-    private val statPotencyLabel = context.getString(R.string.stat_potency_label)
+    // Screen-space text, in dp so it's the same size on every phone.
+    private val achievementStyle = TextStyle(13f * density, bold = true, align = TextStyle.Align.CENTER)
+    private val countdownStyle = TextStyle(68f * density, bold = true, align = TextStyle.Align.CENTER)
+    private val finalRoundTitleStyle = TextStyle(24f * density, bold = true, align = TextStyle.Align.CENTER)
+    private val finalRoundWarningStyle = TextStyle(15f * density, bold = true, align = TextStyle.Align.CENTER)
+    private val finalRoundCountdownStyle = TextStyle(28f * density, bold = true, align = TextStyle.Align.CENTER)
     private val finalRoundTitle = context.getString(R.string.game_final_round_title)
     private val finalRoundWarning = context.getString(R.string.game_final_round_warning)
+
+    // Whether each balloon (by id) was frozen last frame - to catch the moment it thaws.
+    private var wasFrozen = BooleanArray(0)
+
+    // Sounds and vibration go out from a thread of their own: starting an AudioTrack or the
+    // vibrator is a call into a system service that can take milliseconds, and a discharge's
+    // chain sets both off on every hop - on the render thread, that was frames missed.
+    private val feedbackThread = HandlerThread("game-feedback").apply { start() }
+    private val feedback = Handler(feedbackThread.looper)
 
     private val vibrator: Vibrator by lazy {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -216,6 +220,7 @@ class GameRenderer(private val view: GameView) : ApplicationAdapter() {
             context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
         }
     }
+    // Only ever touched on the feedback thread.
     private val soundEffectPlayer: SoundEffectPlayer by lazy { SoundEffectPlayer(context) }
     private var soundEffectPlayerCreated = false
 
@@ -223,6 +228,8 @@ class GameRenderer(private val view: GameView) : ApplicationAdapter() {
         painter = Painter()
         particles = Particles(PARTICLE_CAPACITY)
         balloons = BalloonPainter(painter, particles)
+        fx = PowerUpFx(painter, particles, balloons) { id -> visibleState(id) }
+        hud = GameHud(painter, density)
         resize(Gdx.graphics.width, Gdx.graphics.height)
     }
 
@@ -243,7 +250,10 @@ class GameRenderer(private val view: GameView) : ApplicationAdapter() {
 
     // Called by GameView when the view goes away - on the UI thread, after rendering stopped.
     fun releaseAudio() {
-        if (soundEffectPlayerCreated) soundEffectPlayer.release()
+        feedback.post {
+            if (soundEffectPlayerCreated) soundEffectPlayer.release()
+        }
+        feedbackThread.quitSafely()
         rubPlayer.release()
     }
 
@@ -314,7 +324,6 @@ class GameRenderer(private val view: GameView) : ApplicationAdapter() {
 
     private fun startMatch(params: StartParams) {
         floatingTexts.clear()
-        feedEntries.clear()
         effectRipples.clear()
         absorbAnims.clear()
         flashes.clear()
@@ -323,6 +332,8 @@ class GameRenderer(private val view: GameView) : ApplicationAdapter() {
         shake = 0f
         screenFlash = 0f
         particles.clear()
+        fx.clear()
+        wasFrozen = BooleanArray(params.botCount + 1)
         maxSizeAchievementChecked = false
         maxBoostAchievementChecked = false
         matchPeakSize = 0
@@ -343,10 +354,13 @@ class GameRenderer(private val view: GameView) : ApplicationAdapter() {
         lastChargeStep = -1
         bodies.clear()
         readSfxSettings()
-        hudPlayersValue = Int.MIN_VALUE
-        hudZoneValue = Int.MIN_VALUE
-        hudTimeValue = Int.MIN_VALUE
-        hudScoreValue = Int.MIN_VALUE
+        // Every sound built up front, off this thread, so none is synthesized the first time
+        // it's needed in the middle of play.
+        feedback.post {
+            soundEffectPlayerCreated = true
+            soundEffectPlayer.warmUp()
+        }
+        hud.reset()
         botNames = BotNames.generate(params.botCount)
         selectedSticker = CosmeticsSettings.getSelectedSticker(context)
         selectedCord = CosmeticsSettings.getSelectedCord(context)
@@ -382,11 +396,16 @@ class GameRenderer(private val view: GameView) : ApplicationAdapter() {
                 unlockAchievement(Achievement.FIRST_ABSORB)
                 checkLiveRecord(RecordType.ABSORPTIONS, engine.playerOpponentsAbsorbed)
             }
-            addFeedEntry(context.getString(R.string.game_feed_absorbed, blobLabel(absorberId), blobLabel(victimId)))
+            val kind = when {
+                byPlayer -> GameHud.FeedKind.PLAYER_GAIN
+                victimId == engine.player.id -> GameHud.FeedKind.PLAYER_LOSS
+                else -> GameHud.FeedKind.OTHER
+            }
+            hud.addFeed(context.getString(R.string.game_feed_absorbed, blobLabel(absorberId), blobLabel(victimId)), kind)
 
             val victim = engine.blobs.find { it.id == victimId }
             val absorber = engine.blobs.find { it.id == absorberId }
-            if (victim != null && absorber != null) {
+            if (victim != null && absorber != null && isNearView(x, y, victim.radius)) {
                 absorbAnims.add(AbsorbAnim(x, y, victim.radius, victim.color, absorber))
                 popBurst(x, y, victim.radius, victim.color)
             }
@@ -404,11 +423,20 @@ class GameRenderer(private val view: GameView) : ApplicationAdapter() {
             }
         }
 
-        override fun onPowerUpCollected(x: Float, y: Float, type: PowerUpType, byPlayer: Boolean) {
+        override fun onPowerUpCollected(x: Float, y: Float, type: PowerUpType, byPlayer: Boolean, collectorId: Int) {
             val engine = engine ?: return
-            floatingTexts.add(FloatingText(x, y, powerUpLabel(type), Color.parseColor("#FFD54F"), 1.4f))
-            sparkBurst(x, y, powerUpColor(type), 9)
+            if (isNearView(x, y, GameConfig.POWERUP_RADIUS)) {
+                floatingTexts.add(FloatingText(x, y, powerUpLabel(type), Color.parseColor("#FFD54F"), 1.4f))
+                sparkBurst(x, y, powerUpColor(type), 9)
+                fx.collected(collectorId, type)
+            }
             if (byPlayer) {
+                when (type) {
+                    PowerUpType.SPEED_UP -> hud.flashStat(0)
+                    PowerUpType.AGILITY_UP -> hud.flashStat(1)
+                    PowerUpType.POTENCY_UP -> hud.flashStat(2)
+                    else -> {}
+                }
                 vibrate(VibrationEffect.createOneShot(35, 90))
                 playSound(SoundEffectPlayer.Effect.POWERUP)
                 when (type) {
@@ -439,7 +467,8 @@ class GameRenderer(private val view: GameView) : ApplicationAdapter() {
             type: PowerUpType,
             byPlayer: Boolean,
             sourceRadius: Float,
-            sourcePotencyMultiplier: Float
+            sourcePotencyMultiplier: Float,
+            sourceId: Int
         ) {
             val label = when (type) {
                 PowerUpType.REPEL -> context.getString(R.string.game_active_repelled)
@@ -450,23 +479,22 @@ class GameRenderer(private val view: GameView) : ApplicationAdapter() {
                 else -> return
             }
             val color = powerUpColor(type)
-            floatingTexts.add(FloatingText(x, y, label, color, 1.2f))
-            // Only the area effects get a ring - matches GameEngine.reachRangeFromCenter exactly
-            // (including POTENCY_UP's multiplier), so it always shows the effect's real reach.
-            val rippleRadius = when (type) {
+            // The area effects' waves reach exactly as far as GameEngine.reachRangeFromCenter
+            // does (including POTENCY_UP's multiplier), so they always show the effect's real reach.
+            val range = when (type) {
                 PowerUpType.REPEL ->
                     sourceRadius + GameConfig.BASE_RADIUS * GameConfig.REPEL_RANGE_MULTIPLIER * sourcePotencyMultiplier
                 PowerUpType.FREEZE ->
                     sourceRadius + GameConfig.BASE_RADIUS * GameConfig.FREEZE_RANGE_MULTIPLIER * sourcePotencyMultiplier
                 PowerUpType.HOOK ->
                     sourceRadius + GameConfig.BASE_RADIUS * GameConfig.HOOK_RANGE_MULTIPLIER * sourcePotencyMultiplier
-                else -> null
+                else -> sourceRadius
             }
-            if (rippleRadius != null) {
-                effectRipples.add(EffectRipple(x, y, rippleRadius, color, 0.5f, inward = type == PowerUpType.HOOK))
-                flashes.add(Flash(x, y, rippleRadius * 0.8f, color, 0.35f))
-            } else {
-                flashes.add(Flash(x, y, sourceRadius * 2f, color, 0.3f))
+            if (byPlayer || isNearView(x, y, range)) {
+                floatingTexts.add(FloatingText(x, y, label, color, 1.2f))
+                fx.used(sourceId, type, x, y, sourceRadius, range)
+                // HOOK's reach closing in on whoever it would catch.
+                if (type == PowerUpType.HOOK) effectRipples.add(EffectRipple(x, y, range, color, 0.4f, inward = true))
             }
             if (byPlayer) {
                 vibrate(VibrationEffect.createOneShot(35, 90))
@@ -480,6 +508,14 @@ class GameRenderer(private val view: GameView) : ApplicationAdapter() {
                     else -> {}
                 }
             }
+        }
+
+        override fun onItemHit(type: PowerUpType, sourceId: Int, targetId: Int, fromX: Float, fromY: Float, toX: Float, toY: Float) {
+            val target = engine?.blobs?.firstOrNull { it.id == targetId } ?: return
+            if (!isNearView(fromX, fromY, target.radius) && !isNearView(toX, toY, target.radius)) return
+            fx.hit(type, sourceId, targetId, fromX, fromY, toX, toY, target.radius, target.color)
+            // A shove or a yank jolts the latex.
+            if (type != PowerUpType.FREEZE) bodies.shock(targetId)
         }
 
         override fun onZoneDeath(x: Float, y: Float, wasPlayer: Boolean) {
@@ -533,7 +569,7 @@ class GameRenderer(private val view: GameView) : ApplicationAdapter() {
         }
 
         override fun onStaticDischarged(x: Float, y: Float, byPlayer: Boolean, radius: Float) {
-            staticBurst(x, y, radius)
+            if (byPlayer || isNearView(x, y, radius * 3f)) staticBurst(x, y, radius)
             if (byPlayer) {
                 vibrate(VibrationEffect.createWaveform(longArrayOf(0, 60, 30, 30), -1))
                 playSound(SoundEffectPlayer.Effect.STATIC_DISCHARGE)
@@ -545,7 +581,7 @@ class GameRenderer(private val view: GameView) : ApplicationAdapter() {
         }
 
         override fun onStaticBackfire(blobId: Int, x: Float, y: Float, radius: Float, byPlayer: Boolean) {
-            backfireBurst(x, y, radius)
+            if (byPlayer || isNearView(x, y, radius * 3f)) backfireBurst(x, y, radius)
             bodies.shock(blobId)
             if (byPlayer) {
                 playSound(SoundEffectPlayer.Effect.STATIC_ZAP)
@@ -572,12 +608,16 @@ class GameRenderer(private val view: GameView) : ApplicationAdapter() {
         ) {
             val engine = engine ?: return
             val target = engine.blobs.firstOrNull { it.id == toId } ?: return
-            bolts.add(Bolt(fromId, toId, fromX, fromY, toX, toY, nextBoltSeed++, BOLT_WIDTH, blocked, BOLT_SECONDS))
-            strikeBurst(toX, toY, target.radius, blocked)
-            if (!blocked) bodies.shock(toId)
             val involvesPlayer = byPlayer || hitPlayer
             val onScreen = isVisible(toX, toY, target.radius * 3f, viewLeft, viewTop, viewRight, viewBottom) ||
                 isVisible(fromX, fromY, target.radius * 3f, viewLeft, viewTop, viewRight, viewBottom)
+            // A chain racing through a crowd of bots across the arena is nothing anyone can
+            // see - only the bolts near the screen are worth their sparks, flashes and smoke.
+            if (involvesPlayer || isNearView(fromX, fromY, toX, toY, target.radius * 3f)) {
+                bolts.add(Bolt(fromId, toId, fromX, fromY, toX, toY, nextBoltSeed++, BOLT_WIDTH, blocked, BOLT_SECONDS))
+                strikeBurst(toX, toY, target.radius, blocked)
+            }
+            if (!blocked) bodies.shock(toId)
             if (involvesPlayer || onScreen) {
                 playSound(SoundEffectPlayer.Effect.STATIC_ZAP)
                 shake = max(shake, if (hitPlayer && !blocked) 22f else if (fromId == 0) 12f else 6f)
@@ -699,10 +739,12 @@ class GameRenderer(private val view: GameView) : ApplicationAdapter() {
     // scorched air - or, on a shield, a cold blue splash and nothing gets through.
     private fun strikeBurst(x: Float, y: Float, radius: Float, blocked: Boolean) {
         val color = if (blocked) SHIELD_STRIKE_COLOR else STATIC_COLOR
-        flashes.add(Flash(x, y, radius * 3.2f, color, 0.32f))
+        // A big balloon's flash and smoke are capped: every extra pixel of them is blended, and
+        // a chain through big balloons stacks several at once.
+        flashes.add(Flash(x, y, min(radius * 3.2f, MAX_STRIKE_FLASH_RADIUS), color, 0.32f))
         flashes.add(Flash(x, y, radius * 1.5f, Color.WHITE, 0.14f))
         effectRipples.add(EffectRipple(x, y, radius * 2.8f, color, 0.4f))
-        for (i in 0 until 22) {
+        for (i in 0 until 18) {
             val angle = MathUtils.random(MathUtils.PI2)
             val speed = MathUtils.random(260f, 680f)
             particles.spawn(
@@ -716,14 +758,15 @@ class GameRenderer(private val view: GameView) : ApplicationAdapter() {
             )
         }
         if (blocked) return
-        for (i in 0 until 6) {
+        val smokeSize = min(radius * 1.6f, MAX_STRIKE_SMOKE_SIZE)
+        for (i in 0 until 4) {
             val angle = MathUtils.random(MathUtils.PI2)
             val speed = MathUtils.random(40f, 120f)
             particles.spawn(
                 Particles.Kind.SMOKE, x, y,
                 MathUtils.cos(angle) * speed, MathUtils.sin(angle) * speed,
                 MathUtils.random(0.5f, 0.9f),
-                radius * 0.5f, radius * 1.6f,
+                smokeSize * 0.3f, smokeSize,
                 SCORCH_SMOKE_COLOR,
                 alpha = 0.4f,
                 drag = 2f
@@ -754,20 +797,26 @@ class GameRenderer(private val view: GameView) : ApplicationAdapter() {
         beaconPhase += dt
         elapsedRealTime += dt
         particles.update(dt)
+        fx.update(dt)
 
         val player = engine.player
+        // The arena is framed in the screen below the HUD's bar: the camera centers the player
+        // (and stops at the world's edges) within that, never underneath the bar.
+        val barHeight = hud.barHeight
+        val fieldHeight = height - barHeight
         var camX = cameraCoord(player.position.x, width, GameConfig.WORLD_WIDTH)
-        var camY = cameraCoord(player.position.y, height, GameConfig.WORLD_HEIGHT)
+        var camY = cameraCoord(player.position.y, fieldHeight, GameConfig.WORLD_HEIGHT)
         if (shake > 0f && dt > 0f) {
             camX += MathUtils.random(-shake, shake)
             camY += MathUtils.random(-shake, shake)
             shake *= exp(-dt * SHAKE_DECAY)
             if (shake < 0.5f) shake = 0f
         }
-        worldCamera.position.set(camX, camY, 0f)
+        worldCamera.position.set(camX, camY - barHeight / 2f, 0f)
         worldCamera.update()
         val left = camX - width / 2f
-        val top = camY - height / 2f
+        // The whole screen's top, bar included - what's under the bar is drawn too, just hidden.
+        val top = camY - fieldHeight / 2f - barHeight
         val right = left + width
         val bottom = top + height
         viewLeft = left
@@ -827,6 +876,9 @@ class GameRenderer(private val view: GameView) : ApplicationAdapter() {
         particles.draw(painter, Particles.Kind.SMOKE, painter.atlas.glow, left, top, right, bottom)
         val smokeMargin = width * 0.25f
         for (blob in engine.blobs) {
+            val frozen = blob.alive && blob.isFrozen
+            val thawed = !frozen && blob.id < wasFrozen.size && wasFrozen[blob.id]
+            if (blob.id < wasFrozen.size) wasFrozen[blob.id] = frozen
             if (!blob.alive) continue
             // Smoke keeps being emitted a little beyond the screen edge, so a balloon flying in
             // arrives with its trail already behind it.
@@ -835,13 +887,16 @@ class GameRenderer(private val view: GameView) : ApplicationAdapter() {
             }
             if (isBlobVisible(blob, left, top, right, bottom)) {
                 val state = stateOf(blob)
-                balloons.emitStaticSparks(state, dt)
+                if (thawed) fx.thawed(state)
+                balloons.emitStatusParticles(state, dt)
                 balloons.drawBalloon(state)
             }
         }
+        particles.draw(painter, Particles.Kind.MIST, painter.atlas.glow, left, top, right, bottom)
+        fx.drawOver(left, top, right, bottom)
 
         drawAbsorbAnimations(dt)
-        drawEffectRipples(dt)
+        drawEffectRipples(dt, left, top, right, bottom)
         particles.draw(painter, Particles.Kind.CONFETTI, painter.atlas.white, left, top, right, bottom)
 
         painter.additive(true)
@@ -849,8 +904,11 @@ class GameRenderer(private val view: GameView) : ApplicationAdapter() {
             if (blob.alive && isBlobVisible(blob, left, top, right, bottom)) balloons.drawGlow(stateOf(blob))
         }
         particles.draw(painter, Particles.Kind.SPARK, painter.atlas.sparkle, left, top, right, bottom)
-        drawBolts(engine, dt)
-        drawFlashes(dt)
+        particles.draw(painter, Particles.Kind.FLAKE, painter.atlas.snowflake, left, top, right, bottom)
+        particles.draw(painter, Particles.Kind.MOTE, painter.atlas.glow, left, top, right, bottom)
+        fx.drawLight(left, top, right, bottom)
+        drawBolts(engine, dt, left, top, right, bottom)
+        drawFlashes(dt, left, top, right, bottom)
         painter.additive(false)
 
         drawFloatingTexts(dt)
@@ -861,12 +919,9 @@ class GameRenderer(private val view: GameView) : ApplicationAdapter() {
         // than one per string, without changing what's layered over what.
         painter.begin(screenCamera.combined)
         drawScreenFlash(dt, width, height)
-        drawDangerIndicator(engine, camX - width / 2f, camY - height / 2f, width, height)
-        drawPermanentStatsHud(player, width, text = false)
-        drawPlayersIcon()
-        drawHud(engine, width)
-        drawPermanentStatsHud(player, width, text = true)
-        drawFeed(dt)
+        drawDangerIndicator(engine, camX - width / 2f, camY - fieldHeight / 2f, width, fieldHeight, barHeight)
+        hud.drawShapes(engine, width, dt)
+        hud.drawText(dt)
         drawFinalRoundWarning(engine, width, height)
         drawCountdown(width, height, text = false)
         drawFinalRoundTransition(width, height, text = false)
@@ -899,7 +954,11 @@ class GameRenderer(private val view: GameView) : ApplicationAdapter() {
         charge = blob.staticCharge
         seed = blob.id * 37 + 11
         color = blob.color
-        alpha = if (blob.isInvisible) 70f / 255f else 1f
+        alpha = (if (blob.isInvisible) 70f / 255f else 1f) * fx.alphaFor(blob.id)
+        isInvisible = blob.isInvisible
+        val moving = if (blob.isInert) 0f else blob.currentSpeed
+        velocityX = facingX * moving
+        velocityY = facingY * moving
         exhaustPhase = blob.exhaustPhase
         isThrusting = blob.isThrusting
         isBoosting = blob.isBoosting
@@ -911,6 +970,27 @@ class GameRenderer(private val view: GameView) : ApplicationAdapter() {
         sticker = if (isPlayer) selectedSticker else BalloonSticker.NONE
         cordColor = if (isPlayer) selectedCord.colorInt else BalloonCord.CLASSIC_GREY.colorInt
         exhaustStyle = if (isPlayer) selectedExhaustStyle else ExhaustStyle.CLASSIC
+    }
+
+    // The balloon with this id as it's drawn this frame, or null if it's gone or off screen - for
+    // PowerUpFx, whose effects follow balloons around.
+    private fun visibleState(id: Int): BalloonPainter.State? {
+        val engine = engine ?: return null
+        val blob = engine.blobs.getOrNull(id)?.takeIf { it.id == id } ?: engine.blobs.firstOrNull { it.id == id } ?: return null
+        if (!blob.alive || !isBlobVisible(blob, viewLeft, viewTop, viewRight, viewBottom)) return null
+        return stateOf(blob)
+    }
+
+    // Whether something at (x, y), `extent` across, is on screen or close enough to come into
+    // view while its effect still lasts.
+    private fun isNearView(x: Float, y: Float, extent: Float): Boolean =
+        isVisible(x, y, extent + NEAR_VIEW_MARGIN, viewLeft, viewTop, viewRight, viewBottom)
+
+    // The same for something stretching from (x0, y0) to (x1, y1) - a bolt.
+    private fun isNearView(x0: Float, y0: Float, x1: Float, y1: Float, extent: Float): Boolean {
+        val margin = extent + NEAR_VIEW_MARGIN
+        return max(x0, x1) + margin >= viewLeft && min(x0, x1) - margin <= viewRight &&
+            max(y0, y1) + margin >= viewTop && min(y0, y1) - margin <= viewBottom
     }
 
     private fun isBlobVisible(blob: Blob, left: Float, top: Float, right: Float, bottom: Float) =
@@ -1131,7 +1211,7 @@ class GameRenderer(private val view: GameView) : ApplicationAdapter() {
     // Each bolt is a jagged line of light from balloon to balloon, re-struck in a new shape
     // many times a second as it flickers out, with a few forks branching off it: a wide violet
     // glow, a blue body and a white-hot core, all additive.
-    private fun drawBolts(engine: GameEngine, dt: Float) {
+    private fun drawBolts(engine: GameEngine, dt: Float, left: Float, top: Float, right: Float, bottom: Float) {
         val iterator = bolts.iterator()
         while (iterator.hasNext()) {
             val bolt = iterator.next()
@@ -1141,6 +1221,9 @@ class GameRenderer(private val view: GameView) : ApplicationAdapter() {
                 continue
             }
             followBoltEnds(engine, bolt)
+            if (max(bolt.fromX, bolt.toX) + BOLT_MARGIN < left || min(bolt.fromX, bolt.toX) - BOLT_MARGIN > right ||
+                max(bolt.fromY, bolt.toY) + BOLT_MARGIN < top || min(bolt.fromY, bolt.toY) - BOLT_MARGIN > bottom
+            ) continue
             val age = bolt.maxTtl - bolt.ttl
             val progress = age / bolt.maxTtl
             boltRandom.setSeed(bolt.seed * 1_000_003L + (age * BOLT_RESTRIKE_RATE).toInt())
@@ -1277,7 +1360,7 @@ class GameRenderer(private val view: GameView) : ApplicationAdapter() {
         }
     }
 
-    private fun drawEffectRipples(dt: Float) {
+    private fun drawEffectRipples(dt: Float, left: Float, top: Float, right: Float, bottom: Float) {
         val iterator = effectRipples.iterator()
         while (iterator.hasNext()) {
             val ripple = iterator.next()
@@ -1286,6 +1369,7 @@ class GameRenderer(private val view: GameView) : ApplicationAdapter() {
                 iterator.remove()
                 continue
             }
+            if (!isVisible(ripple.x, ripple.y, ripple.maxRadius, left, top, right, bottom)) continue
             val progress = 1f - (ripple.ttl / ripple.maxTtl)
             val radiusProgress = if (ripple.inward) 1f - progress else progress
             painter.color(ripple.ringColor, 1f - progress)
@@ -1293,7 +1377,7 @@ class GameRenderer(private val view: GameView) : ApplicationAdapter() {
         }
     }
 
-    private fun drawFlashes(dt: Float) {
+    private fun drawFlashes(dt: Float, left: Float, top: Float, right: Float, bottom: Float) {
         val iterator = flashes.iterator()
         while (iterator.hasNext()) {
             val flash = iterator.next()
@@ -1302,6 +1386,7 @@ class GameRenderer(private val view: GameView) : ApplicationAdapter() {
                 iterator.remove()
                 continue
             }
+            if (!isVisible(flash.x, flash.y, flash.radius, left, top, right, bottom)) continue
             val progress = 1f - flash.ttl / flash.maxTtl
             painter.color(flash.color, 0.7f * (1f - progress))
             painter.glow(flash.x, flash.y, flash.radius * (0.6f + 0.4f * progress))
@@ -1325,8 +1410,10 @@ class GameRenderer(private val view: GameView) : ApplicationAdapter() {
         }
     }
 
-    // Off-screen pointer to the nearest threat (or prey, if no threat) within awareness range.
-    private fun drawDangerIndicator(engine: GameEngine, offsetLeft: Float, offsetTop: Float, width: Float, height: Float) {
+    // Off-screen pointer to the nearest threat (or prey, if no threat) within awareness range,
+    // pinned to the edge of the arena's part of the screen: `height` tall from `screenTop` down,
+    // showing the world from (offsetLeft, offsetTop).
+    private fun drawDangerIndicator(engine: GameEngine, offsetLeft: Float, offsetTop: Float, width: Float, height: Float, screenTop: Float) {
         val player = engine.player
         var threat: Blob? = null
         var threatDistance = Float.MAX_VALUE
@@ -1363,7 +1450,7 @@ class GameRenderer(private val view: GameView) : ApplicationAdapter() {
         val ty = if (ndy != 0f) halfH / abs(ndy) else Float.MAX_VALUE
         val t = min(tx, ty)
         val px = width / 2f + ndx * t
-        val py = height / 2f + ndy * t
+        val py = screenTop + height / 2f + ndy * t
         val color = if (target === threat) THREAT_COLOR else PREY_COLOR
 
         // Same arrow as before (tip 18px ahead of center, 28px base 14px behind it), with a
@@ -1376,118 +1463,27 @@ class GameRenderer(private val view: GameView) : ApplicationAdapter() {
         painter.triangle(px - ndx * 14f, py - ndy * 14f, px + ndx * 18f, py + ndy * 18f, 28f)
     }
 
-    // Just how many balloons are still in play, kept small and dim in the top-left corner -
-    // a balloon glyph (shape pass, see drawPlayersIcon) followed by the bare number.
-    private fun drawHud(engine: GameEngine, width: Float) {
-        val playersAlive = engine.aliveCount()
-        if (playersAlive != hudPlayersValue) {
-            hudPlayersValue = playersAlive
-            hudPlayersText = playersAlive.toString()
-        }
-        hudText(hudPlayersText, PLAYERS_HUD_X + PLAYERS_ICON_RADIUS * 2f + 10f, PLAYERS_HUD_BASELINE, PLAYERS_HUD_STYLE, Color.WHITE, PLAYERS_HUD_ALPHA)
+    // The middle of the arena's part of the screen, below the HUD's bar - where the player is.
+    private fun fieldCenterY(height: Float): Float = hud.barHeight + (height - hud.barHeight) / 2f
 
-        val zonePercent = (engine.safeZoneProgress * 100f).toInt()
-        if (zonePercent != hudZoneValue) {
-            hudZoneValue = zonePercent
-            hudZoneText = context.getString(R.string.game_hud_zone_format, zonePercent)
-        }
-        hudText(hudZoneText, width / 2f, 56f, ZONE_HUD_STYLE, SAFE_ZONE_EDGE_COLOR)
-
-        val elapsedSeconds = engine.matchElapsed.toInt()
-        if (elapsedSeconds != hudTimeValue) {
-            hudTimeValue = elapsedSeconds
-            hudTimeText = "%02d:%02d".format(elapsedSeconds / 60, elapsedSeconds % 60)
-        }
-        hudText(hudTimeText, width / 2f, 90f, TIMER_HUD_STYLE, Color.WHITE)
-
-        // playerWon is always false here since the match is still running - this omits the win
-        // bonus HighScores.computeScore adds once it actually ends.
-        val liveScore = HighScores.computeScore(
-            playerWon = false,
-            elapsedSeconds = elapsedSeconds,
-            opponentsAbsorbed = engine.playerOpponentsAbsorbed,
-            reachedFinalRound = engine.isFinalRoundActive
-        )
-        if (liveScore != hudScoreValue) {
-            hudScoreValue = liveScore
-            hudScoreText = context.getString(R.string.game_hud_score_format, liveScore)
-        }
-        hudText(hudScoreText, width / 2f, 134f, LIVE_SCORE_HUD_STYLE, ACCENT_COLOR)
-
-    }
-
-    private fun hudText(value: String, x: Float, y: Float, style: TextStyle, argb: Int, alpha: Float = 1f) {
-        painter.text(value, x, y, style, argb, alpha)
-    }
-
-    private fun drawPlayersIcon() {
-        val cx = PLAYERS_HUD_X + PLAYERS_ICON_RADIUS
-        val cy = PLAYERS_HUD_BASELINE - PLAYERS_ICON_RADIUS - 2f
-        painter.color(Color.WHITE, PLAYERS_HUD_ALPHA)
-        painter.filledCircle(cx, cy, PLAYERS_ICON_RADIUS)
-        painter.triangle(cx, cy + PLAYERS_ICON_RADIUS + 5f, cx, cy + PLAYERS_ICON_RADIUS - 1f, 8f)
-    }
-
-    // Small pip bars per permanent stat, below the pause button - the pips (text = false) and
-    // their labels (text = true) are drawn in separate passes, see draw().
-    private fun drawPermanentStatsHud(player: Blob, width: Float, text: Boolean) {
-        var y = (16f + 52f + 14f) * density
-        y = drawStatPips(statSpeedLabel, player.permanentSpeedMultiplier, GameConfig.PERMANENT_SPEED_MAX_MULTIPLIER, powerUpColor(PowerUpType.SPEED_UP), y, width, text)
-        y = drawStatPips(statAgilityLabel, player.permanentTurnRateMultiplier, GameConfig.PERMANENT_TURN_RATE_MAX_MULTIPLIER, powerUpColor(PowerUpType.AGILITY_UP), y, width, text)
-        drawStatPips(statPotencyLabel, player.permanentPotencyMultiplier, GameConfig.PERMANENT_POTENCY_MAX_MULTIPLIER, powerUpColor(PowerUpType.POTENCY_UP), y, width, text)
-    }
-
-    private fun drawStatPips(label: String, multiplier: Float, maxMultiplier: Float, filledColor: Int, y: Float, width: Float, text: Boolean): Float {
-        val pipCount = GameConfig.PERMANENT_STAT_TIER_COUNT
-        val fraction = ((multiplier - 1f) / (maxMultiplier - 1f)).coerceIn(0f, 1f)
-        val filledCount = Math.round(fraction * pipCount).coerceIn(0, pipCount)
-        val pipSize = 13f
-        val pipGap = 4f
-        val pipsWidth = pipCount * pipSize + (pipCount - 1) * pipGap
-        val rightEdge = width - 24f
-        val blockLeft = rightEdge - pipsWidth
-        if (text) {
-            val labelWidth = painter.measure(label, STATS_HUD_STYLE)
-            painter.text(label, blockLeft - labelWidth - 12f, y, STATS_HUD_STYLE, STATS_LABEL_COLOR)
-            return y + 28f
-        }
-        for (i in 0 until pipCount) {
-            val left = blockLeft + i * (pipSize + pipGap)
-            val top = y - pipSize + 4f
-            painter.color(if (i < filledCount) filledColor else STAT_PIP_EMPTY_COLOR)
-            painter.rect(left, top, pipSize, pipSize)
-        }
-        return y + 28f
-    }
-
-    private fun drawFeed(dt: Float) {
-        val iterator = feedEntries.iterator()
-        var row = 0
-        while (iterator.hasNext()) {
-            val entry = iterator.next()
-            entry.ttl -= dt
-            if (entry.ttl <= 0f) {
-                iterator.remove()
-                continue
-            }
-            val alpha = (entry.ttl / entry.maxTtl).coerceIn(0f, 1f)
-            painter.text(entry.text, 24f, FEED_TOP + row * FEED_ROW_HEIGHT, FEED_TEXT_STYLE, Color.WHITE, alpha)
-            row++
-        }
-    }
-
-    // A soft golden glow behind each popup (text = false), then the popups themselves, which is
-    // also where they age and expire (text = true).
+    // Each popup on a dark chip with a soft golden glow behind it (text = false), then the popups
+    // themselves, which is also where they age and expire (text = true). They sit just under the
+    // HUD, one under the other.
     private fun drawAchievementPopups(dt: Float, width: Float, text: Boolean) {
+        val d = density
+        val top = hud.bottom + 14f * d
         if (!text) {
-            painter.additive(true)
             achievementPopups.forEachIndexed { row, popup ->
-                val alpha = (popup.ttl / popup.maxTtl).coerceIn(0f, 1f)
-                painter.color(ACHIEVEMENT_COLOR, 0.25f * alpha)
-                val glowWidth = painter.measure(popup.text, ACHIEVEMENT_STYLE) + 120f
-                painter.region(painter.atlas.glow, width / 2f, ACHIEVEMENT_POPUP_TOP + row * 44f - 10f, glowWidth, 70f)
+                val alpha = popupAlpha(popup)
+                val textWidth = painter.measure(popup.text, achievementStyle)
+                val cy = top + row * ACHIEVEMENT_ROW * d + ACHIEVEMENT_CHIP_HEIGHT * d / 2f
+                painter.additive(true)
+                painter.color(ACHIEVEMENT_COLOR, 0.22f * alpha)
+                painter.region(painter.atlas.glow, width / 2f, cy, textWidth + 90f * d, 46f * d)
+                painter.additive(false)
+                painter.color(HUD_PANEL_COLOR, 0.7f * alpha)
+                painter.roundedRect(width / 2f - textWidth / 2f - 14f * d, cy - ACHIEVEMENT_CHIP_HEIGHT * d / 2f, textWidth + 28f * d, ACHIEVEMENT_CHIP_HEIGHT * d, 8f * d)
             }
-            painter.additive(false)
             return
         }
         val iterator = achievementPopups.iterator()
@@ -1499,11 +1495,14 @@ class GameRenderer(private val view: GameView) : ApplicationAdapter() {
                 iterator.remove()
                 continue
             }
-            val alpha = (popup.ttl / popup.maxTtl).coerceIn(0f, 1f)
-            painter.text(popup.text, width / 2f, ACHIEVEMENT_POPUP_TOP + row * 44f, ACHIEVEMENT_STYLE, ACHIEVEMENT_COLOR, alpha)
+            val cy = top + row * ACHIEVEMENT_ROW * d + ACHIEVEMENT_CHIP_HEIGHT * d / 2f
+            painter.text(popup.text, width / 2f, cy + achievementStyle.size * 0.35f, achievementStyle, ACHIEVEMENT_COLOR, popupAlpha(popup))
             row++
         }
     }
+
+    // Holds steady, then fades out over its last half second.
+    private fun popupAlpha(popup: AchievementPopup): Float = (popup.ttl / 0.5f).coerceIn(0f, 1f)
 
     // The dimmed backdrop (text = false), then the number itself (text = true).
     private fun drawCountdown(width: Float, height: Float, text: Boolean) {
@@ -1513,7 +1512,7 @@ class GameRenderer(private val view: GameView) : ApplicationAdapter() {
             painter.rect(0f, 0f, width, height)
             painter.additive(true)
             painter.color(Color.WHITE, 0.18f)
-            painter.glow(width / 2f, height / 2f, 220f)
+            painter.glow(width / 2f, fieldCenterY(height), 84f * density)
             painter.additive(false)
             return
         }
@@ -1521,7 +1520,7 @@ class GameRenderer(private val view: GameView) : ApplicationAdapter() {
         // Each number punches in and settles, rather than just swapping.
         val intoSecond = 1f - (countdownRemaining - (secondsLeft - 1))
         val punch = 1f + 0.35f * (1f - intoSecond.coerceIn(0f, 1f) / 0.25f).coerceAtLeast(0f)
-        painter.text(secondsLeft.toString(), width / 2f, height / 2f + 60f, COUNTDOWN_STYLE, Color.WHITE, 1f, punch)
+        painter.text(secondsLeft.toString(), width / 2f, fieldCenterY(height) + countdownStyle.size * 0.35f, countdownStyle, Color.WHITE, 1f, punch)
     }
 
     // Cinematic cut into the final round: a quick white flash with the title card scaling in.
@@ -1529,7 +1528,7 @@ class GameRenderer(private val view: GameView) : ApplicationAdapter() {
         if (!finalRoundTransitionActive) return
         val scale = 0.6f + 0.4f * (finalRoundTransitionElapsed / 0.4f).coerceIn(0f, 1f)
         if (text) {
-            painter.text(finalRoundTitle, width / 2f, height / 2f, FINAL_ROUND_TITLE_STYLE, SAFE_ZONE_EDGE_COLOR, 1f, scale)
+            painter.text(finalRoundTitle, width / 2f, fieldCenterY(height), finalRoundTitleStyle, SAFE_ZONE_EDGE_COLOR, 1f, scale)
             return
         }
         painter.color(Color.argb(170, 40, 0, 0))
@@ -1541,12 +1540,13 @@ class GameRenderer(private val view: GameView) : ApplicationAdapter() {
         }
         painter.additive(true)
         painter.color(SAFE_ZONE_EDGE_COLOR, 0.35f)
-        painter.region(painter.atlas.glow, width / 2f, height / 2f - 20f, width * 1.1f, 260f)
+        painter.region(painter.atlas.glow, width / 2f, fieldCenterY(height) - 8f * density, width * 1.1f, 100f * density)
         painter.additive(false)
     }
 
     // The advance warning: still normal, playable gameplay underneath, with a pulsing heads-up
-    // and countdown over it for the last few seconds before the final round triggers.
+    // and countdown over it for the last few seconds before the final round triggers - with a
+    // dark drop behind both, since there's no panel under them.
     private fun drawFinalRoundWarning(engine: GameEngine, width: Float, height: Float) {
         if (countdownActive || finalRoundTransitionActive) return
         val secondsRemaining = engine.secondsUntilFinalRound
@@ -1554,8 +1554,14 @@ class GameRenderer(private val view: GameView) : ApplicationAdapter() {
         val secondsLeft = ceil(secondsRemaining).toInt().coerceAtLeast(1)
         val fractionIntoSecond = ceil(secondsRemaining) - secondsRemaining
         val punch = 1.3f - 0.3f * fractionIntoSecond.coerceIn(0f, 1f)
-        hudText(finalRoundWarning, width / 2f, height / 2f - 130f, FINAL_ROUND_WARNING_TITLE_STYLE, SAFE_ZONE_EDGE_COLOR)
-        painter.text(secondsLeft.toString(), width / 2f, height / 2f - 70f, FINAL_ROUND_WARNING_COUNTDOWN_STYLE, ACCENT_COLOR, 1f, punch)
+        val d = density
+        val titleY = fieldCenterY(height) - 50f * d
+        val countY = fieldCenterY(height) - 20f * d
+        val shadow = 1.5f * d
+        painter.text(finalRoundWarning, width / 2f + shadow, titleY + shadow, finalRoundWarningStyle, Color.BLACK, 0.6f)
+        painter.text(finalRoundWarning, width / 2f, titleY, finalRoundWarningStyle, SAFE_ZONE_EDGE_COLOR)
+        painter.text(secondsLeft.toString(), width / 2f + shadow, countY + shadow, finalRoundCountdownStyle, Color.BLACK, 0.6f, punch)
+        painter.text(secondsLeft.toString(), width / 2f, countY, finalRoundCountdownStyle, ACCENT_COLOR, 1f, punch)
     }
 
     // ---- Non-drawing logic, unchanged from the old GameView --------------------------------
@@ -1564,11 +1570,6 @@ class GameRenderer(private val view: GameView) : ApplicationAdapter() {
         context.getString(R.string.game_you_label)
     } else {
         botNames.getOrElse(id - 1) { context.getString(R.string.game_bot_label_format, id) }
-    }
-
-    private fun addFeedEntry(text: String) {
-        feedEntries.add(FeedEntry(text, 3.5f))
-        if (feedEntries.size > MAX_FEED_ENTRIES) feedEntries.removeAt(0)
     }
 
     private fun showPopup(text: String) {
@@ -1649,12 +1650,14 @@ class GameRenderer(private val view: GameView) : ApplicationAdapter() {
     }
 
     private fun playSound(effect: SoundEffectPlayer.Effect) {
-        soundEffectPlayerCreated = true
-        soundEffectPlayer.play(effect)
+        feedback.post {
+            soundEffectPlayerCreated = true
+            soundEffectPlayer.play(effect)
+        }
     }
 
     private fun vibrate(effect: VibrationEffect) {
-        if (VibrationSettings.isEnabled(context)) vibrator.vibrate(effect)
+        if (VibrationSettings.isEnabled(context)) feedback.post { vibrator.vibrate(effect) }
     }
 
     private fun powerUpLabel(type: PowerUpType): String = when (type) {
@@ -1685,15 +1688,19 @@ class GameRenderer(private val view: GameView) : ApplicationAdapter() {
         private const val BOLT_SEGMENT_LENGTH = 22f
         private const val BOLT_RESTRIKE_RATE = 30f
         private const val BOLT_FORKS = 3
+        // How far past the screen edge an effect still gets spawned / a bolt still gets drawn.
+        private const val NEAR_VIEW_MARGIN = 200f
+        private const val BOLT_MARGIN = 120f
+        private const val MAX_STRIKE_FLASH_RADIUS = 280f
+        private const val MAX_STRIKE_SMOKE_SIZE = 130f
         private const val MAX_BOLT_POINTS = 40
         private const val SHAKE_DECAY = 9f
         private const val SCREEN_FLASH_FADE = 4f
         private const val SETTLE_AFTER_END_SECONDS = 2f
         private const val FLOOR_CELL = 200f
-        private const val MAX_FEED_ENTRIES = 5
-        private const val FEED_TOP = 172f
-        private const val FEED_ROW_HEIGHT = 34f
-        private const val ACHIEVEMENT_POPUP_TOP = FEED_TOP + MAX_FEED_ENTRIES * FEED_ROW_HEIGHT + 18f
+        // dp.
+        private const val ACHIEVEMENT_ROW = 30f
+        private const val ACHIEVEMENT_CHIP_HEIGHT = 26f
 
         private const val BACKGROUND_R = 0x0F / 255f
         private const val BACKGROUND_G = 0x16 / 255f
@@ -1710,27 +1717,11 @@ class GameRenderer(private val view: GameView) : ApplicationAdapter() {
         private val THREAT_COLOR = Color.parseColor("#EF5350")
         private val PREY_COLOR = Color.parseColor("#8BC34A")
         private val PLAYER_GAIN_COLOR = Color.parseColor("#8BC34A")
-        private val STATS_LABEL_COLOR = Color.parseColor("#B0BEC5")
-        private val STAT_PIP_EMPTY_COLOR = Color.parseColor("#3A4750")
+        private val HUD_PANEL_COLOR = Color.parseColor("#0A0F16")
         private val ACHIEVEMENT_COLOR = Color.parseColor("#FFD700")
         private val DEFLATE_SMOKE_COLOR = Color.parseColor("#9AA7B2")
 
         private val FLOATING_TEXT_STYLE = TextStyle(34f, bold = true, align = TextStyle.Align.CENTER)
-        private val PLAYERS_HUD_STYLE = TextStyle(32f, bold = true)
-        private const val PLAYERS_HUD_X = 28f
-        private const val PLAYERS_HUD_BASELINE = 60f
-        private const val PLAYERS_ICON_RADIUS = 11f
-        private const val PLAYERS_HUD_ALPHA = 0.6f
-        private val ZONE_HUD_STYLE = TextStyle(34f, bold = true, align = TextStyle.Align.CENTER)
-        private val TIMER_HUD_STYLE = TextStyle(30f, bold = true, align = TextStyle.Align.CENTER)
-        private val LIVE_SCORE_HUD_STYLE = TextStyle(40f, bold = true, align = TextStyle.Align.CENTER)
-        private val STATS_HUD_STYLE = TextStyle(26f)
-        private val FEED_TEXT_STYLE = TextStyle(28f)
-        private val COUNTDOWN_STYLE = TextStyle(180f, bold = true, align = TextStyle.Align.CENTER)
-        private val ACHIEVEMENT_STYLE = TextStyle(32f, bold = true, align = TextStyle.Align.CENTER)
-        private val FINAL_ROUND_TITLE_STYLE = TextStyle(58f, bold = true, align = TextStyle.Align.CENTER)
-        private val FINAL_ROUND_WARNING_TITLE_STYLE = TextStyle(34f, bold = true, align = TextStyle.Align.CENTER)
-        private val FINAL_ROUND_WARNING_COUNTDOWN_STYLE = TextStyle(70f, bold = true, align = TextStyle.Align.CENTER)
 
         // Single source of truth for each power-up's color - the pickup, its halo, its use
         // ripple and the stat pips all share it.

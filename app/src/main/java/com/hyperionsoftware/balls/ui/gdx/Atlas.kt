@@ -15,10 +15,14 @@ import com.badlogic.gdx.graphics.Pixmap
 import com.badlogic.gdx.graphics.Texture
 import com.badlogic.gdx.graphics.TextureData
 import com.badlogic.gdx.graphics.g2d.TextureRegion
+import com.badlogic.gdx.math.MathUtils
 import com.badlogic.gdx.utils.GdxRuntimeException
 import com.hyperionsoftware.balls.cosmetics.BalloonSticker
 import com.hyperionsoftware.balls.cosmetics.ExhaustStyle
 import com.hyperionsoftware.balls.game.PowerUpType
+import kotlin.math.cos
+import kotlin.math.sin
+import kotlin.math.sqrt
 
 // Every sprite the game draws, generated once at startup with the regular Android Canvas (so
 // shapes get proper antialiasing, gradients and blur) and uploaded as a single texture -
@@ -68,6 +72,14 @@ class Atlas {
     // pointing "up" (its front, the way it travels), centered on the balloon's center and
     // spanning BALLOON_EXTENT radii to each side. See balloonPath.
     val balloon = region(slot(20), CELL)
+    // A six-armed snowflake, softly glowing - frost particles and the freeze effects.
+    val snowflake = region(slot(21), CELL)
+    // A frozen balloon's coat of ice, cut to the same silhouette and laid out exactly like
+    // `balloon`: frosted white at the rim, clear in the middle, with cracks and crystals across it.
+    val frost = region(slot(22), CELL)
+    // A shield's bubble: a honeycomb of light, faint in the middle and strongest toward its rim,
+    // in a circle SHIELD_RADIUS_FRACTION of the cell's half side across.
+    val hexShield = region(slot(23), CELL)
 
     // Balloon shading, pre-rotated for LIGHTING_VARIANTS facing angles and cut to the balloon
     // silhouette - see drawLightingVariant for why it can't just be one texture.
@@ -236,6 +248,172 @@ class Atlas {
                 it.translate(center, center)
                 it.drawPath(balloonPath(center / BALLOON_EXTENT), paint.reset(Color.WHITE))
             }
+            at(21) { drawSnowflake(it, center) }
+            at(22) { drawFrost(it) }
+            at(23) { drawHexShield(it, center) }
+        }
+
+        private fun drawSnowflake(canvas: Canvas, center: Float) {
+            val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = Color.WHITE
+                style = Paint.Style.STROKE
+                strokeCap = Paint.Cap.ROUND
+                strokeWidth = center * 0.09f
+                maskFilter = BlurMaskFilter(3f, BlurMaskFilter.Blur.NORMAL)
+            }
+            val arm = center * 0.78f
+            canvas.save()
+            canvas.translate(center, center)
+            for (i in 0 until 6) {
+                canvas.drawLine(0f, 0f, 0f, -arm, paint)
+                // Two pairs of little branches along each arm, the outer pair shorter.
+                for ((at, length) in listOf(0.45f to 0.3f, 0.72f to 0.2f)) {
+                    val y = -arm * at
+                    val reach = arm * length
+                    canvas.drawLine(0f, y, reach * 0.8f, y - reach * 0.6f, paint)
+                    canvas.drawLine(0f, y, -reach * 0.8f, y - reach * 0.6f, paint)
+                }
+                canvas.rotate(60f)
+            }
+            canvas.restore()
+            paint.style = Paint.Style.FILL
+            canvas.drawCircle(center, center, center * 0.12f, paint)
+        }
+
+        // Baked in the balloon sprite's own layout (see `balloon`), so it rotates and deforms
+        // with the body like any other balloon layer.
+        private fun drawFrost(canvas: Canvas) {
+            val size = CELL
+            val layer = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+            val layerCanvas = Canvas(layer)
+            val center = size / 2f
+            val unit = center / BALLOON_EXTENT
+            layerCanvas.translate(center, center)
+            layerCanvas.scale(unit, unit)
+            // Rime thickest where the latex curves away, thinning to clear ice in the middle.
+            val rime = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                shader = RadialGradient(
+                    0f, -0.05f, 1.25f,
+                    intArrayOf(Color.argb(40, 255, 255, 255), Color.argb(70, 255, 255, 255), Color.argb(235, 255, 255, 255)),
+                    floatArrayOf(0f, 0.55f, 0.95f),
+                    Shader.TileMode.CLAMP
+                )
+            }
+            layerCanvas.drawRect(-2f, -2f, 2f, 2f, rime)
+            val random = java.util.Random(7)
+            // Frost blooms: soft white patches clustered toward the rim.
+            val bloom = Paint(Paint.ANTI_ALIAS_FLAG)
+            repeat(14) {
+                val angle = random.nextFloat() * MathUtils.PI2
+                val distance = 0.55f + random.nextFloat() * 0.4f
+                val x = cos(angle) * distance
+                val y = sin(angle) * distance
+                val radius = 0.12f + random.nextFloat() * 0.16f
+                bloom.shader = RadialGradient(
+                    x, y, radius,
+                    intArrayOf(Color.argb(150, 255, 255, 255), Color.TRANSPARENT), null, Shader.TileMode.CLAMP
+                )
+                layerCanvas.drawCircle(x, y, radius, bloom)
+            }
+            // Cracks: jagged lines creeping in from the rim, each forking once.
+            val crack = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = Color.argb(210, 255, 255, 255)
+                style = Paint.Style.STROKE
+                strokeWidth = 0.022f
+                strokeJoin = Paint.Join.ROUND
+                strokeCap = Paint.Cap.ROUND
+            }
+            repeat(9) {
+                val angle = random.nextFloat() * MathUtils.PI2
+                var x = cos(angle) * 1.05f
+                var y = sin(angle) * 1.05f
+                var heading = angle + MathUtils.PI
+                val path = Path().apply { moveTo(x, y) }
+                val steps = 4 + random.nextInt(3)
+                var forkX = x
+                var forkY = y
+                for (step in 0 until steps) {
+                    heading += (random.nextFloat() - 0.5f) * 1.1f
+                    val length = 0.07f + random.nextFloat() * 0.07f
+                    x += cos(heading) * length
+                    y += sin(heading) * length
+                    path.lineTo(x, y)
+                    if (step == 1) {
+                        forkX = x
+                        forkY = y
+                    }
+                }
+                val forkHeading = heading + if (random.nextBoolean()) 0.9f else -0.9f
+                path.moveTo(forkX, forkY)
+                path.lineTo(forkX + cos(forkHeading) * 0.14f, forkY + sin(forkHeading) * 0.14f)
+                layerCanvas.drawPath(path, crack)
+            }
+            // A few tiny crystals catching the light.
+            val crystal = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.WHITE }
+            repeat(10) {
+                val angle = random.nextFloat() * MathUtils.PI2
+                val distance = 0.3f + random.nextFloat() * 0.6f
+                layerCanvas.drawCircle(cos(angle) * distance, sin(angle) * distance, 0.018f + random.nextFloat() * 0.015f, crystal)
+            }
+            layerCanvas.setMatrix(null)
+            val outside = balloonPath(unit).apply {
+                offset(center, center)
+                fillType = Path.FillType.INVERSE_WINDING
+            }
+            val clear = Paint(Paint.ANTI_ALIAS_FLAG).apply { xfermode = PorterDuffXfermode(PorterDuff.Mode.CLEAR) }
+            layerCanvas.drawPath(outside, clear)
+            canvas.drawBitmap(layer, 0f, 0f, null)
+            layer.recycle()
+        }
+
+        private fun drawHexShield(canvas: Canvas, center: Float) {
+            val size = CELL
+            val layer = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+            val layerCanvas = Canvas(layer)
+            val radius = center * SHIELD_RADIUS_FRACTION
+            val line = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = Color.WHITE
+                style = Paint.Style.STROKE
+                strokeWidth = 2.5f
+            }
+            // Flat-topped hexagons, `side` long, tiling the cell.
+            val side = radius / 4.2f
+            val columnStep = side * 1.5f
+            val rowStep = side * sqrt(3f)
+            val hex = Path()
+            var column = 0
+            var x = center - columnStep * 6
+            while (x <= center + columnStep * 6) {
+                var y = center - rowStep * 6 + if (column % 2 == 1) rowStep / 2f else 0f
+                while (y <= center + rowStep * 6) {
+                    hex.reset()
+                    for (k in 0..5) {
+                        val a = k * MathUtils.PI2 / 6f
+                        val px = x + cos(a) * side
+                        val py = y + sin(a) * side
+                        if (k == 0) hex.moveTo(px, py) else hex.lineTo(px, py)
+                    }
+                    hex.close()
+                    layerCanvas.drawPath(hex, line)
+                    y += rowStep
+                }
+                x += columnStep
+                column++
+            }
+            // Fade the honeycomb from almost nothing in the middle to full at the rim, then cut
+            // it to the bubble's circle.
+            val mask = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                shader = RadialGradient(
+                    center, center, radius,
+                    intArrayOf(Color.argb(25, 0, 0, 0), Color.argb(70, 0, 0, 0), Color.argb(255, 0, 0, 0), Color.TRANSPARENT),
+                    floatArrayOf(0f, 0.55f, 0.94f, 1f),
+                    Shader.TileMode.CLAMP
+                )
+                xfermode = PorterDuffXfermode(PorterDuff.Mode.DST_IN)
+            }
+            layerCanvas.drawRect(0f, 0f, size.toFloat(), size.toFloat(), mask)
+            canvas.drawBitmap(layer, 0f, 0f, null)
+            layer.recycle()
         }
 
         // A real party balloon's outline (see BalloonOutline), front (direction of travel) up.
@@ -526,6 +704,8 @@ class Atlas {
         // Balloon sprites (silhouette, shading, highlights) span this many balloon radii on
         // each side of the balloon's center - enough for the neck and knot.
         const val BALLOON_EXTENT = 1.42f
+        // The shield bubble's radius inside its cell, as a fraction of half the cell.
+        const val SHIELD_RADIUS_FRACTION = 0.94f
         // How far the glow reaches into its cell, as a fraction of half the cell.
         const val GLOW_RADIUS_FRACTION = (HALF_CELL - 4f) / HALF_CELL
         const val BALLOON_SPRITE_SCALE = BALLOON_EXTENT * 2f

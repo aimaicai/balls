@@ -1,12 +1,24 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- A blast ring around a core, arrows flying out from it every way. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="26dp"
     android:height="26dp"
     android:viewportWidth="24"
     android:viewportHeight="24">
     <path
+        android:pathData="M12,9.6 A2.4,2.4 0 1,1 12,14.4 A2.4,2.4 0 1,1 12,9.6 Z"
+        android:fillColor="#FFFFFF" />
+    <path
+        android:pathData="M12,7.2 A4.8,4.8 0 1,1 12,16.8 A4.8,4.8 0 1,1 12,7.2 Z"
         android:strokeColor="#FFFFFF"
-        android:strokeWidth="2.2"
+        android:strokeAlpha="0.5"
+        android:strokeWidth="2"
         android:strokeLineCap="round"
-        android:pathData="M14.83,14.83 L19.07,19.07 M9.17,14.83 L4.93,19.07 M14.83,9.17 L19.07,4.93 M9.17,9.17 L4.93,4.93" />
+        android:strokeLineJoin="round" />
+    <path
+        android:pathData="M19.6,12 L22.6,12 M20.6,14.2 L22.6,12 L20.6,9.8 M12,19.6 L12,22.6 M9.8,20.6 L12,22.6 L14.2,20.6 M4.4,12 L1.4,12 M3.4,9.8 L1.4,12 L3.4,14.2 M12,4.4 L12,1.4 M14.2,3.4 L12,1.4 L9.8,3.4"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="2"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
 </vector>

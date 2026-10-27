@@ -32,6 +32,7 @@ class BalloonPainter(private val painter: Painter, private val particles: Partic
         var isStunned = false
         var isShielded = false
         var isSpeedBoosted = false
+        var isInvisible = false
         var sticker: BalloonSticker = BalloonSticker.NONE
         var cordColor = 0
         var exhaustStyle: ExhaustStyle = ExhaustStyle.CLASSIC
@@ -42,6 +43,10 @@ class BalloonPainter(private val painter: Painter, private val particles: Partic
         var charge = 0f
         // Anything stable per balloon, so its aura's sparks don't all flicker in step.
         var seed = 0
+        // How fast it's moving (world units per second), so what it gives off can travel along
+        // with it for a moment instead of being left behind at once.
+        var velocityX = 0f
+        var velocityY = 0f
     }
 
     private val atlas = painter.atlas
@@ -99,28 +104,18 @@ class BalloonPainter(private val painter: Painter, private val particles: Partic
     }
 
     fun drawBalloon(s: State) {
+        if (s.isSpeedBoosted) drawAfterimages(s)
         drawExhaust(s)
         drawBody(s)
         drawSticker(s)
-        if (s.isFrozen) {
-            // An icy coat over the whole balloon, its own silhouette slightly enlarged.
-            painter.color(FROZEN_COLOR, 0.4f * s.alpha)
-            val size = s.radius * Atlas.BALLOON_SPRITE_SCALE * 1.05f
-            balloonLayer(s, atlas.balloon, size, facingAngleDeg(s.facingX, s.facingY))
-            painter.color(Color.WHITE, 0.35f * s.alpha)
-            painter.region(atlas.sparkle, s.x - s.radius * 0.35f, s.y - s.radius * 0.3f, s.radius * 0.7f, s.radius * 0.7f, 15f)
-        }
+        if (s.isFrozen) drawIce(s)
         if (s.isStunned) {
             // Scorched by the bolt: a sooty, flickering coat over the latex.
             val flicker = 0.8f + 0.2f * sin(s.exhaustPhase * 47f + s.seed)
             painter.color(SCORCH_COLOR, 0.38f * flicker * s.alpha)
             balloonLayer(s, atlas.balloon, s.radius * Atlas.BALLOON_SPRITE_SCALE, facingAngleDeg(s.facingX, s.facingY))
         }
-        if (s.isShielded) {
-            val pulse = 0.6f + 0.4f * sin(s.exhaustPhase * 3f)
-            painter.color(SHIELD_COLOR, 0.5f * pulse * s.alpha)
-            painter.circleStroke(s.x, s.y, s.radius * 1.18f, 5f)
-        }
+        if (s.isShielded) drawShieldBubble(s)
         if (s.isSpeedBoosted) {
             val bolt = atlas.sticker(BalloonSticker.LIGHTNING)
             if (bolt != null) {
@@ -142,9 +137,18 @@ class BalloonPainter(private val painter: Painter, private val particles: Partic
             painter.color(BOOST_GLOW_COLOR, 0.7f * pulse * s.alpha)
             painter.glow(s.x - s.facingX * (edge + s.radius * 0.35f), s.y - s.facingY * (edge + s.radius * 0.35f), s.radius * 0.85f)
         }
-        if (s.isShielded) {
-            painter.color(SHIELD_COLOR, 0.22f * s.alpha)
-            painter.glow(s.x, s.y, s.radius * 1.35f)
+        if (s.isShielded) drawShieldLight(s)
+        if (s.isFrozen) {
+            // Cold radiating off the ice.
+            painter.color(FROZEN_GLOW_COLOR, 0.2f * s.alpha)
+            painter.glow(s.x, s.y, s.radius * 1.45f)
+        }
+        if (s.isSpeedBoosted) drawSpeedLines(s)
+        if (s.isInvisible) {
+            // Barely there: just a faint shimmer where the light bends around it.
+            val shimmer = 0.5f + 0.5f * sin(s.exhaustPhase * 9f + s.seed)
+            painter.color(INVISIBLE_SHIMMER_COLOR, (0.05f + 0.06f * shimmer) * s.alpha)
+            balloonLayer(s, atlas.balloon, s.radius * Atlas.BALLOON_SPRITE_SCALE * 1.04f, facingAngleDeg(s.facingX, s.facingY))
         }
         if (s.charge >= 1f) drawStaticAura(s)
         if (s.isStunned) {
@@ -204,10 +208,79 @@ class BalloonPainter(private val painter: Painter, private val particles: Partic
         }
     }
 
+    // What a balloon gives off because of its state, once per frame while it's on screen: cold
+    // vapor and flakes of ice while frozen, wisps of fog while invisible, and the static sparks.
+    fun emitStatusParticles(s: State, dt: Float) {
+        if (dt <= 0f) return
+        if (s.isFrozen) emitFrost(s, dt)
+        if (s.isInvisible) emitWisps(s, dt)
+        emitStaticSparks(s, dt)
+    }
+
+    // Frozen: cold vapor rolling off the ice and the odd flake breaking away.
+    private fun emitFrost(s: State, dt: Float) {
+        if (MathUtils.random() < FROST_VAPOR_RATE * dt) {
+            pickOutlinePoint(s, 0.9f)
+            particles.spawn(
+                Particles.Kind.MIST, pointX, pointY,
+                pointDirX * 18f, pointDirY * 18f + 14f,
+                MathUtils.random(0.7f, 1.1f),
+                s.radius * 0.25f, s.radius * 0.7f,
+                FROST_VAPOR_COLOR,
+                alpha = 0.32f * s.alpha,
+                drag = 1f
+            )
+        }
+        if (MathUtils.random() < FROST_FLAKE_RATE * dt) {
+            pickOutlinePoint(s, 1f)
+            val speed = MathUtils.random(25f, 60f)
+            particles.spawn(
+                Particles.Kind.FLAKE, pointX, pointY,
+                pointDirX * speed, pointDirY * speed,
+                MathUtils.random(0.5f, 0.9f),
+                MathUtils.random(9f, 15f), 4f,
+                Color.WHITE, FROZEN_COLOR,
+                alpha = 0.8f * s.alpha,
+                drag = 2f
+            )
+        }
+    }
+
+    // Invisible: thin wisps of fog trailing off it, faint enough not to give it away.
+    private fun emitWisps(s: State, dt: Float) {
+        if (MathUtils.random() > INVISIBLE_WISP_RATE * dt) return
+        pickOutlinePoint(s, 0.8f)
+        particles.spawn(
+            Particles.Kind.MIST, pointX, pointY,
+            pointDirX * 20f + s.velocityX * 0.3f, pointDirY * 20f + s.velocityY * 0.3f,
+            MathUtils.random(0.6f, 1f),
+            s.radius * 0.3f, s.radius * 0.9f,
+            FOG_COLOR,
+            alpha = 0.18f,
+            drag = 1.5f
+        )
+    }
+
+    // A random point on the balloon's (deformed) outline, `inset` of the way out from its
+    // center, into pointX/pointY - and the outward direction there into pointDirX/pointDirY.
+    private fun pickOutlinePoint(s: State, inset: Float) {
+        val local = MathUtils.random(MathUtils.PI2)
+        val world = local + facingAngleDeg(s.facingX, s.facingY) * MathUtils.degreesToRadians
+        val reach = s.radius * outlineRadius(s, local) * inset
+        pointDirX = MathUtils.cos(world)
+        pointDirY = MathUtils.sin(world)
+        pointX = s.x + pointDirX * reach
+        pointY = s.y + pointDirY * reach
+    }
+
+    private var pointX = 0f
+    private var pointY = 0f
+    private var pointDirX = 0f
+    private var pointDirY = 0f
+
     // A few stray sparks jump off the latex as it charges up - rarely at first, constantly once
     // it's full - so the meter shows on the balloon itself, the player's and everyone else's.
-    fun emitStaticSparks(s: State, dt: Float) {
-        if (dt <= 0f) return
+    private fun emitStaticSparks(s: State, dt: Float) {
         if (s.isStunned) emitScorch(s, dt)
         if (s.charge <= 0.2f && !s.isStunned) return
         val rate = if (s.isStunned) 16f else if (s.charge >= 1f) 9f else 5f * s.charge * s.charge
@@ -282,11 +355,87 @@ class BalloonPainter(private val painter: Painter, private val particles: Partic
     // One layer of the balloon's body (anything balloon-shaped), stretched with its latex when
     // it's being simulated - and either way drawn as a fan hugging the silhouette, not the
     // sprite's whole square: on a big balloon, the corners alone were thousands of transparent
-    // pixels blended per layer for nothing.
-    private fun balloonLayer(s: State, region: TextureRegion, size: Float, angle: Float) {
+    // pixels blended per layer for nothing. Centered on the balloon unless given (x, y).
+    private fun balloonLayer(s: State, region: TextureRegion, size: Float, angle: Float, x: Float = s.x, y: Float = s.y) {
         val stride = fanStride(s)
         val reach = if (stride == 1) BalloonBody.SPRITE_REACH else BalloonBody.COARSE_SPRITE_REACH
-        painter.deformed(region, s.x, s.y, size, angle, s.body?.shape ?: REST_SHAPE, angle, reach, stride)
+        painter.deformed(region, x, y, size, angle, s.body?.shape ?: REST_SHAPE, angle, reach, stride)
+    }
+
+    // The balloon's silhouette (or the frost coat), `scale` times its size, in the current color -
+    // for effects washing over the whole balloon (see PowerUpFx).
+    fun drawSilhouette(s: State, scale: Float = 1f, frost: Boolean = false) {
+        balloonLayer(s, if (frost) atlas.frost else atlas.balloon, s.radius * Atlas.BALLOON_SPRITE_SCALE * scale, facingAngleDeg(s.facingX, s.facingY))
+    }
+
+    // Frozen solid: a pale icy tint over the latex, the crackled coat of ice on top - a touch
+    // bigger than the balloon, like a shell around it - and a glint now and then.
+    private fun drawIce(s: State) {
+        val angle = facingAngleDeg(s.facingX, s.facingY)
+        val size = s.radius * Atlas.BALLOON_SPRITE_SCALE
+        painter.color(FROZEN_COLOR, 0.38f * s.alpha)
+        balloonLayer(s, atlas.balloon, size * 1.04f, angle)
+        painter.color(Color.WHITE, 0.75f * s.alpha)
+        balloonLayer(s, atlas.frost, size * 1.04f, angle)
+        val glint = sin(s.exhaustPhase * 2.6f + s.seed)
+        if (glint > 0.4f) {
+            val strength = (glint - 0.4f) / 0.6f
+            painter.color(Color.WHITE, 0.8f * strength * s.alpha)
+            val glintSize = s.radius * (0.35f + 0.25f * strength)
+            painter.region(atlas.sparkle, s.x - s.radius * 0.38f, s.y - s.radius * 0.42f, glintSize, glintSize, 15f + strength * 30f)
+        }
+    }
+
+    // The shield's bubble, the part that covers what's behind it: a clear sphere, a little
+    // denser toward its rim.
+    private fun drawShieldBubble(s: State) {
+        val r = s.radius * SHIELD_SCALE
+        painter.ring(s.x, s.y, r * 0.7f, r, SHIELD_COLOR, 0f, SHIELD_COLOR, 0.22f * s.alpha)
+    }
+
+    // ...and its light: the honeycomb shimmering over it, slowly turning, a bright rim and a glint
+    // running around it.
+    private fun drawShieldLight(s: State) {
+        val r = s.radius * SHIELD_SCALE
+        val pulse = 0.75f + 0.25f * sin(s.exhaustPhase * 3f)
+        painter.color(SHIELD_COLOR, 0.32f * pulse * s.alpha)
+        val hexSize = r * 2f / Atlas.SHIELD_RADIUS_FRACTION
+        painter.region(atlas.hexShield, s.x, s.y, hexSize, hexSize, s.exhaustPhase * 8f)
+        painter.color(SHIELD_RIM_COLOR, 0.55f * pulse * s.alpha)
+        painter.circleStroke(s.x, s.y, r, 3f)
+        val glintAngle = s.exhaustPhase * 1.7f + s.seed
+        val gx = s.x + MathUtils.cos(glintAngle) * r
+        val gy = s.y + MathUtils.sin(glintAngle) * r
+        painter.color(Color.WHITE, 0.55f * s.alpha)
+        painter.glow(gx, gy, 14f + s.radius * 0.1f)
+        painter.region(atlas.sparkle, gx, gy, 20f + s.radius * 0.2f, 20f + s.radius * 0.2f, glintAngle * 40f)
+    }
+
+    // Sped up: fading copies of the balloon left behind along its path, tinted with the boost.
+    private fun drawAfterimages(s: State) {
+        val angle = facingAngleDeg(s.facingX, s.facingY)
+        val size = s.radius * Atlas.BALLOON_SPRITE_SCALE
+        for (k in AFTERIMAGES downTo 1) {
+            val back = s.radius * 0.6f * k
+            painter.color(mix(s.color, SPEED_BADGE_COLOR, 0.45f), 0.26f / k * s.alpha)
+            balloonLayer(s, atlas.balloon, size * (1f - 0.06f * k), angle, s.x - s.facingX * back, s.y - s.facingY * back)
+        }
+    }
+
+    // ...and streaks of light rushing past it on both sides.
+    private fun drawSpeedLines(s: State) {
+        val sideX = -s.facingY
+        val sideY = s.facingX
+        for (i in 0 until SPEED_LINES) {
+            val flow = (s.exhaustPhase * 2.2f + i * 0.37f) % 1f
+            val lateral = s.radius * (if (i % 2 == 0) 1f else -1f) * (0.75f + 0.12f * (i / 2))
+            val along = s.radius * (0.9f - 2.8f * flow)
+            val length = s.radius * 0.9f
+            val x0 = s.x + sideX * lateral + s.facingX * along
+            val y0 = s.y + sideY * lateral + s.facingY * along
+            painter.color(SPEED_BADGE_COLOR, 0.55f * sin(flow * MathUtils.PI) * s.alpha)
+            painter.line(x0, y0, x0 - s.facingX * length, y0 - s.facingY * length, 3f)
+        }
     }
 
     // A balloon a few dozen pixels across can't show its latex's finest ripples anyway: half the
@@ -392,7 +541,19 @@ class BalloonPainter(private val painter: Painter, private val particles: Partic
         private val BOOST_SMOKE_COOL = Color.parseColor("#5D6670")
         private val BOOST_GLOW_COLOR = Color.parseColor("#FF8A3D")
         private val FROZEN_COLOR = Color.parseColor("#B3E5FC")
+        private val FROZEN_GLOW_COLOR = Color.parseColor("#80DEEA")
+        private val FROST_VAPOR_COLOR = Color.parseColor("#E1F5FE")
+        private const val FROST_VAPOR_RATE = 7f
+        private const val FROST_FLAKE_RATE = 4f
+        private val FOG_COLOR = Color.parseColor("#B8B0D0")
+        private val INVISIBLE_SHIMMER_COLOR = Color.parseColor("#D1C4E9")
+        private const val INVISIBLE_WISP_RATE = 6f
         private val SHIELD_COLOR = Color.parseColor("#4FC3F7")
+        private val SHIELD_RIM_COLOR = Color.parseColor("#B3E5FC")
+        // The shield bubble's radius, in balloon radii - wide enough to clear the knot.
+        const val SHIELD_SCALE = 1.22f
+        private const val AFTERIMAGES = 3
+        private const val SPEED_LINES = 6
         private val SPEED_BADGE_COLOR = Color.parseColor("#FFEB3B")
         private val AURA_COLOR = Color.parseColor("#5C6BFF")
         private val AURA_ARC_GLOW_COLOR = Color.parseColor("#448AFF")
@@ -410,6 +571,14 @@ class BalloonPainter(private val painter: Painter, private val particles: Partic
 
         fun facingAngleDeg(facingX: Float, facingY: Float): Float =
             atan2(facingY, facingX) * MathUtils.radiansToDegrees + 90f
+
+        // `from` blended toward `to` by t (0..1), keeping `from`'s alpha.
+        fun mix(from: Int, to: Int, t: Float): Int = Color.argb(
+            Color.alpha(from),
+            (Color.red(from) + (Color.red(to) - Color.red(from)) * t).toInt(),
+            (Color.green(from) + (Color.green(to) - Color.green(from)) * t).toInt(),
+            (Color.blue(from) + (Color.blue(to) - Color.blue(from)) * t).toInt()
+        )
 
         fun darken(color: Int, factor: Float): Int {
             val r = (Color.red(color) * factor).toInt().coerceIn(0, 255)

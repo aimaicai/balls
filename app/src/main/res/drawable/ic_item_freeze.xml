@@ -1,12 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- A six-armed snowflake. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="26dp"
     android:height="26dp"
     android:viewportWidth="24"
     android:viewportHeight="24">
     <path
+        android:pathData="M12,2.5 L12,21.5 M3.77,7.25 L20.23,16.75 M3.77,16.75 L20.23,7.25"
         android:strokeColor="#FFFFFF"
-        android:strokeWidth="2.2"
+        android:strokeWidth="2"
         android:strokeLineCap="round"
-        android:pathData="M4,12 L20,12 M6,6 L18,18 M6,18 L18,6" />
+        android:strokeLineJoin="round" />
+    <path
+        android:pathData="M14.05,4.35 L12,6.4 L9.95,4.35 M6.4,6.4 L7.15,9.2 L4.35,9.95 M4.35,14.05 L7.15,14.8 L6.4,17.6 M9.95,19.65 L12,17.6 L14.05,19.65 M17.6,17.6 L16.85,14.8 L19.65,14.05 M19.65,9.95 L16.85,9.2 L17.6,6.4"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="2"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
 </vector>

@@ -162,12 +162,7 @@
     <string name="game_static_backfire">Scarica a vuoto!</string>
     <string name="game_combo">COMBO x%1$d!</string>
 
-    <string name="game_hud_zone_format">Zona: %1$d%%</string>
-    <string name="game_hud_score_format">Punteggio: %1$d</string>
 
-    <string name="stat_speed_label">Velocità</string>
-    <string name="stat_agility_label">Agilità</string>
-    <string name="stat_potency_label">Potenza</string>
 
     <string name="game_final_round_title">SFIDA FINALE</string>
     <string name="game_final_round_warning">IL FINALE STA ARRIVANDO</string>

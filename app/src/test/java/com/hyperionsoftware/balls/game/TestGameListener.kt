@@ -34,7 +34,7 @@ class TestGameListener : GameListener {
         comboCounts.add(comboCount)
     }
 
-    override fun onPowerUpCollected(x: Float, y: Float, type: PowerUpType, byPlayer: Boolean) {
+    override fun onPowerUpCollected(x: Float, y: Float, type: PowerUpType, byPlayer: Boolean, collectorId: Int) {
         powerUpsCollected.add(type)
     }
 
@@ -44,7 +44,8 @@ class TestGameListener : GameListener {
         type: PowerUpType,
         byPlayer: Boolean,
         sourceRadius: Float,
-        sourcePotencyMultiplier: Float
+        sourcePotencyMultiplier: Float,
+        sourceId: Int
     ) {
         activeItemsUsed.add(type)
         lastActiveItemSourceRadius = sourceRadius

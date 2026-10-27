@@ -16,7 +16,8 @@ interface GameListener {
     // UI layer uses this to show a "COMBO xN!" moment distinct from the plain per-absorb
     // "+size" callout.
     fun onComboAchieved(x: Float, y: Float, comboCount: Int, byPlayer: Boolean)
-    fun onPowerUpCollected(x: Float, y: Float, type: PowerUpType, byPlayer: Boolean)
+    // `collectorId` is the blob that picked it up.
+    fun onPowerUpCollected(x: Float, y: Float, type: PowerUpType, byPlayer: Boolean, collectorId: Int)
     // sourceRadius and sourcePotencyMultiplier are the user's current radius and POTENCY_UP
     // multiplier at the moment of use - the UI needs both to draw REPEL/FREEZE/HOOK's ripple
     // at the same reach the effect actually has (see GameEngine.reachRangeFromCenter and
@@ -28,8 +29,12 @@ interface GameListener {
         type: PowerUpType,
         byPlayer: Boolean,
         sourceRadius: Float,
-        sourcePotencyMultiplier: Float
+        sourcePotencyMultiplier: Float,
+        sourceId: Int
     )
+    // A REPEL/FREEZE/HOOK used by `sourceId` just caught `targetId`, moving it from (fromX, fromY)
+    // to (toX, toY) - the same point for FREEZE, which doesn't move anyone.
+    fun onItemHit(type: PowerUpType, sourceId: Int, targetId: Int, fromX: Float, fromY: Float, toX: Float, toY: Float) = Unit
     fun onZoneDeath(x: Float, y: Float, wasPlayer: Boolean)
     fun onDeflateDeath(x: Float, y: Float, wasPlayer: Boolean)
     // A balloon's static charge (see GameEngine.rub) just filled up / was just released.
@@ -429,7 +434,7 @@ class GameEngine(
             else -> Unit
         }
         listener.onActiveItemUsed(
-            blob.position.x, blob.position.y, item, blob === player, blob.radius, blob.permanentPotencyMultiplier
+            blob.position.x, blob.position.y, item, blob === player, blob.radius, blob.permanentPotencyMultiplier, blob.id
         )
     }
 
@@ -477,8 +482,11 @@ class GameEngine(
             val direction = offset * (1f / distance)
             val falloff = 1f - distance / effectiveRange
             val strength = GameConfig.REPEL_FORCE * potency * (0.4f + 0.6f * falloff)
+            val fromX = target.position.x
+            val fromY = target.position.y
             target.position += direction * strength
             target.clampToWorld()
+            listener.onItemHit(PowerUpType.REPEL, source.id, target.id, fromX, fromY, target.position.x, target.position.y)
         }
     }
 
@@ -492,6 +500,7 @@ class GameEngine(
             if (target === source || !target.alive) continue
             if (!isInReach(source, target, range)) continue
             target.applyFreeze(GameConfig.FREEZE_DURATION_SECONDS * potency)
+            listener.onItemHit(PowerUpType.FREEZE, source.id, target.id, target.position.x, target.position.y, target.position.x, target.position.y)
         }
     }
 
@@ -527,8 +536,11 @@ class GameEngine(
         // to it, landing further away on the opposite side than where it started.
         val restingGap = source.radius + target.radius
         val pull = (distance - restingGap).coerceIn(0f, GameConfig.HOOK_FORCE * potency)
+        val fromX = target.position.x
+        val fromY = target.position.y
         target.position += direction * pull
         target.clampToWorld()
+        listener.onItemHit(PowerUpType.HOOK, source.id, target.id, fromX, fromY, target.position.x, target.position.y)
     }
 
     // Only >= 0 while update()'s movement pass is running - see there.
@@ -562,7 +574,7 @@ class GameEngine(
                     }
                     blob.applyPowerUp(powerUp.type, growthRadiusBonus)
                     powerUp.collected = true
-                    listener.onPowerUpCollected(powerUp.position.x, powerUp.position.y, powerUp.type, blob === player)
+                    listener.onPowerUpCollected(powerUp.position.x, powerUp.position.y, powerUp.type, blob === player, blob.id)
                 }
             }
         }

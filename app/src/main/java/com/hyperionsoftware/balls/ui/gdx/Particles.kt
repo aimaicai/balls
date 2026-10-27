@@ -4,11 +4,13 @@ import com.badlogic.gdx.graphics.g2d.TextureRegion
 import com.badlogic.gdx.math.MathUtils
 
 // A fixed-capacity pool of simple particles - exhaust smoke, confetti from a popped balloon,
-// sparkles - stored as parallel primitive arrays so spawning and updating never allocate. When
+// sparkles, snowflakes, fog, glowing motes - stored as parallel primitive arrays so spawning and updating never allocate. When
 // the pool is full, new particles overwrite the oldest slot instead of being dropped, which only
 // ever happens in an extreme pile-up and is invisible then anyway.
 class Particles(private val capacity: Int) {
-    enum class Kind { SMOKE, CONFETTI, SPARK }
+    // SMOKE is drawn under the balloons, MIST (fog, cold vapor) over them; FLAKE (snowflakes)
+    // and MOTE (soft dots of light) are additive, like SPARK.
+    enum class Kind { SMOKE, CONFETTI, SPARK, FLAKE, MIST, MOTE }
 
     private val x = FloatArray(capacity)
     private val y = FloatArray(capacity)
@@ -86,9 +88,9 @@ class Particles(private val capacity: Int) {
             val size = startSize[i] + (endSize[i] - startSize[i]) * progress
             val half = size / 2f
             if (x[i] + half < left || x[i] - half > right || y[i] + half < top || y[i] - half > bottom) continue
-            // Smoke billows in and then thins out; confetti and sparks just fade toward the end.
+            // Smoke and fog billow in and then thin out; everything else just fades toward the end.
             val fade = when (kind) {
-                Kind.SMOKE -> (progress / 0.15f).coerceAtMost(1f) * (1f - progress)
+                Kind.SMOKE, Kind.MIST -> (progress / 0.15f).coerceAtMost(1f) * (1f - progress)
                 else -> (1f - progress * progress)
             }
             painter.color(lerpColor(color[i], endColor[i], progress), startAlpha[i] * fade)
